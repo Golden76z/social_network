@@ -1,0 +1,459 @@
+# Enhanced CI/CD Pipeline with detailed beginner comments
+name: Fullstack CI/CD Pipeline
+
+# WHEN TO RUN: Define the triggers that start this workflow
+on:
+  pull_request:    # Run when someone creates or updates a pull request
+    branches: [main]  # Only for PRs that want to merge into 'main' branch
+  push:            # Run when code is pushed directly to repository
+    branches: [main]  # Only when pushing directly to 'main' branch
+  # MANUAL TRIGGER: Allows you to run this workflow manually from GitHub UI
+  workflow_dispatch:
+    inputs:        # Options you can choose when running manually
+      skip_tests:
+        description: 'Skip tests (for emergency deployments)'  # What this option does
+        type: boolean    # True/false checkbox
+        default: false   # Default is false (don't skip tests)
+
+# GLOBAL VARIABLES: These can be used throughout the entire workflow
+env:
+  NODE_VERSION: '20'  # Which version of Node.js to use everywhere
+  GO_VERSION: '1.21'  # Which version of Go to use everywhere
+  
+jobs:
+  # JOB 1: SETUP - Prepares environment and gathers information
+  setup:
+    name: 🧰 Setup Environment  # Human-readable name shown in GitHub UI
+    runs-on: ubuntu-latest      # Run on GitHub's Ubuntu Linux servers
+    # OUTPUTS: Data this job creates that other jobs can use
+    outputs:
+      reviewer: ${{ steps.random-reviewer.outputs.reviewer }}      # Random person to review PR
+      pr_number: ${{ steps.pr-info.outputs.pr_number }}           # Pull request number
+      branch_name: ${{ steps.branch-info.outputs.branch_name }}   # Name of the branch
+      commit_sha: ${{ steps.commit-info.outputs.short_sha }}      # Short version of commit ID
+    steps:
+      # STEP 1: Download repository code to GitHub's server
+      - name: 💼 Checkout code
+        uses: actions/checkout@v4  # Pre-built action that downloads your repo
+
+      # STEP 2: Figure out if this is a PR and get its number
+      - name: 📊 Extract PR/Branch Info
+        id: pr-info  # Give this step an ID so other steps can reference its output
+        run: |       # Run shell commands
+          # IF this workflow was triggered by a pull request
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            # Save the PR number for later use
+            echo "pr_number=${{ github.event.number }}" >> "$GITHUB_OUTPUT"
+          else
+            # If not a PR, set to "none"
+            echo "pr_number=none" >> "$GITHUB_OUTPUT"
+          fi
+
+      # STEP 3: Get the name of the branch being worked on
+      - name: 🌿 Extract Branch Info
+        id: branch-info
+        run: |
+          # IF this is a pull request
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            # Use the source branch name (the one being merged FROM)
+            echo "branch_name=${{ github.head_ref }}" >> "$GITHUB_OUTPUT"
+          else
+            # If direct push, use the target branch name
+            echo "branch_name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # STEP 4: Get a short version of the commit ID for easy reference
+      - name: 🔢 Extract Commit Info
+        id: commit-info
+        run: |
+          # Take first 7 characters of the full commit SHA (like 'abc1234' instead of long hash)
+          echo "short_sha=$(echo ${{ github.sha }} | cut -c1-7)" >> "$GITHUB_OUTPUT"
+
+      # STEP 5: Install Node.js (needed for frontend JavaScript/TypeScript code)
+      - name: ♻️ Set up Node.js
+        uses: actions/setup-node@v4  # Pre-built action to install Node.js
+        with:
+          node-version: ${{ env.NODE_VERSION }}  # Use version defined in global variables
+          cache: 'npm'  # Cache npm packages to make future runs faster
+
+      # STEP 6: Cache Go dependencies to speed up Go builds
+      - name: 🧪 Cache Go modules
+        uses: actions/cache@v3  # Pre-built action for caching files
+        with:
+          path: |               # Which folders to cache (save for next time)
+            ~/.cache/go-build   # Go's build cache folder
+            ~/go/pkg/mod       # Go's downloaded modules folder
+          # CACHE KEY: Unique identifier for this cache (based on OS and go.sum file)
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          # FALLBACK: If exact key not found, try these partial matches
+          restore-keys: ${{ runner.os }}-go-
+
+      # STEP 7: Randomly pick someone to review pull requests
+      - name: 🧠 Random reviewer selector
+        id: random-reviewer
+        run: |
+          # Array of team members who can review code
+          reviewers=(alice bob carol dave)
+          # Pick a random reviewer and save it for other jobs to use
+          echo "reviewer=${reviewers[$((RANDOM % ${#reviewers[@]}))]}" >> "$GITHUB_OUTPUT"
+
+      # STEP 8: Send Discord notification that the pipeline started (only for PRs)
+      - name: 🔔 Pipeline Started Notification
+        if: github.event_name == 'pull_request'  # Only run this step for pull requests
+        uses: Ilshidur/action-discord@master     # Third-party action to send Discord messages
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}  # Discord webhook URL (stored securely)
+          message: |  # The message to send to Discord (multi-line)
+            🚀 **Pipeline Started** 
+            📋 **PR #${{ steps.pr-info.outputs.pr_number }}**: ${{ github.event.pull_request.title }}
+            👤 **Author**: ${{ github.actor }}
+            🌿 **Branch**: `${{ steps.branch-info.outputs.branch_name }}`
+            🔍 **Reviewer**: @${{ steps.random-reviewer.outputs.reviewer }}
+            ⏱️ **Started**: $(date -u)
+
+  # JOB 2: SECURITY - Scan code for vulnerabilities and security issues
+  security:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    needs: setup  # Wait for setup job to complete first
+    steps:
+      # STEP 1: Download repository code
+      - uses: actions/checkout@v4
+
+      # STEP 2: Scan for security vulnerabilities in dependencies
+      - name: 🔍 Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master  # Third-party security scanning action
+        with:
+          scan-type: 'fs'           # Scan the filesystem
+          scan-ref: '.'             # Scan current directory
+          format: 'sarif'           # Output format (SARIF is GitHub's standard)
+          output: 'trivy-results.sarif'  # Where to save results
+
+      # STEP 3: Upload security scan results to GitHub Security tab
+      - name: 📄 Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2  # GitHub's action for security results
+        if: always()  # Run this even if previous steps failed
+        with:
+          sarif_file: 'trivy-results.sarif'  # The results file to upload
+
+      # STEP 4: Check npm packages for known vulnerabilities
+      - name: 🔒 Audit npm packages
+        run: |
+          cd frontend  # Go into frontend folder
+          npm audit --audit-level=high  # Check for high-severity vulnerabilities
+        continue-on-error: true  # Don't fail the whole job if this finds issues
+
+  # JOB 3: FRONTEND - Test and build the frontend code
+  frontend:
+    name: 🌐 Frontend Tests
+    runs-on: ubuntu-latest
+    needs: setup  # Wait for setup job to complete
+    if: ${{ !inputs.skip_tests }}  # Skip this job if "skip_tests" was selected in manual trigger
+    steps:
+      # STEP 1: Download repository code (each job gets a fresh environment)
+      - uses: actions/checkout@v4
+      
+      # STEP 2: Install Node.js (needed again because each job runs separately)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # STEP 3: Install all the packages your frontend needs
+      - name: 📦 Install dependencies
+        run: npm ci  # 'npm ci' is faster and more reliable than 'npm install'
+        working-directory: frontend  # Run this command inside the 'frontend' folder
+
+      # STEP 4: Check code style and quality (linting)
+      - name: ✅ Lint (frontend)
+        run: npm run lint  # Run the lint script defined in your package.json
+        working-directory: frontend
+
+      # STEP 5: Run automated tests and generate coverage report
+      - name: 🧪 Run Tests (frontend)
+        run: npm run test -- --coverage --watchAll=false  # Run tests once with coverage
+        working-directory: frontend
+
+      # STEP 6: Post test coverage as a comment on the pull request
+      - name: 📊 Comment Test Coverage on PR
+        if: github.event_name == 'pull_request'  # Only for pull requests
+        uses: romeovs/lcov-reporter-action@v0.3.1  # Action that reads coverage and comments
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}  # GitHub automatically provides this token
+          lcov-file: ./frontend/coverage/lcov.info   # Coverage file location
+          delete-old-comments: true  # Remove old coverage comments to avoid clutter
+
+      # STEP 7: Save test coverage files for later download/inspection
+      - name: 📄 Upload coverage (frontend)
+        uses: actions/upload-artifact@v3  # GitHub action to save files
+        with:
+          name: frontend-coverage   # Name for this collection of files
+          path: frontend/coverage   # Which folder to save
+
+      # STEP 8: Build the frontend for production (compile, optimize, bundle)
+      - name: 🏗️ Build frontend
+        run: npm run build  # Run the build script from package.json
+        working-directory: frontend
+
+      # STEP 9: Save the built frontend files
+      - name: 📦 Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-build  # Name for the built files
+          path: frontend/dist   # Where the build files are located
+
+  # JOB 4: BACKEND - Test and build the backend code
+  backend:
+    name: 💻 Backend Tests
+    runs-on: ubuntu-latest
+    needs: setup  # Wait for setup job
+    if: ${{ !inputs.skip_tests }}  # Skip if tests are being skipped
+    steps:
+      # STEP 1: Download repository code
+      - uses: actions/checkout@v4
+
+      # STEP 2: Install Go programming language
+      - name: 🐹 Setup Go
+        uses: actions/setup-go@v4  # Action to install Go
+        with:
+          go-version: ${{ env.GO_VERSION }}  # Use version from global variables
+
+      # STEP 3: Check Go code formatting and potential issues
+      - name: ✅ Lint (Go)
+        run: |
+          go fmt ./...  # Format all Go files in all subdirectories
+          go vet ./...  # Check for potential issues/bugs
+
+      # STEP 4: Run Go tests with coverage and race condition detection
+      - name: 🧪 Run Tests (Go)
+        run: go test -v -coverprofile=coverage.out -race ./...
+        # -v = verbose output, -coverprofile = save coverage data, -race = detect race conditions
+
+      # STEP 5: Convert coverage data to HTML for easy viewing
+      - name: 📊 Generate coverage report
+        run: go tool cover -html=coverage.out -o coverage.html
+
+      # STEP 6: Save test coverage files
+      - name: 📄 Upload coverage (Go)
+        uses: actions/upload-artifact@v3
+        with:
+          name: backend-coverage
+          path: |           # Save multiple files
+            coverage.out    # Raw coverage data
+            coverage.html   # HTML coverage report
+
+      # STEP 7: Build the backend executable
+      - name: 🏗️ Build backend
+        run: go build -o main .  # Compile Go code into executable named 'main'
+
+  # JOB 5: LIGHTHOUSE - Test website performance and accessibility
+  lighthouse:
+    name: 🚨 Lighthouse Performance
+    runs-on: ubuntu-latest
+    needs: [frontend]  # Wait for frontend to be built
+    if: github.event_name == 'pull_request'  # Only test performance on PRs
+    steps:
+      # STEP 1: Download repository code
+      - uses: actions/checkout@v4
+
+      # STEP 2: Run Google Lighthouse performance tests
+      - name: 🚨 Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v10  # Third-party Lighthouse action
+        with:
+          configPath: './.lighthouserc.json'    # Configuration file (you need to create this)
+          uploadArtifacts: true    # Save detailed results
+          temporaryPublicStorage: true  # Make results viewable online
+
+  # JOB 6: PREVIEW DATABASE - Create temporary database for testing PRs
+  preview-database:
+    name: 🧪 Spin Up Preview DB
+    runs-on: ubuntu-latest
+    needs: [frontend, backend, security]  # Wait for tests and security scan
+    if: github.event_name == 'pull_request'  # Only for pull requests
+    steps:
+      # STEP 1: Create a temporary database instance for this PR
+      - name: 🔧 Create Preview DB
+        run: |
+          echo "🗄️ Spinning up preview DB instance..."
+          # Create environment variable with database URL
+          echo "DB_URL=postgresql://preview-${{ needs.setup.outputs.pr_number }}.db.example.com" >> $GITHUB_ENV
+          # NOTE: Replace with actual database creation commands (AWS RDS, Railway, etc.)
+
+      # STEP 2: Verify the database is working
+      - name: ⏱️ Health Check Preview DB
+        run: |
+          echo "🔍 Checking database health..."
+          # NOTE: Add actual database connection test commands here
+
+  # JOB 7: DEPLOY PREVIEW - Deploy temporary version for testing PRs
+  deploy-preview:
+    name: 🚀 Deploy Preview
+    runs-on: ubuntu-latest
+    needs: [frontend, backend, preview-database, security]  # Wait for all tests to pass
+    if: github.event_name == 'pull_request'  # Only for pull requests
+    steps:
+      # STEP 1: Download repository code
+      - uses: actions/checkout@v4
+
+      # STEP 2: Download the built frontend files from the frontend job
+      - name: 📦 Download build artifacts
+        uses: actions/download-artifact@v3  # Download files saved by previous job
+        with:
+          name: frontend-build  # Name of the artifact we want
+          path: frontend/dist   # Where to put the downloaded files
+
+      # STEP 3: Deploy frontend to a temporary preview URL
+      - name: 🚀 Deploy Frontend Preview (Vercel)
+        id: vercel-deploy  # Give this step an ID so we can reference its output
+        run: |
+          echo "🌐 Deploying frontend preview..."
+          # Create a temporary URL for this PR
+          echo "preview_url=https://pr-${{ needs.setup.outputs.pr_number }}-myapp.vercel.app" >> "$GITHUB_OUTPUT"
+          # NOTE: Replace with actual Vercel deployment commands
+
+      # STEP 4: Deploy backend API to a temporary preview URL
+      - name: 🚀 Deploy Backend Preview (Fly.io)
+        id: backend-deploy
+        run: |
+          echo "🔧 Deploying backend preview..."
+          # Create a temporary API URL for this PR
+          echo "api_url=https://pr-${{ needs.setup.outputs.pr_number }}-api.fly.dev" >> "$GITHUB_OUTPUT"
+          # NOTE: Replace with actual Fly.io deployment commands
+
+      # STEP 5: Test that the deployed preview is working
+      - name: 🔍 Health Check Preview
+        run: |
+          echo "🏥 Running health checks..."
+          # NOTE: Add commands to test that your preview deployment is working
+
+      # STEP 6: Post a comment on the PR with links to the preview
+      - name: 📝 Update PR with Preview Links
+        uses: actions/github-script@v6  # Action that lets us use GitHub's API
+        with:
+          script: |  # JavaScript code to run
+            const comment = `## 🚀 Preview Deployment Ready!
+            
+            | Service | URL | Status |
+            |---------|-----|--------|
+            | 🌐 Frontend | [${{ steps.vercel-deploy.outputs.preview_url }}](${{ steps.vercel-deploy.outputs.preview_url }}) | ✅ Live |
+            | 🔧 Backend API | [${{ steps.backend-deploy.outputs.api_url }}](${{ steps.backend-deploy.outputs.api_url }}) | ✅ Live |
+            
+            **📊 Quick Stats:**
+            - 🌿 Branch: \`${{ needs.setup.outputs.branch_name }}\`
+            - 🔢 Commit: \`${{ needs.setup.outputs.commit_sha }}\`
+            - 👤 Reviewer: @${{ needs.setup.outputs.reviewer }}
+            
+            **🧪 Test this preview:**
+            \`\`\`bash
+            curl ${{ steps.backend-deploy.outputs.api_url }}/health
+            \`\`\`
+            `;
+            
+            // Post the comment on the pull request
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      # STEP 7: Send Discord notification that preview is ready
+      - name: 🔔 Discord: Preview Ready
+        uses: Ilshidur/action-discord@master
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}  # Your Discord webhook URL
+          message: |
+            ✅ **Preview Deployed Successfully!**
+            
+            📋 **PR #${{ needs.setup.outputs.pr_number }}**: ${{ github.event.pull_request.title }}
+            🌐 **Frontend**: ${{ steps.vercel-deploy.outputs.preview_url }}
+            🔧 **API**: ${{ steps.backend-deploy.outputs.api_url }}
+            
+            👤 **Ready for review by**: @${{ needs.setup.outputs.reviewer }}
+            ⏱️ **Deployed**: $(date -u)
+
+  # JOB 8: DEPLOY PRODUCTION - Deploy to live website (only when merging to main)
+  deploy-prod:
+    name: 🚢 Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [frontend, backend, security]  # Wait for tests and security scan
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'  # Only when pushing to main branch
+    environment: production  # Requires manual approval in GitHub settings
+    steps:
+      # STEP 1: Download repository code
+      - uses: actions/checkout@v4
+
+      # STEP 2: Download the built frontend files
+      - name: 📦 Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: frontend-build
+          path: frontend/dist
+
+      # STEP 3: Deploy frontend to production
+      - name: 🚀 Deploy Frontend (Production)
+        id: prod-frontend
+        run: |
+          echo "🌐 Deploying frontend to production..."
+          echo "prod_url=https://myapp.com" >> "$GITHUB_OUTPUT"
+          # NOTE: Replace with actual production deployment commands
+
+      # STEP 4: Deploy backend to production
+      - name: 🚀 Deploy Backend (Production)
+        id: prod-backend
+        run: |
+          echo "🔧 Deploying backend to production..."
+          echo "api_url=https://api.myapp.com" >> "$GITHUB_OUTPUT"
+          # NOTE: Replace with actual production deployment commands
+
+      # STEP 5: Test that production deployment is working
+      - name: 🔍 Production Health Check
+        run: |
+          echo "🏥 Running production health checks..."
+          # NOTE: Add comprehensive health check commands
+
+      # STEP 6: Set up monitoring and alerts for the new deployment
+      - name: 📊 Post-Deploy Monitoring
+        run: |
+          echo "📈 Setting up monitoring alerts..."
+          # NOTE: Add commands to set up monitoring (Datadog, New Relic, etc.)
+
+      # STEP 7: Send Discord notification that production is deployed
+      - name: 🔔 Discord: Production Deployed
+        uses: Ilshidur/action-discord@master
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          message: |
+            🎉 **PRODUCTION DEPLOYED!** 🎉
+            
+            🌐 **Live Site**: ${{ steps.prod-frontend.outputs.prod_url }}
+            🔧 **API**: ${{ steps.prod-backend.outputs.api_url }}
+            
+            📝 **Commit**: ${{ github.event.head_commit.message }}
+            👤 **Deployed by**: ${{ github.actor }}
+            🔢 **SHA**: `${{ needs.setup.outputs.commit_sha }}`
+            ⏱️ **Time**: $(date -u)
+            
+            @everyone New version is live! 🚀
+
+  # JOB 9: FAILURE NOTIFICATION - Runs only if any other job fails
+  notify-failure:
+    name: 🚨 Failure Notification
+    runs-on: ubuntu-latest
+    needs: [setup, security, frontend, backend, deploy-preview, deploy-prod]  # Monitor all jobs
+    if: failure()  # Only run if any of the needed jobs failed
+    steps:
+      # STEP 1: Send Discord notification about the failure
+      - name: 🔔 Discord: Pipeline Failed
+        uses: Ilshidur/action-discord@master
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          message: |
+            🚨 **PIPELINE FAILED** 🚨
+            
+            📋 **${{ github.event_name == 'pull_request' && format('PR #{0}', github.event.number) || 'Push to main' }}**
+            👤 **Author**: ${{ github.actor }}
+            🌿 **Branch**: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+            
+            🔗 **View Details**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            ${{ github.event_name == 'pull_request' && format('@{0} please check your PR', needs.setup.outputs.reviewer) || '@here production deployment failed!' }}
