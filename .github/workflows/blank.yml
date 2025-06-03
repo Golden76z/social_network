@@ -17,7 +17,7 @@ on:
 
 # GLOBAL VARIABLES: These can be used throughout the entire workflow
 env:
-  NODE_VERSION: '20'  # Which version of Node.js to use everywhere
+  NODE_VERSION: '20.19.2'  # Which version of Node.js to use everywhere
   GO_VERSION: '1.21'  # Which version of Go to use everywhere
   
 jobs:
@@ -93,7 +93,7 @@ jobs:
         id: random-reviewer
         run: |
           # Array of team members who can review code
-          reviewers=(alice bob carol dave)
+          reviewers=(Golden76z Aukryx alex-Valauney Alkzim974 nicgen)
           # Pick a random reviewer and save it for other jobs to use
           echo "reviewer=${reviewers[$((RANDOM % ${#reviewers[@]}))]}" >> "$GITHUB_OUTPUT"
 
@@ -357,7 +357,7 @@ jobs:
             });
 
       # STEP 7: Send Discord notification that preview is ready
-      - name: 🔔 Discord: Preview Ready
+      - name: "🔔 Discord: Preview Ready"
         uses: Ilshidur/action-discord@master
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}  # Your Discord webhook URL
@@ -418,7 +418,7 @@ jobs:
           # NOTE: Add commands to set up monitoring (Datadog, New Relic, etc.)
 
       # STEP 7: Send Discord notification that production is deployed
-      - name: 🔔 Discord: Production Deployed
+      - name: "🔔 Discord: Production Deployed"
         uses: Ilshidur/action-discord@master
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
@@ -443,7 +443,7 @@ jobs:
     if: failure()  # Only run if any of the needed jobs failed
     steps:
       # STEP 1: Send Discord notification about the failure
-      - name: 🔔 Discord: Pipeline Failed
+      - name: "🔔 Discord: Pipeline Failed"
         uses: Ilshidur/action-discord@master
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
