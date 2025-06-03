@@ -69,7 +69,7 @@ jobs:
           # Take first 7 characters of the full commit SHA (like 'abc1234' instead of long hash)
           echo "short_sha=$(echo ${{ github.sha }} | cut -c1-7)" >> "$GITHUB_OUTPUT"
 
-      # STEP 5: Install Node.js (needed for frontend JavaScript/TypeScript code)
+      # STEP 5: Install Node.js (needed for client JavaScript/TypeScript code)
       - name: ♻️ Set up Node.js
         uses: actions/setup-node@v4  # Pre-built action to install Node.js
         with:
@@ -139,13 +139,13 @@ jobs:
       # STEP 4: Check npm packages for known vulnerabilities
       - name: 🔒 Audit npm packages
         run: |
-          cd frontend  # Go into frontend folder
+          cd client  # Go into client folder
           npm audit --audit-level=high  # Check for high-severity vulnerabilities
         continue-on-error: true  # Don't fail the whole job if this finds issues
 
-  # JOB 3: FRONTEND - Test and build the frontend code
-  frontend:
-    name: 🌐 Frontend Tests
+  # JOB 3: client - Test and build the client code
+  client:
+    name: 🌐 client Tests
     runs-on: ubuntu-latest
     needs: setup  # Wait for setup job to complete
     if: ${{ !inputs.skip_tests }}  # Skip this job if "skip_tests" was selected in manual trigger
@@ -158,20 +158,20 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      # STEP 3: Install all the packages your frontend needs
+      # STEP 3: Install all the packages your client needs
       - name: 📦 Install dependencies
         run: npm ci  # 'npm ci' is faster and more reliable than 'npm install'
-        working-directory: frontend  # Run this command inside the 'frontend' folder
+        working-directory: client  # Run this command inside the 'client' folder
 
       # STEP 4: Check code style and quality (linting)
-      - name: ✅ Lint (frontend)
+      - name: ✅ Lint (client)
         run: npm run lint  # Run the lint script defined in your package.json
-        working-directory: frontend
+        working-directory: client
 
       # STEP 5: Run automated tests and generate coverage report
-      - name: 🧪 Run Tests (frontend)
+      - name: 🧪 Run Tests (client)
         run: npm run test -- --coverage --watchAll=false  # Run tests once with coverage
-        working-directory: frontend
+        working-directory: client
 
       # STEP 6: Post test coverage as a comment on the pull request
       - name: 📊 Comment Test Coverage on PR
@@ -179,31 +179,31 @@ jobs:
         uses: romeovs/lcov-reporter-action@v0.3.1  # Action that reads coverage and comments
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}  # GitHub automatically provides this token
-          lcov-file: ./frontend/coverage/lcov.info   # Coverage file location
+          lcov-file: ./client/coverage/lcov.info   # Coverage file location
           delete-old-comments: true  # Remove old coverage comments to avoid clutter
 
       # STEP 7: Save test coverage files for later download/inspection
-      - name: 📄 Upload coverage (frontend)
+      - name: 📄 Upload coverage (client)
         uses: actions/upload-artifact@v3  # GitHub action to save files
         with:
-          name: frontend-coverage   # Name for this collection of files
-          path: frontend/coverage   # Which folder to save
+          name: client-coverage   # Name for this collection of files
+          path: client/coverage   # Which folder to save
 
-      # STEP 8: Build the frontend for production (compile, optimize, bundle)
-      - name: 🏗️ Build frontend
+      # STEP 8: Build the client for production (compile, optimize, bundle)
+      - name: 🏗️ Build client
         run: npm run build  # Run the build script from package.json
-        working-directory: frontend
+        working-directory: client
 
-      # STEP 9: Save the built frontend files
+      # STEP 9: Save the built client files
       - name: 📦 Upload build artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: frontend-build  # Name for the built files
-          path: frontend/dist   # Where the build files are located
+          name: client-build  # Name for the built files
+          path: client/dist   # Where the build files are located
 
-  # JOB 4: BACKEND - Test and build the backend code
-  backend:
-    name: 💻 Backend Tests
+  # JOB 4: server - Test and build the server code
+  server:
+    name: 💻 server Tests
     runs-on: ubuntu-latest
     needs: setup  # Wait for setup job
     if: ${{ !inputs.skip_tests }}  # Skip if tests are being skipped
@@ -236,20 +236,20 @@ jobs:
       - name: 📄 Upload coverage (Go)
         uses: actions/upload-artifact@v3
         with:
-          name: backend-coverage
+          name: server-coverage
           path: |           # Save multiple files
             coverage.out    # Raw coverage data
             coverage.html   # HTML coverage report
 
-      # STEP 7: Build the backend executable
-      - name: 🏗️ Build backend
+      # STEP 7: Build the server executable
+      - name: 🏗️ Build server
         run: go build -o main .  # Compile Go code into executable named 'main'
 
   # JOB 5: LIGHTHOUSE - Test website performance and accessibility
   # lighthouse:
   #   name: 🚨 Lighthouse Performance
   #   runs-on: ubuntu-latest
-  #   needs: [frontend]  # Wait for frontend to be built
+  #   needs: [client]  # Wait for client to be built
   #   if: github.event_name == 'pull_request'  # Only test performance on PRs
   #   steps:
   #     # STEP 1: Download repository code
@@ -267,7 +267,7 @@ jobs:
   # preview-database:
   #   name: 🧪 Spin Up Preview DB
   #   runs-on: ubuntu-latest
-  #   needs: [frontend, backend, security]  # Wait for tests and security scan
+  #   needs: [client, server, security]  # Wait for tests and security scan
   #   if: github.event_name == 'pull_request'  # Only for pull requests
   #   steps:
   #     # STEP 1: Create a temporary database instance for this PR
@@ -288,33 +288,33 @@ jobs:
   # deploy-preview:
   #   name: 🚀 Deploy Preview
   #   runs-on: ubuntu-latest
-  #   needs: [frontend, backend, preview-database, security]  # Wait for all tests to pass
+  #   needs: [client, server, preview-database, security]  # Wait for all tests to pass
   #   if: github.event_name == 'pull_request'  # Only for pull requests
   #   steps:
   #     # STEP 1: Download repository code
   #     - uses: actions/checkout@v4
 
-  #     # STEP 2: Download the built frontend files from the frontend job
+  #     # STEP 2: Download the built client files from the client job
   #     - name: 📦 Download build artifacts
   #       uses: actions/download-artifact@v3  # Download files saved by previous job
   #       with:
-  #         name: frontend-build  # Name of the artifact we want
-  #         path: frontend/dist   # Where to put the downloaded files
+  #         name: client-build  # Name of the artifact we want
+  #         path: client/dist   # Where to put the downloaded files
 
-  #     # STEP 3: Deploy frontend to a temporary preview URL
-  #     - name: 🚀 Deploy Frontend Preview (Vercel)
+  #     # STEP 3: Deploy client to a temporary preview URL
+  #     - name: 🚀 Deploy client Preview (Vercel)
   #       id: vercel-deploy  # Give this step an ID so we can reference its output
   #       run: |
-  #         echo "🌐 Deploying frontend preview..."
+  #         echo "🌐 Deploying client preview..."
   #         # Create a temporary URL for this PR
   #         echo "preview_url=https://pr-${{ needs.setup.outputs.pr_number }}-myapp.vercel.app" >> "$GITHUB_OUTPUT"
   #         # NOTE: Replace with actual Vercel deployment commands
 
-  #     # STEP 4: Deploy backend API to a temporary preview URL
-  #     - name: 🚀 Deploy Backend Preview (Fly.io)
-  #       id: backend-deploy
+  #     # STEP 4: Deploy server API to a temporary preview URL
+  #     - name: 🚀 Deploy server Preview (Fly.io)
+  #       id: server-deploy
   #       run: |
-  #         echo "🔧 Deploying backend preview..."
+  #         echo "🔧 Deploying server preview..."
   #         # Create a temporary API URL for this PR
   #         echo "api_url=https://pr-${{ needs.setup.outputs.pr_number }}-api.fly.dev" >> "$GITHUB_OUTPUT"
   #         # NOTE: Replace with actual Fly.io deployment commands
@@ -334,8 +334,8 @@ jobs:
             
   #           | Service | URL | Status |
   #           |---------|-----|--------|
-  #           | 🌐 Frontend | [${{ steps.vercel-deploy.outputs.preview_url }}](${{ steps.vercel-deploy.outputs.preview_url }}) | ✅ Live |
-  #           | 🔧 Backend API | [${{ steps.backend-deploy.outputs.api_url }}](${{ steps.backend-deploy.outputs.api_url }}) | ✅ Live |
+  #           | 🌐 client | [${{ steps.vercel-deploy.outputs.preview_url }}](${{ steps.vercel-deploy.outputs.preview_url }}) | ✅ Live |
+  #           | 🔧 server API | [${{ steps.server-deploy.outputs.api_url }}](${{ steps.server-deploy.outputs.api_url }}) | ✅ Live |
             
   #           **📊 Quick Stats:**
   #           - 🌿 Branch: \`${{ needs.setup.outputs.branch_name }}\`
@@ -344,7 +344,7 @@ jobs:
             
   #           **🧪 Test this preview:**
   #           \`\`\`bash
-  #           curl ${{ steps.backend-deploy.outputs.api_url }}/health
+  #           curl ${{ steps.server-deploy.outputs.api_url }}/health
   #           \`\`\`
   #           `;
             
@@ -365,8 +365,8 @@ jobs:
   #           ✅ **Preview Deployed Successfully!**
             
   #           📋 **PR #${{ needs.setup.outputs.pr_number }}**: ${{ github.event.pull_request.title }}
-  #           🌐 **Frontend**: ${{ steps.vercel-deploy.outputs.preview_url }}
-  #           🔧 **API**: ${{ steps.backend-deploy.outputs.api_url }}
+  #           🌐 **client**: ${{ steps.vercel-deploy.outputs.preview_url }}
+  #           🔧 **API**: ${{ steps.server-deploy.outputs.api_url }}
             
   #           👤 **Ready for review by**: @${{ needs.setup.outputs.reviewer }}
   #           ⏱️ **Deployed**: $(date -u)
@@ -375,33 +375,33 @@ jobs:
   # deploy-prod:
   #   name: 🚢 Deploy to Production
   #   runs-on: ubuntu-latest
-  #   needs: [frontend, backend, security]  # Wait for tests and security scan
+  #   needs: [client, server, security]  # Wait for tests and security scan
   #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'  # Only when pushing to main branch
   #   environment: production  # Requires manual approval in GitHub settings
   #   steps:
   #     # STEP 1: Download repository code
   #     - uses: actions/checkout@v4
 
-  #     # STEP 2: Download the built frontend files
+  #     # STEP 2: Download the built client files
   #     - name: 📦 Download build artifacts
   #       uses: actions/download-artifact@v3
   #       with:
-  #         name: frontend-build
-  #         path: frontend/dist
+  #         name: client-build
+  #         path: client/dist
 
-  #     # STEP 3: Deploy frontend to production
-  #     - name: 🚀 Deploy Frontend (Production)
-  #       id: prod-frontend
+  #     # STEP 3: Deploy client to production
+  #     - name: 🚀 Deploy client (Production)
+  #       id: prod-client
   #       run: |
-  #         echo "🌐 Deploying frontend to production..."
+  #         echo "🌐 Deploying client to production..."
   #         echo "prod_url=https://myapp.com" >> "$GITHUB_OUTPUT"
   #         # NOTE: Replace with actual production deployment commands
 
-  #     # STEP 4: Deploy backend to production
-  #     - name: 🚀 Deploy Backend (Production)
-  #       id: prod-backend
+  #     # STEP 4: Deploy server to production
+  #     - name: 🚀 Deploy server (Production)
+  #       id: prod-server
   #       run: |
-  #         echo "🔧 Deploying backend to production..."
+  #         echo "🔧 Deploying server to production..."
   #         echo "api_url=https://api.myapp.com" >> "$GITHUB_OUTPUT"
   #         # NOTE: Replace with actual production deployment commands
 
@@ -425,8 +425,8 @@ jobs:
   #         message: |
   #           🎉 **PRODUCTION DEPLOYED!** 🎉
             
-  #           🌐 **Live Site**: ${{ steps.prod-frontend.outputs.prod_url }}
-  #           🔧 **API**: ${{ steps.prod-backend.outputs.api_url }}
+  #           🌐 **Live Site**: ${{ steps.prod-client.outputs.prod_url }}
+  #           🔧 **API**: ${{ steps.prod-server.outputs.api_url }}
             
   #           📝 **Commit**: ${{ github.event.head_commit.message }}
   #           👤 **Deployed by**: ${{ github.actor }}
@@ -440,7 +440,7 @@ jobs:
     name: 🚨 Failure Notification
     runs-on: ubuntu-latest
     # add commented things - deployments steps
-    needs: [setup, security, frontend, backend]  # Monitor all jobs
+    needs: [setup, security, client, server]  # Monitor all jobs
     if: failure()  # Only run if any of the needed jobs failed
     steps:
       # STEP 1: Send Discord notification about the failure
