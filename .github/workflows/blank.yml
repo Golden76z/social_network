@@ -246,200 +246,201 @@ jobs:
         run: go build -o main .  # Compile Go code into executable named 'main'
 
   # JOB 5: LIGHTHOUSE - Test website performance and accessibility
-  lighthouse:
-    name: 🚨 Lighthouse Performance
-    runs-on: ubuntu-latest
-    needs: [frontend]  # Wait for frontend to be built
-    if: github.event_name == 'pull_request'  # Only test performance on PRs
-    steps:
-      # STEP 1: Download repository code
-      - uses: actions/checkout@v4
+  # lighthouse:
+  #   name: 🚨 Lighthouse Performance
+  #   runs-on: ubuntu-latest
+  #   needs: [frontend]  # Wait for frontend to be built
+  #   if: github.event_name == 'pull_request'  # Only test performance on PRs
+  #   steps:
+  #     # STEP 1: Download repository code
+  #     - uses: actions/checkout@v4
 
-      # STEP 2: Run Google Lighthouse performance tests
-      - name: 🚨 Lighthouse CI
-        uses: treosh/lighthouse-ci-action@v10  # Third-party Lighthouse action
-        with:
-          configPath: './.lighthouserc.json'    # Configuration file (you need to create this)
-          uploadArtifacts: true    # Save detailed results
-          temporaryPublicStorage: true  # Make results viewable online
+  #     # STEP 2: Run Google Lighthouse performance tests
+  #     - name: 🚨 Lighthouse CI
+  #       uses: treosh/lighthouse-ci-action@v10  # Third-party Lighthouse action
+  #       with:
+  #         configPath: './.lighthouserc.json'    # Configuration file (you need to create this)
+  #         uploadArtifacts: true    # Save detailed results
+  #         temporaryPublicStorage: true  # Make results viewable online
 
   # JOB 6: PREVIEW DATABASE - Create temporary database for testing PRs
-  preview-database:
-    name: 🧪 Spin Up Preview DB
-    runs-on: ubuntu-latest
-    needs: [frontend, backend, security]  # Wait for tests and security scan
-    if: github.event_name == 'pull_request'  # Only for pull requests
-    steps:
-      # STEP 1: Create a temporary database instance for this PR
-      - name: 🔧 Create Preview DB
-        run: |
-          echo "🗄️ Spinning up preview DB instance..."
-          # Create environment variable with database URL
-          echo "DB_URL=postgresql://preview-${{ needs.setup.outputs.pr_number }}.db.example.com" >> $GITHUB_ENV
-          # NOTE: Replace with actual database creation commands (AWS RDS, Railway, etc.)
+  # preview-database:
+  #   name: 🧪 Spin Up Preview DB
+  #   runs-on: ubuntu-latest
+  #   needs: [frontend, backend, security]  # Wait for tests and security scan
+  #   if: github.event_name == 'pull_request'  # Only for pull requests
+  #   steps:
+  #     # STEP 1: Create a temporary database instance for this PR
+  #     - name: 🔧 Create Preview DB
+  #       run: |
+  #         echo "🗄️ Spinning up preview DB instance..."
+  #         # Create environment variable with database URL
+  #         echo "DB_URL=postgresql://preview-${{ needs.setup.outputs.pr_number }}.db.example.com" >> $GITHUB_ENV
+  #         # NOTE: Replace with actual database creation commands (AWS RDS, Railway, etc.)
 
-      # STEP 2: Verify the database is working
-      - name: ⏱️ Health Check Preview DB
-        run: |
-          echo "🔍 Checking database health..."
-          # NOTE: Add actual database connection test commands here
+  #     # STEP 2: Verify the database is working
+  #     - name: ⏱️ Health Check Preview DB
+  #       run: |
+  #         echo "🔍 Checking database health..."
+  #         # NOTE: Add actual database connection test commands here
 
-  # JOB 7: DEPLOY PREVIEW - Deploy temporary version for testing PRs
-  deploy-preview:
-    name: 🚀 Deploy Preview
-    runs-on: ubuntu-latest
-    needs: [frontend, backend, preview-database, security]  # Wait for all tests to pass
-    if: github.event_name == 'pull_request'  # Only for pull requests
-    steps:
-      # STEP 1: Download repository code
-      - uses: actions/checkout@v4
+  # # JOB 7: DEPLOY PREVIEW - Deploy temporary version for testing PRs
+  # deploy-preview:
+  #   name: 🚀 Deploy Preview
+  #   runs-on: ubuntu-latest
+  #   needs: [frontend, backend, preview-database, security]  # Wait for all tests to pass
+  #   if: github.event_name == 'pull_request'  # Only for pull requests
+  #   steps:
+  #     # STEP 1: Download repository code
+  #     - uses: actions/checkout@v4
 
-      # STEP 2: Download the built frontend files from the frontend job
-      - name: 📦 Download build artifacts
-        uses: actions/download-artifact@v3  # Download files saved by previous job
-        with:
-          name: frontend-build  # Name of the artifact we want
-          path: frontend/dist   # Where to put the downloaded files
+  #     # STEP 2: Download the built frontend files from the frontend job
+  #     - name: 📦 Download build artifacts
+  #       uses: actions/download-artifact@v3  # Download files saved by previous job
+  #       with:
+  #         name: frontend-build  # Name of the artifact we want
+  #         path: frontend/dist   # Where to put the downloaded files
 
-      # STEP 3: Deploy frontend to a temporary preview URL
-      - name: 🚀 Deploy Frontend Preview (Vercel)
-        id: vercel-deploy  # Give this step an ID so we can reference its output
-        run: |
-          echo "🌐 Deploying frontend preview..."
-          # Create a temporary URL for this PR
-          echo "preview_url=https://pr-${{ needs.setup.outputs.pr_number }}-myapp.vercel.app" >> "$GITHUB_OUTPUT"
-          # NOTE: Replace with actual Vercel deployment commands
+  #     # STEP 3: Deploy frontend to a temporary preview URL
+  #     - name: 🚀 Deploy Frontend Preview (Vercel)
+  #       id: vercel-deploy  # Give this step an ID so we can reference its output
+  #       run: |
+  #         echo "🌐 Deploying frontend preview..."
+  #         # Create a temporary URL for this PR
+  #         echo "preview_url=https://pr-${{ needs.setup.outputs.pr_number }}-myapp.vercel.app" >> "$GITHUB_OUTPUT"
+  #         # NOTE: Replace with actual Vercel deployment commands
 
-      # STEP 4: Deploy backend API to a temporary preview URL
-      - name: 🚀 Deploy Backend Preview (Fly.io)
-        id: backend-deploy
-        run: |
-          echo "🔧 Deploying backend preview..."
-          # Create a temporary API URL for this PR
-          echo "api_url=https://pr-${{ needs.setup.outputs.pr_number }}-api.fly.dev" >> "$GITHUB_OUTPUT"
-          # NOTE: Replace with actual Fly.io deployment commands
+  #     # STEP 4: Deploy backend API to a temporary preview URL
+  #     - name: 🚀 Deploy Backend Preview (Fly.io)
+  #       id: backend-deploy
+  #       run: |
+  #         echo "🔧 Deploying backend preview..."
+  #         # Create a temporary API URL for this PR
+  #         echo "api_url=https://pr-${{ needs.setup.outputs.pr_number }}-api.fly.dev" >> "$GITHUB_OUTPUT"
+  #         # NOTE: Replace with actual Fly.io deployment commands
 
-      # STEP 5: Test that the deployed preview is working
-      - name: 🔍 Health Check Preview
-        run: |
-          echo "🏥 Running health checks..."
-          # NOTE: Add commands to test that your preview deployment is working
+  #     # STEP 5: Test that the deployed preview is working
+  #     - name: 🔍 Health Check Preview
+  #       run: |
+  #         echo "🏥 Running health checks..."
+  #         # NOTE: Add commands to test that your preview deployment is working
 
-      # STEP 6: Post a comment on the PR with links to the preview
-      - name: 📝 Update PR with Preview Links
-        uses: actions/github-script@v6  # Action that lets us use GitHub's API
-        with:
-          script: |  # JavaScript code to run
-            const comment = `## 🚀 Preview Deployment Ready!
+  #     # STEP 6: Post a comment on the PR with links to the preview
+  #     - name: 📝 Update PR with Preview Links
+  #       uses: actions/github-script@v6  # Action that lets us use GitHub's API
+  #       with:
+  #         script: |  # JavaScript code to run
+  #           const comment = `## 🚀 Preview Deployment Ready!
             
-            | Service | URL | Status |
-            |---------|-----|--------|
-            | 🌐 Frontend | [${{ steps.vercel-deploy.outputs.preview_url }}](${{ steps.vercel-deploy.outputs.preview_url }}) | ✅ Live |
-            | 🔧 Backend API | [${{ steps.backend-deploy.outputs.api_url }}](${{ steps.backend-deploy.outputs.api_url }}) | ✅ Live |
+  #           | Service | URL | Status |
+  #           |---------|-----|--------|
+  #           | 🌐 Frontend | [${{ steps.vercel-deploy.outputs.preview_url }}](${{ steps.vercel-deploy.outputs.preview_url }}) | ✅ Live |
+  #           | 🔧 Backend API | [${{ steps.backend-deploy.outputs.api_url }}](${{ steps.backend-deploy.outputs.api_url }}) | ✅ Live |
             
-            **📊 Quick Stats:**
-            - 🌿 Branch: \`${{ needs.setup.outputs.branch_name }}\`
-            - 🔢 Commit: \`${{ needs.setup.outputs.commit_sha }}\`
-            - 👤 Reviewer: @${{ needs.setup.outputs.reviewer }}
+  #           **📊 Quick Stats:**
+  #           - 🌿 Branch: \`${{ needs.setup.outputs.branch_name }}\`
+  #           - 🔢 Commit: \`${{ needs.setup.outputs.commit_sha }}\`
+  #           - 👤 Reviewer: @${{ needs.setup.outputs.reviewer }}
             
-            **🧪 Test this preview:**
-            \`\`\`bash
-            curl ${{ steps.backend-deploy.outputs.api_url }}/health
-            \`\`\`
-            `;
+  #           **🧪 Test this preview:**
+  #           \`\`\`bash
+  #           curl ${{ steps.backend-deploy.outputs.api_url }}/health
+  #           \`\`\`
+  #           `;
             
-            // Post the comment on the pull request
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            });
+  #           // Post the comment on the pull request
+  #           github.rest.issues.createComment({
+  #             issue_number: context.issue.number,
+  #             owner: context.repo.owner,
+  #             repo: context.repo.repo,
+  #             body: comment
+  #           });
 
-      # STEP 7: Send Discord notification that preview is ready
-      - name: "🔔 Discord: Preview Ready"
-        uses: Ilshidur/action-discord@master
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}  # Your Discord webhook URL
-          message: |
-            ✅ **Preview Deployed Successfully!**
+  #     # STEP 7: Send Discord notification that preview is ready
+  #     - name: "🔔 Discord: Preview Ready"
+  #       uses: Ilshidur/action-discord@master
+  #       with:
+  #         webhook: ${{ secrets.DISCORD_WEBHOOK }}  # Your Discord webhook URL
+  #         message: |
+  #           ✅ **Preview Deployed Successfully!**
             
-            📋 **PR #${{ needs.setup.outputs.pr_number }}**: ${{ github.event.pull_request.title }}
-            🌐 **Frontend**: ${{ steps.vercel-deploy.outputs.preview_url }}
-            🔧 **API**: ${{ steps.backend-deploy.outputs.api_url }}
+  #           📋 **PR #${{ needs.setup.outputs.pr_number }}**: ${{ github.event.pull_request.title }}
+  #           🌐 **Frontend**: ${{ steps.vercel-deploy.outputs.preview_url }}
+  #           🔧 **API**: ${{ steps.backend-deploy.outputs.api_url }}
             
-            👤 **Ready for review by**: @${{ needs.setup.outputs.reviewer }}
-            ⏱️ **Deployed**: $(date -u)
+  #           👤 **Ready for review by**: @${{ needs.setup.outputs.reviewer }}
+  #           ⏱️ **Deployed**: $(date -u)
 
   # JOB 8: DEPLOY PRODUCTION - Deploy to live website (only when merging to main)
-  deploy-prod:
-    name: 🚢 Deploy to Production
-    runs-on: ubuntu-latest
-    needs: [frontend, backend, security]  # Wait for tests and security scan
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'  # Only when pushing to main branch
-    environment: production  # Requires manual approval in GitHub settings
-    steps:
-      # STEP 1: Download repository code
-      - uses: actions/checkout@v4
+  # deploy-prod:
+  #   name: 🚢 Deploy to Production
+  #   runs-on: ubuntu-latest
+  #   needs: [frontend, backend, security]  # Wait for tests and security scan
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'  # Only when pushing to main branch
+  #   environment: production  # Requires manual approval in GitHub settings
+  #   steps:
+  #     # STEP 1: Download repository code
+  #     - uses: actions/checkout@v4
 
-      # STEP 2: Download the built frontend files
-      - name: 📦 Download build artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: frontend-build
-          path: frontend/dist
+  #     # STEP 2: Download the built frontend files
+  #     - name: 📦 Download build artifacts
+  #       uses: actions/download-artifact@v3
+  #       with:
+  #         name: frontend-build
+  #         path: frontend/dist
 
-      # STEP 3: Deploy frontend to production
-      - name: 🚀 Deploy Frontend (Production)
-        id: prod-frontend
-        run: |
-          echo "🌐 Deploying frontend to production..."
-          echo "prod_url=https://myapp.com" >> "$GITHUB_OUTPUT"
-          # NOTE: Replace with actual production deployment commands
+  #     # STEP 3: Deploy frontend to production
+  #     - name: 🚀 Deploy Frontend (Production)
+  #       id: prod-frontend
+  #       run: |
+  #         echo "🌐 Deploying frontend to production..."
+  #         echo "prod_url=https://myapp.com" >> "$GITHUB_OUTPUT"
+  #         # NOTE: Replace with actual production deployment commands
 
-      # STEP 4: Deploy backend to production
-      - name: 🚀 Deploy Backend (Production)
-        id: prod-backend
-        run: |
-          echo "🔧 Deploying backend to production..."
-          echo "api_url=https://api.myapp.com" >> "$GITHUB_OUTPUT"
-          # NOTE: Replace with actual production deployment commands
+  #     # STEP 4: Deploy backend to production
+  #     - name: 🚀 Deploy Backend (Production)
+  #       id: prod-backend
+  #       run: |
+  #         echo "🔧 Deploying backend to production..."
+  #         echo "api_url=https://api.myapp.com" >> "$GITHUB_OUTPUT"
+  #         # NOTE: Replace with actual production deployment commands
 
-      # STEP 5: Test that production deployment is working
-      - name: 🔍 Production Health Check
-        run: |
-          echo "🏥 Running production health checks..."
-          # NOTE: Add comprehensive health check commands
+  #     # STEP 5: Test that production deployment is working
+  #     - name: 🔍 Production Health Check
+  #       run: |
+  #         echo "🏥 Running production health checks..."
+  #         # NOTE: Add comprehensive health check commands
 
-      # STEP 6: Set up monitoring and alerts for the new deployment
-      - name: 📊 Post-Deploy Monitoring
-        run: |
-          echo "📈 Setting up monitoring alerts..."
-          # NOTE: Add commands to set up monitoring (Datadog, New Relic, etc.)
+  #     # STEP 6: Set up monitoring and alerts for the new deployment
+  #     - name: 📊 Post-Deploy Monitoring
+  #       run: |
+  #         echo "📈 Setting up monitoring alerts..."
+  #         # NOTE: Add commands to set up monitoring (Datadog, New Relic, etc.)
 
-      # STEP 7: Send Discord notification that production is deployed
-      - name: "🔔 Discord: Production Deployed"
-        uses: Ilshidur/action-discord@master
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          message: |
-            🎉 **PRODUCTION DEPLOYED!** 🎉
+  #     # STEP 7: Send Discord notification that production is deployed
+  #     - name: "🔔 Discord: Production Deployed"
+  #       uses: Ilshidur/action-discord@master
+  #       with:
+  #         webhook: ${{ secrets.DISCORD_WEBHOOK }}
+  #         message: |
+  #           🎉 **PRODUCTION DEPLOYED!** 🎉
             
-            🌐 **Live Site**: ${{ steps.prod-frontend.outputs.prod_url }}
-            🔧 **API**: ${{ steps.prod-backend.outputs.api_url }}
+  #           🌐 **Live Site**: ${{ steps.prod-frontend.outputs.prod_url }}
+  #           🔧 **API**: ${{ steps.prod-backend.outputs.api_url }}
             
-            📝 **Commit**: ${{ github.event.head_commit.message }}
-            👤 **Deployed by**: ${{ github.actor }}
-            🔢 **SHA**: `${{ needs.setup.outputs.commit_sha }}`
-            ⏱️ **Time**: $(date -u)
+  #           📝 **Commit**: ${{ github.event.head_commit.message }}
+  #           👤 **Deployed by**: ${{ github.actor }}
+  #           🔢 **SHA**: `${{ needs.setup.outputs.commit_sha }}`
+  #           ⏱️ **Time**: $(date -u)
             
-            @everyone New version is live! 🚀
+  #           @everyone New version is live! 🚀
 
   # JOB 9: FAILURE NOTIFICATION - Runs only if any other job fails
   notify-failure:
     name: 🚨 Failure Notification
     runs-on: ubuntu-latest
-    needs: [setup, security, frontend, backend, deploy-preview, deploy-prod]  # Monitor all jobs
+    # add commented things - deployments steps
+    needs: [setup, security, frontend, backend]  # Monitor all jobs
     if: failure()  # Only run if any of the needed jobs failed
     steps:
       # STEP 1: Send Discord notification about the failure
