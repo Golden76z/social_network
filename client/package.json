@@ -1,0 +1,76 @@
+{
+  "name": "client",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "electron:dev:wayland": "ELECTRON_OZONE_PLATFORM_HINT=wayland npm run electron:dev",
+    "electron:dev": "concurrently -k \"npm run dev\" \"npm run electron\"",
+    "electron": "wait-on tcp:3000 && cross-env NODE_ENV=development electron --disable-dev-shm-usage --no-sandbox .",
+    "electron:compile": "tsc -p electron/tsconfig.json",
+    "electron:watch": "nodemon --watch electron --exec \"npm run electron:compile\"",
+    "electron:build": "npm run build && npm run electron:compile && electron-builder",
+    "electron:serve": "cross-env NODE_ENV=production electron .",
+    "postinstall": "npm run electron:compile"
+  },
+  "dependencies": {
+    "@tailwindcss/postcss": "^4.1.8",
+    "next": "15.3.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@types/node": "^20.17.57",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.21",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "^36.3.2",
+    "electron-builder": "^26.0.12",
+    "eslint": "^9",
+    "eslint-config-next": "15.3.3",
+    "nodemon": "^3.1.0",
+    "postcss": "^8.5.4",
+    "tailwindcss": "^4.1.8",
+    "typescript": "^5.8.3",
+    "wait-on": "^8.0.3"
+  },
+  "build": {
+    "appId": "com.yourcompany.client",
+    "productName": "Client App",
+    "directories": {
+      "output": "release",
+      "app": "."
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "public",
+        "to": "public"
+      }
+    ],
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.utilities"
+    },
+    "win": {
+      "target": "nsis",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Utility"
+    }
+  }
+}
