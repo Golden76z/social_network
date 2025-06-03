@@ -75,17 +75,18 @@ jobs:
           reviewers=(Golden76z Aukryx alex-Valauney Alkzim974 nicgen)
           echo "reviewer=${reviewers[$((RANDOM % ${#reviewers[@]}))]}" >> "$GITHUB_OUTPUT"
 
-      - name: 🔔 Pipeline Started Notification
-        if: github.event_name == 'pull_request'
-        uses: Ilshidur/action-discord@master
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          message: |
-            🚀 **Pipeline Started** 
-            📋 **PR #${{ steps.pr-info.outputs.pr_number }}**: ${{ github.event.pull_request.title }}
-            👤 **Author**: ${{ github.actor }}
-            🌿 **Branch**: `${{ steps.branch-info.outputs.branch_name }}`
-            🔍 **Reviewer**: @${{ steps.random-reviewer.outputs.reviewer }}
+          - name: 🔔 Pipeline Started Notification
+          if: github.event_name == 'pull_request'
+          env:
+            DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          uses: Ilshidur/action-discord@master
+          with:
+            args: |
+              🚀 **Pipeline Started** 
+              📋 **PR #${{ steps.pr-info.outputs.pr_number }}**: ${{ github.event.pull_request.title }}
+              👤 **Author**: ${{ github.actor }}
+              🌿 **Branch**: `${{ steps.branch-info.outputs.branch_name }}`
+              🔍 **Reviewer**: @${{ steps.random-reviewer.outputs.reviewer }}
 
   security:
     name: 🔒 Security Scan
@@ -211,13 +212,13 @@ jobs:
     if: failure()
     steps:
       - name: "🔔 Discord: Pipeline Failed"
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         uses: Ilshidur/action-discord@master
         with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          message: |
+          args: |
             🚨 **PIPELINE FAILED** 🚨
             📋 **${{ github.event_name == 'pull_request' && format('PR #{0}', github.event.number) || 'Push to main' }}**
             👤 **Author**: ${{ github.actor }}
             🌿 **Branch**: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
             🔗 **View Logs**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-            
