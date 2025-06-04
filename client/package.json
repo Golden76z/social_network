@@ -8,38 +8,79 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "electron:dev:wayland": "ELECTRON_OZONE_PLATFORM_HINT=wayland npm run electron:dev",
-    "electron:dev": "concurrently -k \"npm run dev\" \"npm run electron\"",
-    "electron": "wait-on tcp:3000 && cross-env NODE_ENV=development electron --disable-dev-shm-usage --no-sandbox .",
+    "test": "jest --coverage --watchAll=false",
+    "test:watch": "jest --watch",
     "electron:compile": "tsc -p electron/tsconfig.json",
-    "electron:watch": "nodemon --watch electron --exec \"npm run electron:compile\"",
+    "electron": "wait-on tcp:3000 && cross-env NODE_ENV=development electron .",
+    "electron:dev": "concurrently -k \"npm run dev\" \"npm run electron:watch\"",
+    "electron:watch": "nodemon --watch electron --ext ts --exec \"npm run electron:compile && cross-env NODE_ENV=development electron .\"",
     "electron:build": "npm run build && npm run electron:compile && electron-builder",
     "electron:serve": "cross-env NODE_ENV=production electron .",
     "postinstall": "npm run electron:compile"
   },
   "dependencies": {
-    "@tailwindcss/postcss": "^4.1.8",
     "next": "15.3.3",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
-    "@types/node": "^20.17.57",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
+    "@eslint/eslintrc": "^3.3.1",
+    "@tailwindcss/postcss": "^4.1.8",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.15.29",
+    "@types/react": "19.1.6",
+    "@types/react-dom": "19.1.5",
+    "@types/webpack": "^5.28.5",
     "autoprefixer": "^10.4.21",
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
-    "electron": "^36.3.2",
+    "electron": "^36.4.0",
     "electron-builder": "^26.0.12",
-    "eslint": "^9",
+    "eslint": "^9.28.0",
     "eslint-config-next": "15.3.3",
-    "nodemon": "^3.1.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "nodemon": "^3.1.10",
     "postcss": "^8.5.4",
     "tailwindcss": "^4.1.8",
+    "ts-jest": "^29.3.4",
     "typescript": "^5.8.3",
     "wait-on": "^8.0.3"
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "setupFilesAfterEnv": [
+      "<rootDir>/jest.setup.js"
+    ],
+    "moduleNameMapping": {
+      "^@/(.*)$": "<rootDir>/src/$1"
+    },
+    "collectCoverageFrom": [
+      "src/**/*.{js,jsx,ts,tsx}",
+      "!src/**/*.d.ts"
+    ],
+    "coverageDirectory": "coverage",
+    "coverageReporters": [
+      "text",
+      "lcov",
+      "html"
+    ],
+    "preset": "ts-jest",
+    "transform": {
+      "^.+\\.(ts|tsx)$": "ts-jest"
+    },
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx"
+    ],
+    "testMatch": [
+      "**/__tests__/**/*.(ts|tsx)",
+      "**/*.(test|spec).(ts|tsx)"
+    ]
   },
   "build": {
     "appId": "com.yourcompany.client",
@@ -49,7 +90,7 @@
       "app": "."
     },
     "files": [
-      "dist/**/*",
+      "out/**/*",
       "dist-electron/**/*",
       "node_modules/**/*",
       "package.json"
