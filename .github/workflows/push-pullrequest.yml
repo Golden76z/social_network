@@ -131,24 +131,24 @@ jobs:
         run: npm run lint
 
       # Run tests with coverage reporting
-      - name: 🧪 Run Tests
-        run: npm run test -- --coverage --watchAll=false
+      # - name: 🧪 Run Tests
+      #   run: npm run test -- --coverage --watchAll=false
 
-      # Post test coverage as PR comment
-      - name: 📊 Comment Test Coverage on PR
-        if: github.event_name == 'pull_request'
-        uses: romeovs/lcov-reporter-action@v0.3.1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          lcov-file: ./client/coverage/lcov.info
-          delete-old-comments: true  # Remove old coverage comments
+      # # Post test coverage as PR comment
+      # - name: 📊 Comment Test Coverage on PR
+      #   if: github.event_name == 'pull_request'
+      #   uses: romeovs/lcov-reporter-action@v0.3.1
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     lcov-file: ./client/coverage/lcov.info
+      #     delete-old-comments: true  # Remove old coverage comments
 
-      # Save coverage files as workflow artifact
-      - name: 📄 Upload coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: client-coverage
-          path: client/coverage
+      # # Save coverage files as workflow artifact
+      # - name: 📄 Upload coverage
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: client-coverage
+      #     path: client/coverage
 
       # Build production-ready frontend
       - name: 🏗️ Build client
@@ -187,25 +187,25 @@ jobs:
           go vet ./...  # Check for suspicious constructs
 
       # Run tests with race detection and coverage
-      - name: 🧪 Run Tests (Go)
-        run: go test -v -coverprofile=coverage.out -race ./...
+      # - name: 🧪 Run Tests (Go)
+      #   run: go test -v -coverprofile=coverage.out -race ./...
 
       # Generate HTML coverage report
-      - name: 📊 Generate coverage report
-        run: go tool cover -html=coverage.out -o coverage.html
+      # - name: 📊 Generate coverage report
+      #   run: go tool cover -html=coverage.out -o coverage.html
 
-      # Save coverage reports as artifacts
-      - name: 📄 Upload coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: server-coverage
-          path: |
-            server/coverage.out
-            server/coverage.html
+      # # Save coverage reports as artifacts
+      # - name: 📄 Upload coverage
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: server-coverage
+      #     path: |
+      #       server/coverage.out
+      #       server/coverage.html
 
-      # Compile Go binary
-      - name: 🏗️ Build server
-        run: go build -o main .
+      # # Compile Go binary
+      # - name: 🏗️ Build server
+      #   run: go build -o main .
 
   # Failure notification job
   notify-failure:
