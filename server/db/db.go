@@ -2,9 +2,8 @@ package db
 
 import (
 	"database/sql"
-	"fmt"
-	"log"
 	"os"
+	"time"
 
 	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/lib/pq"
@@ -17,42 +16,26 @@ type Service struct {
 	DB *sql.DB
 }
 
-func InitDB() (*Service, error) {
-	// Load PostgreSQL connection details from .env
-	pgHost := os.Getenv("DB_HOST")
-	pgPort := os.Getenv("DB_PORT")
-	pgUser := os.Getenv("DB_USER")
-	pgPass := os.Getenv("DB_PASSWORD")
-	pgDB := os.Getenv("DB_NAME")
-
-	// Construct connection string
-	connStr := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		pgHost, pgPort, pgUser, pgPass, pgDB,
-	)
-
-	// Open connection (PostgreSQL DB, change if needed)
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to database: %w", err)
+func InitDB() (*sql.DB, error) {
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		dbPath = "./app.db"
 	}
 
-	// Verify connection
-	err = db.Ping()
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to ping database: %w", err)
+		return nil, err
 	}
 
-	// Create a new Service instance
-	service := &Service{DB: db}
+	// Test the connection
+	if err := db.Ping(); err != nil {
+		return nil, err
+	}
 
-	// Create tables
-	service.CreateUserTable()
+	// Configure connection pool
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(25)
+	db.SetConnMaxLifetime(5 * time.Minute)
 
-	log.Println("Database initialized successfully!")
-
-	// Set global instance
-	DBService = service
-
-	return service, nil
+	return db, nil
 }
