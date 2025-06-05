@@ -1,12 +1,14 @@
 name: Standup Bot for Discord
 on:
   schedule:
-    - cron: '0 17 */3 * *'  # Every 3 days at 5PM UTC (Thursday + Sunday + Wednesday...)
-  workflow_dispatch:  # Optional: Allow manual triggers
+    - cron: '0 8 * * *'
+  workflow_dispatch:
 
 jobs:
   generate_report:
     runs-on: ubuntu-latest
+    permissions:
+      issues: read
     steps:
       - name: Fetch open issues
         uses: actions/github-script@v6
@@ -17,20 +19,25 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
-              labels: 'needs-attention',  # Optional: Filter by label
+              per_page: 100
             });
 
-            // Format issues with labels
+            if (issues.length === 0) {
+              return '**📅 Standup Report**\nNo pending issues today! 🎉';
+            }
+
+            // Format for Discord (uses \n for newlines)
             const report = issues.map(issue => {
               const labels = issue.labels.map(label => `\`${label.name}\``).join(', ');
               return `• **${issue.title}** (#${issue.number}) - Labels: ${labels}`;
             }).join('\n');
 
-            return report || 'No pending issues today! 🎉';
+            return `**📅 Standup Report**\n${report}`;
 
       - name: Send to Discord
         uses: Ilshidur/action-discord@master
         with:
-          args: ${{ steps.fetch-issues.outputs.result }}
+          args: |
+            ${{ steps.fetch-issues.outputs.result }}
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_CHECKUP }}
