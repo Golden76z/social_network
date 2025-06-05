@@ -1,0 +1,75 @@
+name: Manage Sub-Issue Labels
+on:
+  issues:
+    types: [opened, edited, closed, reopened, labeled, unlabeled]
+  issue_comment:
+    types: [created, edited, deleted]
+
+jobs:
+  manage_labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Handle label logic
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { data: issue } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+            });
+
+            const labelName = 'has-subtasks';
+            const body = issue.body || '';
+            
+            // Check for Markdown checkboxes (- [ ])
+            const hasCheckboxes = /-\s\[[\sx]\]/.test(body);
+            
+            // Extract linked issue numbers (#123)
+            const linkedIssueRefs = body.match(/#\d+/g) || [];
+            const linkedIssueNumbers = linkedIssueRefs.map(ref => parseInt(ref.replace('#', '')));
+
+            // Determine if the issue qualifies for the label
+            let shouldHaveLabel = hasCheckboxes || linkedIssueNumbers.length > 0;
+
+            // Advanced: Check if all linked sub-issues are closed
+            if (linkedIssueNumbers.length > 0) {
+              let allClosed = true;
+              for (const num of linkedIssueNumbers) {
+                try {
+                  const { data: linkedIssue } = await github.rest.issues.get({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: num,
+                  });
+                  if (linkedIssue.state !== 'closed') allClosed = false;
+                } catch (e) {
+                  console.log(`Linked issue #${num} not found or inaccessible. Skipping.`);
+                }
+              }
+              // Remove label if all sub-issues are closed
+              if (allClosed) shouldHaveLabel = false;
+            }
+
+            // Check current label status
+            const hasLabel = issue.labels.some(label => label.name === labelName);
+
+            // Add or remove the label
+            if (shouldHaveLabel && !hasLabel) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: [labelName],
+              });
+            } else if (!shouldHaveLabel && hasLabel) {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                name: labelName,
+              });
+            }

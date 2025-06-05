@@ -1,38 +1,68 @@
 package middleware
 
 import (
-	"fmt"
 	"net/http"
-	"strings"
-
-	"github.com/golang-jwt/jwt"
+	"sync"
+	"time"
 )
 
-func UserKeyFunc(r *http.Request) (string, error) {
-	// Extract JWT from header (e.g., "Bearer <token>")
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		return "", fmt.Errorf("missing authorization header")
-	}
-	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+// Rate limiting
+type rateLimiter struct {
+	requests map[string][]time.Time
+	mutex    sync.RWMutex
+	limit    int
+	window   time.Duration
+}
 
-	// Parse JWT to get user ID
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
-		return []byte("your-secret-key"), nil // Replace with your key
-	})
-	if err != nil {
-		return "", fmt.Errorf("invalid token: %v", err)
+func newRateLimiter(limit int, window time.Duration) *rateLimiter {
+	return &rateLimiter{
+		requests: make(map[string][]time.Time),
+		limit:    limit,
+		window:   window,
+	}
+}
+
+func (rl *rateLimiter) allow(key string) bool {
+	rl.mutex.Lock()
+	defer rl.mutex.Unlock()
+
+	now := time.Now()
+
+	// Clean old requests
+	if requests, exists := rl.requests[key]; exists {
+		var validRequests []time.Time
+		for _, reqTime := range requests {
+			if now.Sub(reqTime) < rl.window {
+				validRequests = append(validRequests, reqTime)
+			}
+		}
+		rl.requests[key] = validRequests
 	}
 
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok || !token.Valid {
-		return "", fmt.Errorf("invalid token claims")
+	// Check if limit exceeded
+	if len(rl.requests[key]) >= rl.limit {
+		return false
 	}
 
-	userID, ok := claims["user_id"].(string) // Assuming user_id is in JWT
-	if !ok {
-		return "", fmt.Errorf("user_id not found in token")
-	}
+	// Add current request
+	rl.requests[key] = append(rl.requests[key], now)
+	return true
+}
 
-	return userID, nil // Rate limit by user_id
+// RateLimit middleware limits requests per IP
+func RateLimit(limit int, window time.Duration) func(http.Handler) http.Handler {
+	limiter := newRateLimiter(limit, window)
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			key := getClientIP(r)
+
+			if !limiter.allow(key) {
+				http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }

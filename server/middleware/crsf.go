@@ -1,50 +1,61 @@
-// middleware/csrf.go
 package middleware
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"net/http"
-	"os"
-
-	"github.com/google/uuid"
+	"sync"
+	"time"
 )
+
+// CSRF protection
+var csrfTokens = struct {
+	sync.RWMutex
+	tokens map[string]time.Time
+}{tokens: make(map[string]time.Time)}
+
+func generateCSRFToken() (string, error) {
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return base64.URLEncoding.EncodeToString(bytes), nil
+}
 
 func CSRFMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Skip for GET/HEAD/OPTIONS
 		if r.Method == "GET" || r.Method == "HEAD" || r.Method == "OPTIONS" {
-			// Generate and set CSRF token for GET requests
-			token := uuid.New().String()
-			http.SetCookie(w, &http.Cookie{
-				Name:     "csrf_token",
-				Value:    token,
-				Path:     "/",
-				Secure:   os.Getenv("ENV") == "production",
-				HttpOnly: false,
-				SameSite: http.SameSiteStrictMode,
-			})
+			// Generate and set CSRF token for safe methods
+			token, err := generateCSRFToken()
+			if err != nil {
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+
+			csrfTokens.Lock()
+			csrfTokens.tokens[token] = time.Now().Add(1 * time.Hour)
+			csrfTokens.Unlock()
+
+			w.Header().Set("X-CSRF-Token", token)
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		// Verify token for other methods
-		csrfToken := r.Header.Get("X-CSRF-Token")
-		cookieToken, err := r.Cookie("csrf_token")
-
-		if err != nil || csrfToken == "" || csrfToken != cookieToken.Value {
-			http.Error(w, "Invalid CSRF token", http.StatusForbidden)
+		// Verify CSRF token for unsafe methods
+		token := r.Header.Get("X-CSRF-Token")
+		if token == "" {
+			http.Error(w, "CSRF token required", http.StatusForbidden)
 			return
 		}
 
-		// Rotate token after use
-		newToken := uuid.New().String()
-		http.SetCookie(w, &http.Cookie{
-			Name:     "csrf_token",
-			Value:    newToken,
-			Path:     "/",
-			Secure:   os.Getenv("ENV") == "production",
-			HttpOnly: false,
-			SameSite: http.SameSiteStrictMode,
-		})
+		csrfTokens.RLock()
+		expiry, exists := csrfTokens.tokens[token]
+		csrfTokens.RUnlock()
+
+		if !exists || time.Now().After(expiry) {
+			http.Error(w, "Invalid CSRF token", http.StatusForbidden)
+			return
+		}
 
 		next.ServeHTTP(w, r)
 	})

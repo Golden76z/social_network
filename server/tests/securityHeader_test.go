@@ -2,10 +2,11 @@
 package middleware
 
 import (
-	"formbuilder-api/middleware"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/Golden76z/social-network/middleware"
 )
 
 func TestSecurityHeaders(t *testing.T) {

@@ -1,0 +1,59 @@
+name: Add Issues to Project
+on:
+  issues:
+    types: [opened, labeled, unlabeled]
+  issue_comment:
+    types: [created, edited]
+
+jobs:
+  add_to_project:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Add issue to project
+        uses: actions/github-script@v6
+        env:
+          PROJECT_ID: "PVT_kwHOCokNzc4A6Ct2"  # Replace with your Project ID
+          STATUS_FIELD_ID: "PVTSSF_lAHOCokNzc4A6Ct2zguvKS4"  # Replace with Status field ID
+          TODO_OPTION_ID: "f75ad846"  # Replace with To Do option ID
+          BLOCKED_OPTION_ID: "47fc9ee4"  # Replace with Blocked option ID
+        with:
+          script: |
+            const { issue } = context.payload;
+            const isBlocked = issue.labels.some(label => label.name === 'blocked');
+
+            // Add issue to project
+            const { data: addItem } = await github.graphql(
+              `mutation {
+                addProjectV2ItemById(input: {
+                  projectId: "${{ env.PROJECT_ID }}",
+                  contentId: "${issue.node_id}"
+                }) {
+                  item {
+                    id
+                  }
+                }
+              }`
+            );
+
+            // Set status (To Do or Blocked)
+            await github.graphql(
+              `mutation {
+                updateProjectV2ItemFieldValue(input: {
+                  projectId: "${{ env.PROJECT_ID }}",
+                  itemId: "${addItem.addProjectV2ItemById.item.id}",
+                  fieldId: "${{ env.STATUS_FIELD_ID }}",
+                  value: {
+                    singleSelectOptionId: "${
+                      isBlocked ? env.BLOCKED_OPTION_ID : env.TODO_OPTION_ID
+                    }"
+                  }
+                }) {
+                  projectV2Item {
+                    id
+                  }
+                }
+              }`
+            );
