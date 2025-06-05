@@ -73,7 +73,7 @@ jobs:
 
       # Cache Go dependencies to speed up builds
       - name: 🧪 Cache Go modules
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build  # Cache build artifacts
@@ -145,7 +145,7 @@ jobs:
 
       # Save coverage files as workflow artifact
       - name: 📄 Upload coverage
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: client-coverage
           path: client/coverage
@@ -156,7 +156,7 @@ jobs:
 
       # Save build output as artifact
       - name: 📦 Upload build
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: client-build
           path: client/dist
@@ -196,7 +196,7 @@ jobs:
 
       # Save coverage reports as artifacts
       - name: 📄 Upload coverage
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: server-coverage
           path: |
