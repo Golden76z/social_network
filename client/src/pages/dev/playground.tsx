@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import "../app/globals.css"; // Ensure CSS variables are loaded
+import "../../app/globals.css"; // Ensure CSS variables are loaded
 
 type Position = "center" | "top-left" | "top-right" | "bottom-left" | "bottom-right";
 
