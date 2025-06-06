@@ -47,7 +47,7 @@ func main() {
 	r.Use(middleware.SecurityHeaders)
 
 	// CORS middleware
-	if os.Getenv("ENV") == "production" {
+	if os.Getenv("ENV") == "PRODUCTION" {
 		r.Use(middleware.CORS(middleware.CORSConfig{
 			AllowedOrigins:   []string{"https://localhost:3030"},
 			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -88,7 +88,7 @@ func main() {
 	r.Group(func(r *router.Router) {
 		r.Use(middleware.AuthMiddleware(DB))
 		r.Use(middleware.CSRFMiddleware)
-		r.Use(middleware.RateLimit(20, time.Minute))
+		r.Use(middleware.RateLimit(100, time.Minute))
 
 		// User routes
 		// r.GET("/api/user/profile", api.GetUserProfileHandler(db))
@@ -103,7 +103,7 @@ func main() {
 	})
 
 	// HTTPS redirect in production
-	if os.Getenv("ENV") == "production" {
+	if os.Getenv("ENV") == "PRODUCTION" {
 		go func() {
 			log.Println("Starting HTTP to HTTPS redirect server on :80")
 			redirectServer := &http.Server{

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import "../app/globals.css";
+import "../../app/globals.css";
 
 type ColorSet = Record<string, string>;
 
