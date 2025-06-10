@@ -8,52 +8,64 @@ on:
 jobs:
   add_to_project:
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read  # Required for actions/checkout
+      # For Projects V2, use 'write' access (no specific 'projects' permission exists)
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Add issue to project
         uses: actions/github-script@v6
         env:
-          PROJECT_ID: "PVT_kwHOCokNzc4A6Ct2"  # Replace with your Project ID
-          STATUS_FIELD_ID: "PVTSSF_lAHOCokNzc4A6Ct2zguvKS4"  # Replace with Status field ID
-          TODO_OPTION_ID: "f75ad846"  # Replace with To Do option ID
-          BLOCKED_OPTION_ID: "47fc9ee4"  # Replace with Blocked option ID
+          PROJECT_ID: "PVT_kwHOCokNzc4A6Ct2"
+          STATUS_FIELD_ID: "PVTSSF_lAHOCokNzc4A6Ct2zguvKS4"
+          TODO_OPTION_ID: "f75ad846"
+          BLOCKED_OPTION_ID: "47fc9ee4"
         with:
           script: |
-            const { issue } = context.payload;
-            const isBlocked = issue.labels.some(label => label.name === 'blocked');
+            try {
+              const { issue } = context.payload;
+              const isBlocked = issue.labels?.some(label => label.name === 'blocked') || false;
 
-            // Add issue to project
-            const { data: addItem } = await github.graphql(
-              `mutation {
-                addProjectV2ItemById(input: {
-                  projectId: "${{ env.PROJECT_ID }}",
-                  contentId: "${issue.node_id}"
-                }) {
-                  item {
-                    id
+              // Debug: Verify project access
+              console.log("Attempting to access project:", "${{ env.PROJECT_ID }}");
+              
+              // Add item to project
+              const { data: addItem } = await github.graphql(`
+                mutation {
+                  addProjectV2ItemById(input: {
+                    projectId: "${{ env.PROJECT_ID }}",
+                    contentId: "${issue.node_id}"
+                  }) {
+                    item {
+                      id
+                    }
                   }
                 }
-              }`
-            );
+              `);
 
-            // Set status (To Do or Blocked)
-            await github.graphql(
-              `mutation {
-                updateProjectV2ItemFieldValue(input: {
-                  projectId: "${{ env.PROJECT_ID }}",
-                  itemId: "${addItem.addProjectV2ItemById.item.id}",
-                  fieldId: "${{ env.STATUS_FIELD_ID }}",
-                  value: {
-                    singleSelectOptionId: "${
-                      isBlocked ? env.BLOCKED_OPTION_ID : env.TODO_OPTION_ID
-                    }"
-                  }
-                }) {
-                  projectV2Item {
-                    id
+              // Update status field
+              await github.graphql(`
+                mutation {
+                  updateProjectV2ItemFieldValue(input: {
+                    projectId: "${{ env.PROJECT_ID }}",
+                    itemId: "${addItem.addProjectV2ItemById.item.id}",
+                    fieldId: "${{ env.STATUS_FIELD_ID }}",
+                    value: {
+                      singleSelectOptionId: "${
+                        isBlocked ? env.BLOCKED_OPTION_ID : env.TODO_OPTION_ID
+                      }"
+                    }
+                  }) {
+                    projectV2Item {
+                      id
+                    }
                   }
                 }
-              }`
-            );
+              `);
+            } catch (error) {
+              console.error("Full error details:", JSON.stringify(error, null, 2));
+              core.setFailed(`Action failed: ${error.message}`);
+            }
