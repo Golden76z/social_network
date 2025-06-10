@@ -1,7 +1,0 @@
-{
-    "scripts": {
-        "build": "your-build-command",
-        "test": "your-test-command",
-        "lint": "your-lint-command"
-    }
-}

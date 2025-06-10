@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+:root {
+  --color-bg: #f5f3ff;
+  --color-text: #1e1b4b;
+  --color-primary: #7c3aed;
+  --color-secondary: #c084fc;
+  --color-accent: #e0e7ff;
+}
+
+[data-theme='dark'] {
+  --color-bg: #1e1b4b;
+  --color-text: #f5f3ff;
+  --color-primary: #c084fc;
+  --color-secondary: #7c3aed;
+  --color-accent: #312e81;
+}
+
+.text-outline {
+  /* -webkit-text-stroke: 0.4px var(--color-text); */
+  /* text-stroke removed as it is not a valid CSS property */
+}

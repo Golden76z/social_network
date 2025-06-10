@@ -1,0 +1,46 @@
+name: Move Closed Issues to Done
+on:
+  issues:
+    types: [closed]
+
+jobs:
+  move_to_done:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Move issue to "Done"
+        uses: actions/github-script@v6
+        env:
+          PROJECT_ID: "PVT_kwHOCokNzc4A6Ct2"  # Replace with your Project ID
+          DONE_FIELD_VALUE: "98236657"      # Replace with your "Done" column ID (from GraphQL)
+        with:
+          script: |
+            const { issue } = context.payload;
+            // Find the project item ID for this issue
+            const { data: projectItems } = await github.graphql(`
+              query {
+                node(id: "${process.env.PROJECT_ID}") {
+                  ... on ProjectV2 {
+                    items(first: 1, query: "is:issue linked:${issue.number}") {
+                      nodes {
+                        id
+                      }
+                    }
+                  }
+                }
+              }
+            `);
+
+            if (projectItems.node.items.nodes.length > 0) {
+              const itemId = projectItems.node.items.nodes[0].id;
+              // Move to "Done"
+              await github.graphql(`
+                mutation {
+                  updateProjectV2ItemFieldValue(input: {
+                    projectId: "${process.env.PROJECT_ID}",
+                    itemId: "${itemId}",
+                    fieldId: "Status",  # Replace with your Status field ID
+                    value: { singleSelectOptionId: "${process.env.DONE_FIELD_VALUE}" }
+                  }) { projectV2Item { id } }
+                }
+              `);
+            }

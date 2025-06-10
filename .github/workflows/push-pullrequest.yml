@@ -1,0 +1,227 @@
+name: Social Network CI/CD Pipeline
+
+on:
+  # Triggers:
+  # - When a PR is created/updated targeting main branch
+  # - When code is pushed directly to main branch
+  # - Manual trigger option with "skip_tests" parameter
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip tests (for emergency deployments)'
+        type: boolean
+        default: false
+
+# Global environment variables
+env:
+  NODE_VERSION: '20.19.2'  # Version of Node.js for frontend
+  GO_VERSION: '1.21'       # Version of Go for backend
+
+jobs:
+  # Initial setup job that runs first
+  setup:
+    name: 🧰 Setup Environment
+    runs-on: ubuntu-latest
+    outputs:  # These values will be available to other jobs
+      reviewer: ${{ steps.random-reviewer.outputs.reviewer }}
+      pr_number: ${{ steps.pr-info.outputs.pr_number }}
+      branch_name: ${{ steps.branch-info.outputs.branch_name }}
+      commit_sha: ${{ steps.commit-info.outputs.short_sha }}
+    
+    steps:
+      # Checkout the repository code
+      - name: 💼 Checkout code
+        uses: actions/checkout@v4
+
+      # Extract PR number if this is a PR event
+      - name: 📊 Extract PR/Branch Info
+        id: pr-info
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "pr_number=${{ github.event.number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "pr_number=none" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Get branch name (different for PRs vs direct pushes)
+      - name: 🌿 Extract Branch Info
+        id: branch-info
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "branch_name=${{ github.head_ref }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "branch_name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Get short commit SHA (first 7 characters)
+      - name: 🔢 Extract Commit Info
+        id: commit-info
+        run: |
+          echo "short_sha=$(echo ${{ github.sha }} | cut -c1-7)" >> "$GITHUB_OUTPUT"
+
+      # Setup Node.js for frontend with dependency caching
+      - name: ♻️ Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'  # Cache node_modules
+          cache-dependency-path: 'client/package-lock.json'  # Key for cache invalidation
+
+      # Cache Go dependencies to speed up builds
+      - name: 🧪 Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build  # Cache build artifacts
+            ~/go/pkg/mod       # Cache downloaded modules
+          key: ${{ runner.os }}-go-${{ hashFiles('server/go.sum') }}
+          restore-keys: ${{ runner.os }}-go-
+
+      # Randomly select a reviewer from the team
+      - name: 🧠 Random reviewer selector
+        id: random-reviewer
+        run: |
+          reviewers=(Golden76z Aukryx alex-Valauney Alkzim974 nicgen)
+          echo "reviewer=${reviewers[$((RANDOM % ${#reviewers[@]}))]}" >> "$GITHUB_OUTPUT"
+
+      # Send Discord notification when pipeline starts (PRs only)
+      - name: 🔔 Pipeline Started Notification
+        if: github.event_name == 'pull_request'
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        uses: Ilshidur/action-discord@master
+        with:
+          args: |
+            🚀 **Pipeline Started** 
+            📋 **PR #${{ steps.pr-info.outputs.pr_number }}**: ${{ github.event.pull_request.title }}
+            👤 **Author**: ${{ github.actor }}
+            🌿 **Branch**: `${{ steps.branch-info.outputs.branch_name }}`
+            🔍 **Reviewer**: @${{ steps.random-reviewer.outputs.reviewer }}
+
+  # Frontend testing and build job
+  client:
+    name: 🌐 Client Tests
+    runs-on: ubuntu-latest
+    needs: setup  # Depends on setup job completing first
+    if: ${{ !inputs.skip_tests }}  # Skip if tests disabled
+    defaults:
+      run:
+        working-directory: client  # All commands run in client dir
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      # Setup Node.js again (each job has fresh environment)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'client/package-lock.json'
+
+      # Install dependencies using package-lock.json (faster than npm install)
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      # Run linter to check code style/quality
+      - name: ✅ Lint
+        run: npm run lint
+
+      # Run tests with coverage reporting
+      # - name: 🧪 Run Tests
+      #   run: npm run test -- --coverage --watchAll=false
+
+      # # Post test coverage as PR comment
+      # - name: 📊 Comment Test Coverage on PR
+      #   if: github.event_name == 'pull_request'
+      #   uses: romeovs/lcov-reporter-action@v0.3.1
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     lcov-file: ./client/coverage/lcov.info
+      #     delete-old-comments: true  # Remove old coverage comments
+
+      # # Save coverage files as workflow artifact
+      # - name: 📄 Upload coverage
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: client-coverage
+      #     path: client/coverage
+
+      # Build production-ready frontend
+      - name: 🏗️ Build client
+        run: npm run build
+
+      # Save build output as artifact
+      - name: 📦 Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-build
+          path: client/dist
+
+  # Backend testing and build job
+  server:
+    name: 💻 Server Tests
+    runs-on: ubuntu-latest
+    needs: setup
+    if: ${{ !inputs.skip_tests }}
+    defaults:
+      run:
+        working-directory: server
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      # Install specified Go version
+      - name: 🐹 Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      # Format code and run static analysis
+      - name: ✅ Lint (Go)
+        run: |
+          go fmt ./...  # Standardize code formatting
+          go vet ./...  # Check for suspicious constructs
+
+      # Run tests with race detection and coverage
+      # - name: 🧪 Run Tests (Go)
+      #   run: go test -v -coverprofile=coverage.out -race ./...
+
+      # Generate HTML coverage report
+      # - name: 📊 Generate coverage report
+      #   run: go tool cover -html=coverage.out -o coverage.html
+
+      # # Save coverage reports as artifacts
+      # - name: 📄 Upload coverage
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: server-coverage
+      #     path: |
+      #       server/coverage.out
+      #       server/coverage.html
+
+      # # Compile Go binary
+      # - name: 🏗️ Build server
+      #   run: go build -o main .
+
+  # Failure notification job
+  notify-failure:
+    name: 🚨 Failure Notification
+    runs-on: ubuntu-latest
+    needs: [setup, client, server]  # Wait for these jobs
+    if: failure()  # Only run if any job fails
+    steps:
+      - name: "🔔 Discord: Pipeline Failed"
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        uses: Ilshidur/action-discord@master
+        with:
+          args: |
+            🚨 **PIPELINE FAILED** 🚨
+            📋 **${{ github.event_name == 'pull_request' && format('PR #{0}', github.event.number) || 'Push to main' }}**
+            👤 **Author**: ${{ github.actor }}
+            🌿 **Branch**: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+            🔗 **View Logs**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
