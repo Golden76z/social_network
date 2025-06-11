@@ -1,4 +1,4 @@
-name: Manage Sub-Issue Labels
+name: Manage Blocked Issues
 on:
   issues:
     types: [opened, edited, closed, reopened, labeled, unlabeled]
@@ -6,14 +6,14 @@ on:
     types: [created, edited, deleted]
 
 jobs:
-  manage_labels:
+  manage_blocked_label:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-
-      - name: Handle label logic
-        uses: actions/github-script@v6
+        
+      - name: Handle blocked label logic
+        uses: actions/github-script@v7
         with:
           script: |
             const { data: issue } = await github.rest.issues.get({
@@ -21,23 +21,24 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.payload.issue.number,
             });
-
-            const labelName = 'has-subtasks';
+            
+            const labelName = 'blocked';
             const body = issue.body || '';
             
-            // Check for Markdown checkboxes (- [ ])
-            const hasCheckboxes = /-\s\[[\sx]\]/.test(body);
+            console.log(`Processing issue #${issue.number}: ${issue.title}`);
             
             // Extract linked issue numbers (#123)
             const linkedIssueRefs = body.match(/#\d+/g) || [];
             const linkedIssueNumbers = linkedIssueRefs.map(ref => parseInt(ref.replace('#', '')));
-
-            // Determine if the issue qualifies for the label
-            let shouldHaveLabel = hasCheckboxes || linkedIssueNumbers.length > 0;
-
-            // Advanced: Check if all linked sub-issues are closed
+            
+            console.log(`Found ${linkedIssueNumbers.length} linked issues: ${linkedIssueNumbers.join(', ')}`);
+            
+            let shouldHaveBlockedLabel = false;
+            
+            // Check if there are linked sub-issues
             if (linkedIssueNumbers.length > 0) {
-              let allClosed = true;
+              let hasOpenSubIssues = false;
+              
               for (const num of linkedIssueNumbers) {
                 try {
                   const { data: linkedIssue } = await github.rest.issues.get({
@@ -45,31 +46,48 @@ jobs:
                     repo: context.repo.repo,
                     issue_number: num,
                   });
-                  if (linkedIssue.state !== 'closed') allClosed = false;
+                  
+                  console.log(`Sub-issue #${num}: ${linkedIssue.state}`);
+                  
+                  if (linkedIssue.state === 'open') {
+                    hasOpenSubIssues = true;
+                    break; // No need to check further
+                  }
                 } catch (e) {
-                  console.log(`Linked issue #${num} not found or inaccessible. Skipping.`);
+                  console.log(`Linked issue #${num} not found or inaccessible: ${e.message}`);
+                  // Treat inaccessible issues as potentially open (blocked)
+                  hasOpenSubIssues = true;
                 }
               }
-              // Remove label if all sub-issues are closed
-              if (allClosed) shouldHaveLabel = false;
+              
+              // Issue should be blocked if it has open sub-issues
+              shouldHaveBlockedLabel = hasOpenSubIssues;
             }
-
+            
             // Check current label status
-            const hasLabel = issue.labels.some(label => label.name === labelName);
-
-            // Add or remove the label
-            if (shouldHaveLabel && !hasLabel) {
+            const currentLabels = issue.labels.map(label => label.name);
+            const hasBlockedLabel = currentLabels.includes(labelName);
+            
+            console.log(`Should have blocked label: ${shouldHaveBlockedLabel}`);
+            console.log(`Currently has blocked label: ${hasBlockedLabel}`);
+            
+            // Add or remove the blocked label
+            if (shouldHaveBlockedLabel && !hasBlockedLabel) {
+              console.log(`Adding '${labelName}' label to issue #${issue.number}`);
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue.number,
                 labels: [labelName],
               });
-            } else if (!shouldHaveLabel && hasLabel) {
+            } else if (!shouldHaveBlockedLabel && hasBlockedLabel) {
+              console.log(`Removing '${labelName}' label from issue #${issue.number}`);
               await github.rest.issues.removeLabel({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue.number,
                 name: labelName,
               });
+            } else {
+              console.log(`No label changes needed for issue #${issue.number}`);
             }
