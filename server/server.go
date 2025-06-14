@@ -26,17 +26,21 @@ func main() {
 		port = defaultPort
 	}
 
-	// Initialize database
+	// Define DB path and migrations directory
+	dbPath := "social_network.db"
+	migrationsDir := "db/migrations"
+
+	// Run migrations (creates tables if not exist)
+	if err := migrations.RunMigrations(dbPath, migrationsDir); err != nil {
+		log.Fatal("Failed to run migrations:", err)
+	}
+
+	// Initialize database connection for CRUD operations
 	DB, err := db.InitDB()
 	if err != nil {
 		log.Fatal("Failed to initialize database:", err)
 	}
 	defer DB.Close()
-
-	// Run migrations
-	if err := migrations.RunMigrations(DB); err != nil {
-		log.Fatal("Failed to run migrations:", err)
-	}
 
 	// Create custom router
 	r := router.New()
@@ -72,8 +76,8 @@ func main() {
 			r.Use(middleware.RateLimit(5, time.Minute))
 
 			// Authentication routes (TO IMPLEMENT)
-			// r.POST("/auth/login", api.LoginHandler(db))
-			// r.POST("/auth/register", api.RegisterHandler(db))
+			// r.POST("/auth/login", api.LoginHandler(DB))
+			// r.POST("/auth/register", api.RegisterHandler(DB))
 			// r.POST("/auth/logout", api.LogoutHandler())
 		})
 
@@ -90,16 +94,9 @@ func main() {
 		r.Use(middleware.CSRFMiddleware)
 		r.Use(middleware.RateLimit(100, time.Minute))
 
-		// User routes
-		// r.GET("/api/user/profile", api.GetUserProfileHandler(db))
-		// r.PUT("/api/user/profile", api.UpdateUserProfileHandler(db))
-
-		// Form routes (example)
-		// r.GET("/api/forms", api.GetFormsHandler(db))
-		// r.POST("/api/forms", api.CreateFormHandler(db))
-		// r.GET("/api/forms/{id}", api.GetFormHandler(db))
-		// r.PUT("/api/forms/{id}", api.UpdateFormHandler(db))
-		// r.DELETE("/api/forms/{id}", api.DeleteFormHandler(db))
+		// User routes (TO IMPLEMENT)
+		// r.GET("/api/user/profile", api.GetUserProfileHandler(DB))
+		// r.PUT("/api/user/profile", api.UpdateUserProfileHandler(DB))
 	})
 
 	// HTTPS redirect in production
