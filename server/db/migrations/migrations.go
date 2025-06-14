@@ -1,30 +1,27 @@
 package migrations
 
 import (
-	"database/sql"
+	"fmt"
 	"log"
 
-	"github.com/golang-migrate/migrate"
-	"github.com/golang-migrate/migrate/database/sqlite3"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/sqlite"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
-func RunMigrations(db *sql.DB) error {
-	driver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
-	if err != nil {
-		return err
-	}
+func RunMigrations(dbPath string, migrationsDir string) error {
+	migrationsURL := fmt.Sprintf("file://%s", migrationsDir)
+	dbURL := fmt.Sprintf("sqlite://%s", dbPath)
 
-	m, err := migrate.NewWithDatabaseInstance(
-		"file://migrations",
-		"sqlite3", driver)
+	m, err := migrate.New(migrationsURL, dbURL)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create migrate instance: %w", err)
 	}
+	defer m.Close()
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		return err
+		return fmt.Errorf("migration failed: %w", err)
 	}
-
-	log.Println("Database migrations completed successfully")
+	log.Println("Database migrated successfully")
 	return nil
 }
