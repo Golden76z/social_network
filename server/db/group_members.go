@@ -1,49 +1,70 @@
 package db
 
 import (
-    "database/sql"
-    "github.com/Golden76z/social-network/models"
+	"database/sql"
+
+	"github.com/Golden76z/social-network/models"
 )
 
 func CreateGroupMember(db *sql.DB, groupID, userID int64, role, status string, invitedBy *int64) error {
-    tx, err := db.Begin()
-    if err != nil { return err }
-    defer func() {
-        if err != nil { tx.Rollback() } else { _ = tx.Commit() }
-    }()
-    _, err = tx.Exec(`
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		} else {
+			_ = tx.Commit()
+		}
+	}()
+	_, err = tx.Exec(`
         INSERT INTO group_members (group_id, user_id, role, status, invited_by)
         VALUES (?, ?, ?, ?, ?)`, groupID, userID, role, status, invitedBy)
-    return err
+	return err
 }
 
 func GetGroupMemberByID(db *sql.DB, memberID int64) (*models.GroupMember, error) {
-    row := db.QueryRow(`
+	row := db.QueryRow(`
         SELECT id, group_id, user_id, role, status, invited_by, created_at
         FROM group_members WHERE id = ?`, memberID)
-    var gm models.GroupMember
-    err := row.Scan(&gm.ID, &gm.GroupID, &gm.UserID, &gm.Role, &gm.Status, &gm.InvitedBy, &gm.CreatedAt)
-    if err != nil { return nil, err }
-    return &gm, nil
+	var gm models.GroupMember
+	err := row.Scan(&gm.ID, &gm.GroupID, &gm.UserID, &gm.Role, &gm.Status, &gm.InvitedBy, &gm.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &gm, nil
 }
 
 func UpdateGroupMemberStatus(db *sql.DB, memberID int64, status string) error {
-    tx, err := db.Begin()
-    if err != nil { return err }
-    defer func() {
-        if err != nil { tx.Rollback() } else { _ = tx.Commit() }
-    }()
-    _, err = tx.Exec(`
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		} else {
+			_ = tx.Commit()
+		}
+	}()
+	_, err = tx.Exec(`
         UPDATE group_members SET status = ? WHERE id = ?`, status, memberID)
-    return err
+	return err
 }
 
 func DeleteGroupMember(db *sql.DB, memberID int64) error {
-    tx, err := db.Begin()
-    if err != nil { return err }
-    defer func() {
-        if err != nil { tx.Rollback() } else { _ = tx.Commit() }
-    }()
-    _, err = tx.Exec(`DELETE FROM group_members WHERE id = ?`, memberID)
-    return err
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		} else {
+			_ = tx.Commit()
+		}
+	}()
+	_, err = tx.Exec(`DELETE FROM group_members WHERE id = ?`, memberID)
+	return err
 }

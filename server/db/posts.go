@@ -30,7 +30,16 @@ func GetPostByID(db *sql.DB, postID int64) (*models.Post, error) {
         SELECT id, user_id, title, body, image, visibility, created_at, updated_at
         FROM posts WHERE id = ?`, postID)
 	var post models.Post
-	err := row.Scan(&post.ID, &post.UserID, &post.Title, &post.Body, &post.Image, &post.Visibility, &post.CreatedAt, &post.UpdatedAt)
+	err := row.Scan(
+		&post.ID,
+		&post.UserID,
+		&post.Title,
+		&post.Body,
+		&post.Image,
+		&post.Visibility,
+		&post.CreatedAt,
+		&post.UpdatedAt,
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -32,14 +32,25 @@ func GetUserByEmail(db *sql.DB, email string) (*models.User, error) {
         FROM users WHERE email = ?`, email)
 
 	var user models.User
-	err := row.Scan(&user.ID, &user.Nickname, &user.FirstName, &user.LastName, &user.Email, &user.Password, &user.DateOfBirth, &user.Avatar, &user.Bio, &user.IsPrivate)
+	err := row.Scan(
+		&user.ID,
+		&user.Nickname,
+		&user.FirstName,
+		&user.LastName,
+		&user.Email,
+		&user.Password,
+		&user.DateOfBirth,
+		&user.Avatar,
+		&user.Bio,
+		&user.IsPrivate,
+	)
 	if err != nil {
 		return nil, err
 	}
 	return &user, nil
 }
 
-func UpdateUserBio(db *sql.DB, userID int64, newBio string) error {
+func UpdateUser(db *sql.DB, user *models.User) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -51,7 +62,18 @@ func UpdateUserBio(db *sql.DB, userID int64, newBio string) error {
 			_ = tx.Commit()
 		}
 	}()
-	_, err = tx.Exec(`UPDATE users SET bio = ? WHERE id = ?`, newBio, userID)
+	_, err = tx.Exec(`
+        UPDATE users SET
+            nickname = ?,
+            first_name = ?,
+            last_name = ?,
+            email = ?,
+            date_of_birth = ?,
+            avatar = ?,
+            bio = ?,
+            is_private = ?
+        WHERE id = ?`,
+		user.Nickname, user.FirstName, user.LastName, user.Email, user.DateOfBirth, user.Avatar, user.Bio, user.IsPrivate, user.ID)
 	return err
 }
 
