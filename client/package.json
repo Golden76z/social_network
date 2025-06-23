@@ -24,6 +24,9 @@
     "react-dom": "19.1.0"
   },
   "devDependencies": {
+    "@babel/preset-env": "^7.27.2",
+    "@babel/preset-react": "^7.27.1",
+    "@babel/preset-typescript": "^7.27.1",
     "@eslint/eslintrc": "^3.3.1",
     "@tailwindcss/postcss": "^4.1.8",
     "@testing-library/jest-dom": "^6.6.3",
@@ -34,6 +37,7 @@
     "@types/react-dom": "19.1.5",
     "@types/webpack": "^5.28.5",
     "autoprefixer": "^10.4.21",
+    "babel-jest": "^30.0.2",
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
     "electron": "^36.4.0",
@@ -48,39 +52,6 @@
     "ts-jest": "^29.3.4",
     "typescript": "^5.8.3",
     "wait-on": "^8.0.3"
-  },
-  "jest": {
-    "testEnvironment": "jsdom",
-    "setupFilesAfterEnv": [
-      "<rootDir>/jest.setup.js"
-    ],
-    "moduleNameMapping": {
-      "^@/(.*)$": "<rootDir>/src/$1"
-    },
-    "collectCoverageFrom": [
-      "src/**/*.{js,jsx,ts,tsx}",
-      "!src/**/*.d.ts"
-    ],
-    "coverageDirectory": "coverage",
-    "coverageReporters": [
-      "text",
-      "lcov",
-      "html"
-    ],
-    "preset": "ts-jest",
-    "transform": {
-      "^.+\\.(ts|tsx)$": "ts-jest"
-    },
-    "moduleFileExtensions": [
-      "ts",
-      "tsx",
-      "js",
-      "jsx"
-    ],
-    "testMatch": [
-      "**/__tests__/**/*.(ts|tsx)",
-      "**/*.(test|spec).(ts|tsx)"
-    ]
   },
   "build": {
     "appId": "com.yourcompany.client",
