@@ -1,8 +1,10 @@
+"use client"
+
 import React, { useEffect, useState } from 'react';
 import { WebSocketProvider } from '@/context/webSocketProvider';
 import { ChatComponent } from '@/components/chatComponent';
 
-export const App: React.FC = () => {
+export default function WebSocketPage() {  // Changed to default export
   const [authToken, setAuthToken] = useState('');
 
   useEffect(() => {
@@ -24,4 +26,4 @@ export const App: React.FC = () => {
       </div>
     </WebSocketProvider>
   );
-};
+}
