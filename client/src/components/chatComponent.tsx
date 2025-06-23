@@ -1,3 +1,5 @@
+"use client"
+
 import { FormEvent, JSX, useEffect, useRef, useState } from 'react';
 import { useWebSocketContext } from '../context/webSocketProvider';
 

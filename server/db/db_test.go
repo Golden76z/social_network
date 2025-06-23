@@ -29,6 +29,12 @@ func setupTestDB(t *testing.T) *sql.DB {
             followers INT DEFAULT 0,
             followed INT DEFAULT 0
         );
+		CREATE TABLE sessions (
+			token TEXT PRIMARY KEY,     -- The session token (cookie value)
+			user_id INTEGER NOT NULL,   -- References users.id
+			expires_at DATETIME NOT NULL, -- When the session expires
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		);
         CREATE TABLE posts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,

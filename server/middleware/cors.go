@@ -87,12 +87,7 @@ func getClientIP(r *http.Request) string {
 	return ip
 }
 
-// Context helpers
-type contextKey string
-
-const userIDKey contextKey = "userID"
-
-func setUserID(ctx context.Context, userID int) context.Context {
+func SetUserID(ctx context.Context, userID int) context.Context {
 	return context.WithValue(ctx, userIDKey, userID)
 }
 
