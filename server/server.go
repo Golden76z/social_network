@@ -13,6 +13,7 @@ import (
 	"github.com/Golden76z/social-network/db/migrations"
 	"github.com/Golden76z/social-network/middleware"
 	"github.com/Golden76z/social-network/router"
+	"github.com/Golden76z/social-network/websockets"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -44,6 +45,10 @@ func main() {
 
 	// Create custom router
 	r := router.New()
+
+	// Initiate websockets HUB
+	wsHub := websockets.NewHub(DB)
+	go wsHub.Run()
 
 	// Basic middleware for all routes
 	r.Use(middleware.Logger)
@@ -82,7 +87,7 @@ func main() {
 		})
 
 		// WebSocket endpoint (TO IMPLEMENT)
-		// r.GET("/ws", websocket.Handler())
+		r.GET("/ws", websockets.Handler(wsHub))
 
 		// Health check (TO IMPLEMENT)
 		// r.GET("/health", api.HealthHandler())
