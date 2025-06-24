@@ -32,9 +32,11 @@ func (s *Service) RegisterDB(
 	err = tx.QueryRow(`
 		SELECT COUNT(*) FROM users WHERE nickname = ? OR email = ?
 	`, nickname, email).Scan(&exists)
+
 	if err != nil {
 		return err
 	}
+
 	if exists > 0 {
 		return errors.New("nickname or email already exists")
 	}
