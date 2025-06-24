@@ -1,42 +1,58 @@
 package middleware
 
 import (
+	"context"
 	"database/sql"
 	"net/http"
 	"time"
 )
 
-// AuthMiddleware checks for valid session
+// Define custom types for context keys to avoid collisions.
+type contextKey string
+
+const (
+	userIDKey   contextKey = "user_id"
+	usernameKey contextKey = "username"
+)
+
+// AuthMiddleware validates the session and attaches userID + username to the context.
 func AuthMiddleware(db *sql.DB) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// 1. Check session cookie
 			cookie, err := r.Cookie("session_token")
 			if err != nil {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				http.Error(w, "Unauthorized: Missing token", http.StatusUnauthorized)
 				return
 			}
 
-			// Verify session in database
-			var userID int
-			var expiresAt time.Time
+			// 2. Verify session in database
+			var (
+				userID    int
+				username  string
+				expiresAt time.Time
+			)
 			err = db.QueryRow(`
-				SELECT user_id, expires_at 
-				FROM sessions 
-				WHERE token = ? AND expires_at > ?`,
-				cookie.Value, time.Now()).Scan(&userID, &expiresAt)
+				SELECT s.user_id, u.username, s.expires_at 
+				FROM sessions s
+				JOIN users u ON s.user_id = u.id
+				WHERE s.token = ? AND s.expires_at > ?`,
+				cookie.Value, time.Now(),
+			).Scan(&userID, &username, &expiresAt)
 
 			if err != nil {
 				if err == sql.ErrNoRows {
-					http.Error(w, "Unauthorized", http.StatusUnauthorized)
+					http.Error(w, "Unauthorized: Invalid session", http.StatusUnauthorized)
 				} else {
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+					http.Error(w, "Database error", http.StatusInternalServerError)
 				}
 				return
 			}
 
-			// Add user ID to request context
+			// 3. Attach user data to context using custom keys
 			ctx := r.Context()
-			ctx = setUserID(ctx, userID)
+			ctx = context.WithValue(ctx, userIDKey, userID)
+			ctx = context.WithValue(ctx, usernameKey, username)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

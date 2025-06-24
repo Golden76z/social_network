@@ -9,10 +9,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Golden76z/social-network/api"
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/db/migrations"
 	"github.com/Golden76z/social-network/middleware"
 	"github.com/Golden76z/social-network/router"
+	"github.com/Golden76z/social-network/websockets"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -36,14 +38,18 @@ func main() {
 	}
 
 	// Initialize database connection for CRUD operations
-	DB, err := db.InitDB()
+	DBService, err := db.InitDB()
 	if err != nil {
 		log.Fatal("Failed to initialize database:", err)
 	}
-	defer DB.Close()
+	defer DBService.DB.Close()
 
 	// Create custom router
 	r := router.New()
+
+	// Initiate websockets HUB
+	wsHub := websockets.NewHub(DBService.DB)
+	go wsHub.Run()
 
 	// Basic middleware for all routes
 	r.Use(middleware.Logger)
@@ -76,13 +82,13 @@ func main() {
 			r.Use(middleware.RateLimit(5, time.Minute))
 
 			// Authentication routes (TO IMPLEMENT)
-			// r.POST("/auth/login", api.LoginHandler(DB))
-			// r.POST("/auth/register", api.RegisterHandler(DB))
+			r.POST("/auth/login", api.LoginHandler(DBService.DB))
+			r.POST("/auth/register", api.RegisterHandler(DBService.DB))
 			// r.POST("/auth/logout", api.LogoutHandler())
 		})
 
 		// WebSocket endpoint (TO IMPLEMENT)
-		// r.GET("/ws", websocket.Handler())
+		r.GET("/ws", websockets.Handler(wsHub))
 
 		// Health check (TO IMPLEMENT)
 		// r.GET("/health", api.HealthHandler())
@@ -90,7 +96,7 @@ func main() {
 
 	// Protected Routes Group
 	r.Group(func(r *router.Router) {
-		r.Use(middleware.AuthMiddleware(DB))
+		r.Use(middleware.AuthMiddleware(DBService.DB))
 		r.Use(middleware.CSRFMiddleware)
 		r.Use(middleware.RateLimit(100, time.Minute))
 
