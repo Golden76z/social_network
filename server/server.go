@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Golden76z/social-network/api"
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/db/migrations"
 	"github.com/Golden76z/social-network/middleware"
@@ -81,8 +82,8 @@ func main() {
 			r.Use(middleware.RateLimit(5, time.Minute))
 
 			// Authentication routes (TO IMPLEMENT)
-			// r.POST("/auth/login", api.LoginHandler(DB))
-			// r.POST("/auth/register", api.RegisterHandler(DB))
+			r.POST("/auth/login", api.LoginHandler(DB))
+			r.POST("/auth/register", api.RegisterHandler(DB))
 			// r.POST("/auth/logout", api.LogoutHandler())
 		})
 
