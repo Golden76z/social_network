@@ -38,17 +38,17 @@ func main() {
 	}
 
 	// Initialize database connection for CRUD operations
-	DB, err := db.InitDB()
+	DBService, err := db.InitDB()
 	if err != nil {
 		log.Fatal("Failed to initialize database:", err)
 	}
-	defer DB.Close()
+	defer DBService.DB.Close()
 
 	// Create custom router
 	r := router.New()
 
 	// Initiate websockets HUB
-	wsHub := websockets.NewHub(DB)
+	wsHub := websockets.NewHub(DBService.DB)
 	go wsHub.Run()
 
 	// Basic middleware for all routes
@@ -82,8 +82,8 @@ func main() {
 			r.Use(middleware.RateLimit(5, time.Minute))
 
 			// Authentication routes (TO IMPLEMENT)
-			r.POST("/auth/login", api.LoginHandler(DB))
-			r.POST("/auth/register", api.RegisterHandler(DB))
+			r.POST("/auth/login", api.LoginHandler(DBService.DB))
+			r.POST("/auth/register", api.RegisterHandler(DBService.DB))
 			// r.POST("/auth/logout", api.LogoutHandler())
 		})
 
@@ -96,7 +96,7 @@ func main() {
 
 	// Protected Routes Group
 	r.Group(func(r *router.Router) {
-		r.Use(middleware.AuthMiddleware(DB))
+		r.Use(middleware.AuthMiddleware(DBService.DB))
 		r.Use(middleware.CSRFMiddleware)
 		r.Use(middleware.RateLimit(100, time.Minute))
 

@@ -16,7 +16,7 @@ type Service struct {
 	DB *sql.DB
 }
 
-func InitDB() (*sql.DB, error) {
+func InitDB() (*Service, error) {
 	dbPath := os.Getenv("DB_PATH")
 	if dbPath == "" {
 		dbPath = "./app.db"
@@ -37,5 +37,8 @@ func InitDB() (*sql.DB, error) {
 	db.SetMaxIdleConns(25)
 	db.SetConnMaxLifetime(5 * time.Minute)
 
-	return db, nil
+	// Initialize the global DBService
+	DBService = &Service{DB: db}
+
+	return DBService, nil
 }
