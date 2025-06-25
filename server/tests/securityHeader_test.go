@@ -1,5 +1,5 @@
 // middleware/security_test.go
-package middleware
+package tests
 
 import (
 	"net/http"

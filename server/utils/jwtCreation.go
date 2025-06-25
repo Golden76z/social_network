@@ -1,16 +1,18 @@
 package utils
 
 import (
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
-	"fmt"
+	"encoding/json"
+	"errors"
 	"net/http"
+	"strings"
 	"time"
-
-	"github.com/golang-jwt/jwt"
 )
 
-// GenerateSecureKey creates a random 256-bit key for JWT signing
+// GenerateSecureKey creates a random 256-bit key for JWT signing (same as before)
 func GenerateSecureKey() (string, error) {
 	key := make([]byte, 32) // 256-bit key
 	_, err := rand.Read(key)
@@ -20,39 +22,90 @@ func GenerateSecureKey() (string, error) {
 	return base64.StdEncoding.EncodeToString(key), nil
 }
 
-// JWTGeneration creates a signed JWT token
+// JWTGeneration creates a signed JWT token (manual implementation)
 func JWTGeneration(username string, secretKey string, w http.ResponseWriter) (string, error) {
-	// Create the claims
-	claims := jwt.MapClaims{
+	// 1. Define the JWT claims (payload)
+	claims := map[string]interface{}{
 		"username": username,
 		"exp":      time.Now().Add(15 * time.Minute).Unix(),
-		"iat":      time.Now().Unix(), // issued at
-		"iss":      "your-app-name",   // issuer
+		"iat":      time.Now().Unix(),
+		"iss":      "social-network",
 	}
 
-	// Create and sign the token
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(secretKey))
+	// 2. Encode the header (always HS256 in this case)
+	header := map[string]string{
+		"alg": "HS256",
+		"typ": "JWT",
+	}
+
+	// 3. Base64-encode header and claims
+	headerJSON, err := json.Marshal(header)
 	if err != nil {
-		http.Error(w, "Token generation failed", http.StatusInternalServerError)
 		return "", err
 	}
+	headerB64 := base64.RawURLEncoding.EncodeToString(headerJSON)
 
-	return tokenString, nil
+	claimsJSON, err := json.Marshal(claims)
+	if err != nil {
+		return "", err
+	}
+	claimsB64 := base64.RawURLEncoding.EncodeToString(claimsJSON)
+
+	// 4. Combine header + claims with a dot (.)
+	unsignedToken := headerB64 + "." + claimsB64
+
+	// 5. Sign the token with HMAC-SHA256
+	h := hmac.New(sha256.New, []byte(secretKey))
+	h.Write([]byte(unsignedToken))
+	signature := h.Sum(nil)
+	signatureB64 := base64.RawURLEncoding.EncodeToString(signature)
+
+	// 6. Final JWT: header.claims.signature
+	token := unsignedToken + "." + signatureB64
+
+	return token, nil
 }
 
-// ValidateToken verifies a JWT token
-func ValidateToken(tokenString string, secretKey string) (jwt.MapClaims, error) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		// Validate the alg is what you expect
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return []byte(secretKey), nil
-	})
-
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		return claims, nil
+// ValidateToken verifies a JWT token (manual implementation)
+func ValidateToken(tokenString string, secretKey string) (map[string]interface{}, error) {
+	// 1. Split the token into parts
+	parts := strings.Split(tokenString, ".")
+	if len(parts) != 3 {
+		return nil, errors.New("invalid token format")
 	}
-	return nil, err
+
+	// 2. Recompute the signature
+	h := hmac.New(sha256.New, []byte(secretKey))
+	h.Write([]byte(parts[0] + "." + parts[1]))
+	expectedSignature := h.Sum(nil)
+	expectedSignatureB64 := base64.RawURLEncoding.EncodeToString(expectedSignature)
+
+	// 3. Compare signatures
+	if parts[2] != expectedSignatureB64 {
+		return nil, errors.New("invalid signature")
+	}
+
+	// 4. Decode the claims
+	claimsJSON, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return nil, err
+	}
+
+	var claims map[string]interface{}
+	err = json.Unmarshal(claimsJSON, &claims)
+	if err != nil {
+		return nil, err
+	}
+
+	// 5. Check expiration
+	exp, ok := claims["exp"].(float64)
+	if !ok {
+		return nil, errors.New("invalid exp claim")
+	}
+
+	if time.Now().Unix() > int64(exp) {
+		return nil, errors.New("token expired")
+	}
+
+	return claims, nil
 }
