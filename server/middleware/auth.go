@@ -31,22 +31,17 @@ func AuthMiddleware(db *sql.DB) func(http.Handler) http.Handler {
 			utils.ValidateToken(token.Value, utils.Settings.JwtKey)
 
 			// 3. Verify session in database
-			var (
-				userID    int
-				username  string
-				expiresAt time.Time
-			)
+			var userID int
 			err = db.QueryRow(`
-				SELECT s.user_id, u.username, s.expires_at 
-				FROM sessions s
-				JOIN users u ON s.user_id = u.id
-				WHERE s.token = ? AND s.expires_at > ?`,
-				token.Value, time.Now(),
-			).Scan(&userID, &username, &expiresAt)
+                SELECT user_id FROM sessions 
+                WHERE token = ? AND expires_at > ?`,
+				token.Value,
+				time.Now(),
+			).Scan(&userID)
 
 			if err != nil {
 				if err == sql.ErrNoRows {
-					http.Error(w, "Unauthorized: Invalid session", http.StatusUnauthorized)
+					http.Error(w, "Invalid session", http.StatusUnauthorized)
 				} else {
 					http.Error(w, "Database error", http.StatusInternalServerError)
 				}
@@ -56,7 +51,7 @@ func AuthMiddleware(db *sql.DB) func(http.Handler) http.Handler {
 			// 4. Attach user data to context using custom keys
 			ctx := r.Context()
 			ctx = context.WithValue(ctx, userIDKey, userID)
-			ctx = context.WithValue(ctx, usernameKey, username)
+			// ctx = context.WithValue(ctx, usernameKey, username)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

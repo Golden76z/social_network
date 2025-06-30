@@ -58,6 +58,9 @@ func main() {
 	}
 	defer DBService.DB.Close()
 
+	// Start session cleanup scheduler (every hour - check for expired sessions)
+	go utils.StartSessionCleanup(DBService.DB, 1*time.Hour)
+
 	// Create custom router
 	r := router.New()
 
