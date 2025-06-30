@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/Golden76z/social-network/models"
 )
@@ -48,6 +49,29 @@ func GetUserByEmail(db *sql.DB, email string) (*models.User, error) {
 		return nil, err
 	}
 	return &user, nil
+}
+
+// GetUserIDByIdentifier retrieves a user's ID by either nickname or email
+func GetUserIDByUsername(db *sql.DB, identifier string) (int64, error) {
+	var userID int64
+
+	// Single query that checks both nickname and email
+	err := db.QueryRow(`
+        SELECT id 
+        FROM users 
+        WHERE nickname = ? OR email = ? 
+        LIMIT 1`,
+		identifier, identifier,
+	).Scan(&userID)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, fmt.Errorf("user not found")
+		}
+		return 0, fmt.Errorf("database error: %w", err)
+	}
+
+	return userID, nil
 }
 
 func UpdateUser(db *sql.DB, user *models.User) error {
