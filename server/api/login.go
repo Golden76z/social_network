@@ -7,6 +7,7 @@ import (
 
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/models"
+	"github.com/Golden76z/social-network/utils"
 )
 
 // Handler that will communicate with the database to check wether the credentials are correct or not
@@ -36,5 +37,16 @@ func LoginHandler(DB *sql.DB) http.HandlerFunc {
 			// fmt.Println("Error checking credentials with the database", err)
 			return
 		}
+
+		// Creating a session for the user
+		errSession := utils.CookieSession(req.Username, w)
+		if errSession != nil {
+			http.Error(w, "Error creating session with cookies", http.StatusBadRequest)
+			return
+		}
+
+		// Send back a response to the client-side in case of success
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(`{"message": "Registration successful"}`))
 	}
 }
