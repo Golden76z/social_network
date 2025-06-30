@@ -7,6 +7,7 @@ import (
 
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/models"
+	"github.com/Golden76z/social-network/utils"
 )
 
 // Handler that will communicate with the database to create a new user
@@ -41,6 +42,13 @@ func RegisterHandler(DB *sql.DB) http.HandlerFunc {
 		// Checking if the insertion was successful or not
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Creating a session for the user
+		errSession := utils.CookieSession(req.Nickname, w)
+		if errSession != nil {
+			http.Error(w, "Error creating session with cookies", http.StatusBadRequest)
 			return
 		}
 
