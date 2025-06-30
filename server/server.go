@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"github.com/Golden76z/social-network/db/migrations"
 	"github.com/Golden76z/social-network/middleware"
 	"github.com/Golden76z/social-network/router"
+	"github.com/Golden76z/social-network/utils"
 	"github.com/Golden76z/social-network/websockets"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -26,6 +28,18 @@ func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = defaultPort
+	}
+
+	// Generating the jwt key for signing and decoding
+	key, errKey := utils.GenerateSecureKey()
+	if errKey != nil {
+		fmt.Println("Error generation JWT key: ", errKey)
+		return
+	}
+	// Defining the port and the key for signing and decoding json web tokens
+	utils.Settings = &utils.ServerSettings{
+		JwtKey: key,
+		Port:   port,
 	}
 
 	// Define DB path and migrations directory
@@ -123,7 +137,7 @@ func main() {
 
 	// Create server with timeouts
 	server := &http.Server{
-		Addr:         ":" + port,
+		Addr:         ":" + utils.Settings.Port,
 		Handler:      r,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
@@ -132,7 +146,7 @@ func main() {
 
 	// Graceful shutdown
 	go func() {
-		log.Printf("Server running on port %s", port)
+		log.Printf("Server running on port %s", utils.Settings.Port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatal("Server failed to start:", err)
 		}

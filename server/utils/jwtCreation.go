@@ -25,11 +25,12 @@ func GenerateSecureKey() (string, error) {
 // JWTGeneration creates a signed JWT token (manual implementation)
 func JWTGeneration(username string, secretKey string, w http.ResponseWriter) (string, error) {
 	// 1. Define the JWT claims (payload)
-	claims := map[string]interface{}{
+	claims := map[string]any{
 		"username": username,
-		"exp":      time.Now().Add(15 * time.Minute).Unix(),
-		"iat":      time.Now().Unix(),
-		"iss":      "social-network",
+		// 15min duration token
+		"exp": time.Now().Add(15 * time.Minute).Unix(),
+		"iat": time.Now().Unix(),
+		"iss": "social-network",
 	}
 
 	// 2. Encode the header (always HS256 in this case)
@@ -67,7 +68,7 @@ func JWTGeneration(username string, secretKey string, w http.ResponseWriter) (st
 }
 
 // ValidateToken verifies a JWT token (manual implementation)
-func ValidateToken(tokenString string, secretKey string) (map[string]interface{}, error) {
+func ValidateToken(tokenString string, secretKey string) (map[string]any, error) {
 	// 1. Split the token into parts
 	parts := strings.Split(tokenString, ".")
 	if len(parts) != 3 {
@@ -91,7 +92,7 @@ func ValidateToken(tokenString string, secretKey string) (map[string]interface{}
 		return nil, err
 	}
 
-	var claims map[string]interface{}
+	var claims map[string]any
 	err = json.Unmarshal(claimsJSON, &claims)
 	if err != nil {
 		return nil, err

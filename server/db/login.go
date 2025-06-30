@@ -32,12 +32,9 @@ func (s *Service) LoginDB(username, password string, w http.ResponseWriter) erro
 	}
 
 	if err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password)); err != nil {
-		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
+		http.Error(w, "Password doesn't match", http.StatusUnauthorized)
 		return errors.New("invalid credentials")
 	}
 
-	// Placeholder: you could set a session or token here.
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Login successful"))
 	return nil
 }
