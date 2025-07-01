@@ -11,12 +11,14 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useRouter } from "next/navigation"
 import { useState } from "react"
 
 export function RegisterForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const router = useRouter()
   const [form, setForm] = useState({
     nickname: "",
     firstName: "",
@@ -33,12 +35,12 @@ export function RegisterForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: Ajouter la logique d'envoi au backend ici
     if (form.password !== form.confirmPassword) {
       alert("Passwords do not match")
       return
     }
-    // Envoyer les données au backend...
+    // TODO: Ajouter la logique d'envoi au backend ici
+    router.push("/")
   }
 
   return (
