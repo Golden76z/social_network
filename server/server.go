@@ -99,9 +99,9 @@ func main() {
 			r.Use(middleware.RateLimit(5, time.Minute))
 
 			// Authentication routes (TO IMPLEMENT)
-			r.POST("/auth/login", api.LoginHandler(DBService.DB))
-			r.POST("/auth/register", api.RegisterHandler(DBService.DB))
-			// r.POST("/auth/logout", api.LogoutHandler())
+			r.POST("/auth/login", api.LoginHandler)
+			r.POST("/auth/register", api.RegisterHandler)
+			r.POST("/auth/logout", api.LogoutHandler)
 		})
 
 		// WebSocket endpoint (TO IMPLEMENT)
