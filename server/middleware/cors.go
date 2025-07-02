@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -15,6 +16,24 @@ type CORSConfig struct {
 	ExposedHeaders   []string
 	AllowCredentials bool
 	MaxAge           int
+}
+
+func SetupCORS() func(http.Handler) http.Handler {
+	if os.Getenv("ENV") == "PRODUCTION" {
+		return CORS(CORSConfig{
+			AllowedOrigins:   []string{"https://localhost:3030"},
+			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+			AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+			ExposedHeaders:   []string{"Link"},
+			AllowCredentials: true,
+			MaxAge:           300,
+		})
+	}
+	return CORS(CORSConfig{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{"*"},
+	})
 }
 
 // CORS middleware handles Cross-Origin Resource Sharing
