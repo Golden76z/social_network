@@ -1,0 +1,13 @@
+package routes
+
+import (
+	"github.com/Golden76z/social-network/api"
+)
+
+func setupFollowRoutes(r *Router) {
+	// Following/Followers
+	r.POST("/api/user/follower", api.CreateFollowHandler)
+	r.GET("/api/user/follower", api.GetFollowerHandler)
+	r.GET("/api/user/following", api.GetFollowingHandler)
+	r.DELETE("/api/user/follower", api.DeleteFollowHandler)
+}

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/utils"
 )
 
@@ -18,7 +19,7 @@ const (
 )
 
 // AuthMiddleware validates the session and attaches userID + username to the context.
-func AuthMiddleware(db *sql.DB) func(http.Handler) http.Handler {
+func AuthMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// 1. Check session cookie
@@ -32,7 +33,7 @@ func AuthMiddleware(db *sql.DB) func(http.Handler) http.Handler {
 
 			// 3. Verify session in database
 			var userID int
-			err = db.QueryRow(`
+			err = db.DBService.DB.QueryRow(`
                 SELECT user_id FROM sessions 
                 WHERE token = ? AND expires_at > ?`,
 				token.Value,
