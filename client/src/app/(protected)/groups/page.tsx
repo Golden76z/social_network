@@ -7,7 +7,7 @@ export default function GroupsPage() {
           Create Group
         </button>
       </div>
-      
+
       <div className="grid gap-6">
         {/* Groups tabs */}
         <div className="flex gap-2 mb-4">
@@ -66,6 +66,43 @@ export default function GroupsPage() {
             </p>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">892 members</span>
+              <button className="px-3 py-1 border border-border rounded text-xs hover:bg-accent transition-colors">
+                View
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Additional groups */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="p-6 border border-border rounded-lg bg-card">
+            <div className="w-full h-32 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg mb-4 flex items-center justify-center text-white text-2xl">
+              📚
+            </div>
+            <h3 className="font-semibold mb-2">ZOne 01 Normandie</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              A community for book lovers to discuss and share recommendations
+            </p>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">247 members</span>
+              <button className="px-3 py-1 border border-border rounded text-xs hover:bg-accent transition-colors">
+                View
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="p-6 border border-border rounded-lg bg-card">
+            <div className="w-full h-32 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg mb-4 flex items-center justify-center text-white text-2xl">
+              📚
+            </div>
+            <h3 className="font-semibold mb-2">Quoiffeur</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              A community for book lovers to discuss and share recommendations
+            </p>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">247 members</span>
               <button className="px-3 py-1 border border-border rounded text-xs hover:bg-accent transition-colors">
                 View
               </button>

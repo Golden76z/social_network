@@ -1,24 +1,24 @@
-"use client"
+"use client";
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { useRouter } from "next/navigation"
-import { useState } from "react"
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export function RegisterForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  const router = useRouter()
+  const router = useRouter();
   const [form, setForm] = useState({
     nickname: "",
     firstName: "",
@@ -27,21 +27,21 @@ export function RegisterForm({
     dateOfBirth: "",
     password: "",
     confirmPassword: "",
-  })
+  });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value })
-  }
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     if (form.password !== form.confirmPassword) {
-      alert("Passwords do not match")
-      return
+      alert("Passwords do not match");
+      return;
     }
     // TODO: Ajouter la logique d'envoi au backend ici
-    router.push("/")
-  }
+    router.push("/");
+  };
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
@@ -136,6 +136,19 @@ export function RegisterForm({
                   onChange={handleChange}
                 />
               </div>
+              <Label
+                htmlFor="terms"
+                className="flex items-center gap-2 text-sm text-muted-foreground"
+              >
+                <input
+                  type="checkbox"
+                  id="terms"
+                  name="terms"
+                  required
+                  className="h-4 w-4"
+                />
+                I agree to the Terms of Use and Privacy Policy
+              </Label>
               <Button type="submit" className="w-full">
                 Register
               </Button>
@@ -150,5 +163,5 @@ export function RegisterForm({
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
