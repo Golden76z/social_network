@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/Golden76z/social-network/models"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -152,11 +153,50 @@ func setupTestDB(t *testing.T) *sql.DB {
 	return db
 }
 
+// Helper function to create a test user
+func createTestUser(db *sql.DB, t *testing.T, nickname, firstName, lastName, email string) *models.User {
+	userReq := models.User{
+		Nickname:    nickname,
+		FirstName:   firstName,
+		LastName:    lastName,
+		Email:       email,
+		Password:    "pass",
+		DateOfBirth: "2000-01-01",
+		Avatar:      "",
+		Bio:         "",
+		IsPrivate:   false,
+	}
+
+	err := CreateUser(db, userReq)
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	user, err := GetUserByEmail(db, email)
+	if err != nil {
+		t.Fatalf("GetUserByEmail failed: %v", err)
+	}
+	return user
+}
+
 func TestUserCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	err := CreateUser(db, "nick", "John", "Doe", "john@doe.com", "pass", "2000-01-01", "", "", false)
+	// Create user with request struct
+	userReq := models.User{
+		Nickname:    "nick",
+		FirstName:   "John",
+		LastName:    "Doe",
+		Email:       "john@doe.com",
+		Password:    "pass",
+		DateOfBirth: "2000-01-01",
+		Avatar:      "",
+		Bio:         "",
+		IsPrivate:   false,
+	}
+
+	err := CreateUser(db, userReq)
 	if err != nil {
 		t.Fatalf("CreateUser failed: %v", err)
 	}
@@ -166,8 +206,12 @@ func TestUserCRUD(t *testing.T) {
 		t.Fatalf("GetUserByEmail failed: %v", err)
 	}
 
-	user.Bio = "New bio"
-	err = UpdateUser(db, user)
+	// Update user with request struct
+	newBio := "New bio"
+	updateReq := models.UpdateUserProfileRequest{
+		Bio: &newBio,
+	}
+	err = UpdateUser(db, user.ID, updateReq)
 	if err != nil {
 		t.Fatalf("UpdateUser failed: %v", err)
 	}
@@ -182,10 +226,16 @@ func TestPostCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	_ = CreateUser(db, "nick", "John", "Doe", "john@doe.com", "pass", "2000-01-01", "", "", false)
-	user, _ := GetUserByEmail(db, "john@doe.com")
+	user := createTestUser(db, t, "nick", "John", "Doe", "john@doe.com")
 
-	err := CreatePost(db, user.ID, "Title", "Body", "image.png", "public")
+	postReq := models.CreatePostRequest{
+		Title:      "Title",
+		Body:       "Body",
+		Image:      "image.png",
+		Visibility: "public",
+	}
+
+	err := CreatePost(db, user.ID, postReq)
 	if err != nil {
 		t.Fatalf("CreatePost failed: %v", err)
 	}
@@ -195,7 +245,18 @@ func TestPostCRUD(t *testing.T) {
 		t.Fatalf("GetPostByID failed: %v", err)
 	}
 
-	err = UpdatePost(db, post.ID, "New Title", "New Body", "newimage.png", "private")
+	newTitle := "New Title"
+	newBody := "New Body"
+	newImage := "newimage.png"
+	newVisibility := "private"
+	updateReq := models.UpdatePostRequest{
+		Title:      &newTitle,
+		Body:       &newBody,
+		Image:      &newImage,
+		Visibility: &newVisibility,
+	}
+
+	err = UpdatePost(db, post.ID, updateReq)
 	if err != nil {
 		t.Fatalf("UpdatePost failed: %v", err)
 	}
@@ -210,9 +271,15 @@ func TestPostVisibilityCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	_ = CreateUser(db, "nick", "John", "Doe", "john@doe.com", "pass", "2000-01-01", "", "", false)
-	user, _ := GetUserByEmail(db, "john@doe.com")
-	_ = CreatePost(db, user.ID, "Title", "Body", "image.png", "public")
+	user := createTestUser(db, t, "nick", "John", "Doe", "john@doe.com")
+
+	postReq := models.CreatePostRequest{
+		Title:      "Title",
+		Body:       "Body",
+		Image:      "image.png",
+		Visibility: "public",
+	}
+	_ = CreatePost(db, user.ID, postReq)
 
 	err := CreatePostVisibility(db, 1, user.ID)
 	if err != nil {
@@ -234,10 +301,16 @@ func TestNotificationCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	_ = CreateUser(db, "nick", "John", "Doe", "john@doe.com", "pass", "2000-01-01", "", "", false)
-	user, _ := GetUserByEmail(db, "john@doe.com")
+	user := createTestUser(db, t, "nick", "John", "Doe", "john@doe.com")
 
-	err := CreateNotification(db, user.ID, "test", "data")
+	notifReq := models.CreateNotificationRequest{
+		UserID:  user.ID,
+		Type:    "test",
+		NotifID: 1,
+		Data:    "data",
+	}
+
+	err := CreateNotification(db, notifReq)
 	if err != nil {
 		t.Fatalf("CreateNotification failed: %v", err)
 	}
@@ -262,11 +335,24 @@ func TestLikeDislikeCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	_ = CreateUser(db, "nick", "John", "Doe", "john@doe.com", "pass", "2000-01-01", "", "", false)
-	user, _ := GetUserByEmail(db, "john@doe.com")
-	_ = CreatePost(db, user.ID, "Title", "Body", "image.png", "public")
+	user := createTestUser(db, t, "nick", "John", "Doe", "john@doe.com")
 
-	err := CreateLikeDislike(db, user.ID, int64Ptr(1), nil, nil, nil, "like")
+	postReq := models.CreatePostRequest{
+		Title:      "Title",
+		Body:       "Body",
+		Image:      "image.png",
+		Visibility: "public",
+	}
+	_ = CreatePost(db, user.ID, postReq)
+
+	postID := int64(1)
+	reactionReq := models.CreateReactionRequest{
+		UserID: user.ID,
+		PostID: &postID,
+		Type:   "like",
+	}
+
+	err := CreateLikeDislike(db, reactionReq)
 	if err != nil {
 		t.Fatalf("CreateLikeDislike failed: %v", err)
 	}
@@ -286,10 +372,15 @@ func TestGroupCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	_ = CreateUser(db, "nick", "John", "Doe", "john@doe.com", "pass", "2000-01-01", "", "", false)
-	user, _ := GetUserByEmail(db, "john@doe.com")
+	user := createTestUser(db, t, "nick", "John", "Doe", "john@doe.com")
 
-	err := CreateGroup(db, "GroupTitle", "avatar.png", "bio", user.ID)
+	groupReq := models.CreateGroupRequest{
+		Title:  "GroupTitle",
+		Avatar: "avatar.png",
+		Bio:    "bio",
+	}
+
+	err := CreateGroup(db, groupReq, user.ID)
 	if err != nil {
 		t.Fatalf("CreateGroup failed: %v", err)
 	}
@@ -299,7 +390,16 @@ func TestGroupCRUD(t *testing.T) {
 		t.Fatalf("GetGroupByID failed: %v", err)
 	}
 
-	err = UpdateGroup(db, group.ID, "NewTitle", "newavatar.png", "newbio")
+	newTitle := "NewTitle"
+	newAvatar := "newavatar.png"
+	newBio := "newbio"
+	updateReq := models.UpdateGroupRequest{
+		Title:  &newTitle,
+		Avatar: &newAvatar,
+		Bio:    &newBio,
+	}
+
+	err = UpdateGroup(db, group.ID, updateReq)
 	if err != nil {
 		t.Fatalf("UpdateGroup failed: %v", err)
 	}
@@ -314,9 +414,13 @@ func TestGroupMemberCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	_ = CreateUser(db, "nick", "John", "Doe", "john@doe.com", "pass", "2000-01-01", "", "", false)
-	user, _ := GetUserByEmail(db, "john@doe.com")
-	_ = CreateGroup(db, "GroupTitle", "avatar.png", "bio", user.ID)
+	user := createTestUser(db, t, "nick", "John", "Doe", "john@doe.com")
+	groupReq := models.CreateGroupRequest{
+		Title:  "GroupTitle",
+		Avatar: "avatar.png",
+		Bio:    "bio",
+	}
+	_ = CreateGroup(db, groupReq, user.ID)
 
 	err := CreateGroupMember(db, 1, user.ID, "member", "pending", nil)
 	if err != nil {
@@ -343,11 +447,22 @@ func TestGroupPostCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	_ = CreateUser(db, "nick", "John", "Doe", "john@doe.com", "pass", "2000-01-01", "", "", false)
-	user, _ := GetUserByEmail(db, "john@doe.com")
-	_ = CreateGroup(db, "GroupTitle", "avatar.png", "bio", user.ID)
+	user := createTestUser(db, t, "nick", "John", "Doe", "john@doe.com")
+	groupReq := models.CreateGroupRequest{
+		Title:  "GroupTitle",
+		Avatar: "avatar.png",
+		Bio:    "bio",
+	}
+	_ = CreateGroup(db, groupReq, user.ID)
 
-	err := CreateGroupPost(db, 1, user.ID, "Title", "Body", "image.png")
+	postReq := models.CreateGroupPostRequest{
+		GroupID: 1,
+		Title:   "Title",
+		Body:    "Body",
+		Image:   "image.png",
+	}
+
+	err := CreateGroupPost(db, postReq, user.ID)
 	if err != nil {
 		t.Fatalf("CreateGroupPost failed: %v", err)
 	}
@@ -357,7 +472,16 @@ func TestGroupPostCRUD(t *testing.T) {
 		t.Fatalf("GetGroupPostByID failed: %v", err)
 	}
 
-	err = UpdateGroupPost(db, gp.ID, "NewTitle", "NewBody", "newimage.png")
+	newTitle := "NewTitle"
+	newBody := "NewBody"
+	newImage := "newimage.png"
+	updateReq := models.UpdateGroupPostRequest{
+		Title: &newTitle,
+		Body:  &newBody,
+		Image: &newImage,
+	}
+
+	err = UpdateGroupPost(db, gp.ID, updateReq)
 	if err != nil {
 		t.Fatalf("UpdateGroupPost failed: %v", err)
 	}
@@ -372,9 +496,13 @@ func TestGroupRequestCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	_ = CreateUser(db, "nick", "John", "Doe", "john@doe.com", "pass", "2000-01-01", "", "", false)
-	user, _ := GetUserByEmail(db, "john@doe.com")
-	_ = CreateGroup(db, "GroupTitle", "avatar.png", "bio", user.ID)
+	user := createTestUser(db, t, "nick", "John", "Doe", "john@doe.com")
+	groupReq := models.CreateGroupRequest{
+		Title:  "GroupTitle",
+		Avatar: "avatar.png",
+		Bio:    "bio",
+	}
+	_ = CreateGroup(db, groupReq, user.ID)
 
 	err := CreateGroupRequest(db, 1, user.ID, "pending")
 	if err != nil {
@@ -401,9 +529,13 @@ func TestGroupMessageCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	_ = CreateUser(db, "nick", "John", "Doe", "john@doe.com", "pass", "2000-01-01", "", "", false)
-	user, _ := GetUserByEmail(db, "john@doe.com")
-	_ = CreateGroup(db, "GroupTitle", "avatar.png", "bio", user.ID)
+	user := createTestUser(db, t, "nick", "John", "Doe", "john@doe.com")
+	groupReq := models.CreateGroupRequest{
+		Title:  "GroupTitle",
+		Avatar: "avatar.png",
+		Bio:    "bio",
+	}
+	_ = CreateGroup(db, groupReq, user.ID)
 
 	err := CreateGroupMessage(db, 1, user.ID, "Hello group!")
 	if err != nil {
@@ -425,10 +557,8 @@ func TestPrivateMessageCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	_ = CreateUser(db, "nick", "John", "Doe", "john@doe.com", "pass", "2000-01-01", "", "", false)
-	_ = CreateUser(db, "nick2", "Jane", "Smith", "jane@smith.com", "pass", "2000-01-01", "", "", false)
-	sender, _ := GetUserByEmail(db, "john@doe.com")
-	receiver, _ := GetUserByEmail(db, "jane@smith.com")
+	sender := createTestUser(db, t, "nick", "John", "Doe", "john@doe.com")
+	receiver := createTestUser(db, t, "nick2", "Jane", "Smith", "jane@smith.com")
 
 	err := CreatePrivateMessage(db, sender.ID, receiver.ID, "Hello Jane!")
 	if err != nil {
@@ -450,10 +580,8 @@ func TestFollowRequestCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	_ = CreateUser(db, "nick", "John", "Doe", "john@doe.com", "pass", "2000-01-01", "", "", false)
-	_ = CreateUser(db, "nick2", "Jane", "Smith", "jane@smith.com", "pass", "2000-01-01", "", "", false)
-	requester, _ := GetUserByEmail(db, "john@doe.com")
-	target, _ := GetUserByEmail(db, "jane@smith.com")
+	requester := createTestUser(db, t, "nick", "John", "Doe", "john@doe.com")
+	target := createTestUser(db, t, "nick2", "Jane", "Smith", "jane@smith.com")
 
 	err := CreateFollowRequest(db, requester.ID, target.ID, "pending")
 	if err != nil {
@@ -498,10 +626,15 @@ func TestEventRSVPCRUD(t *testing.T) {
 		t.Fatalf("failed to insert group_event: %v", err)
 	}
 
-	_ = CreateUser(db, "nick", "John", "Doe", "john@doe.com", "pass", "2000-01-01", "", "", false)
-	user, _ := GetUserByEmail(db, "john@doe.com")
+	user := createTestUser(db, t, "nick", "John", "Doe", "john@doe.com")
 
-	err = CreateEventRSVP(db, 1, user.ID, "come")
+	rsvpReq := models.RSVPToEventRequest{
+		EventID: 1,
+		UserID:  user.ID,
+		Status:  "come",
+	}
+
+	err = CreateEventRSVP(db, rsvpReq)
 	if err != nil {
 		t.Fatalf("CreateEventRSVP failed: %v", err)
 	}
@@ -526,12 +659,29 @@ func TestGroupCommentCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	_ = CreateUser(db, "nick", "John", "Doe", "john@doe.com", "pass", "2000-01-01", "", "", false)
-	user, _ := GetUserByEmail(db, "john@doe.com")
-	_ = CreateGroup(db, "GroupTitle", "avatar.png", "bio", user.ID)
-	_ = CreateGroupPost(db, 1, user.ID, "Title", "Body", "image.png")
+	user := createTestUser(db, t, "nick", "John", "Doe", "john@doe.com")
+	groupReq := models.CreateGroupRequest{
+		Title:  "GroupTitle",
+		Avatar: "avatar.png",
+		Bio:    "bio",
+	}
+	_ = CreateGroup(db, groupReq, user.ID)
 
-	err := CreateGroupComment(db, 1, user.ID, "Comment body", "img.png")
+	postReq := models.CreateGroupPostRequest{
+		GroupID: 1,
+		Title:   "Title",
+		Body:    "Body",
+		Image:   "image.png",
+	}
+	_ = CreateGroupPost(db, postReq, user.ID)
+
+	commentReq := models.CreateGroupCommentRequest{
+		GroupPostID: 1,
+		Body:        "Comment body",
+		Image:       "img.png",
+	}
+
+	err := CreateGroupComment(db, commentReq, user.ID)
 	if err != nil {
 		t.Fatalf("CreateGroupComment failed: %v", err)
 	}
@@ -541,7 +691,14 @@ func TestGroupCommentCRUD(t *testing.T) {
 		t.Fatalf("GetGroupCommentByID failed: %v", err)
 	}
 
-	err = UpdateGroupComment(db, gc.ID, "Updated comment", "img2.png")
+	newBody := "Updated comment"
+	newImage := "img2.png"
+	updateReq := models.UpdateGroupCommentRequest{
+		Body:  &newBody,
+		Image: &newImage,
+	}
+
+	err = UpdateGroupComment(db, gc.ID, updateReq)
 	if err != nil {
 		t.Fatalf("UpdateGroupComment failed: %v", err)
 	}
@@ -550,9 +707,4 @@ func TestGroupCommentCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DeleteGroupComment failed: %v", err)
 	}
-}
-
-// Helper for pointer to int64
-func int64Ptr(i int64) *int64 {
-	return &i
 }
