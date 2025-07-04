@@ -11,8 +11,18 @@ type Post struct {
 	UpdatedAt  string `json:"updated_at,omitempty"`
 }
 
-type PostVisibility struct {
-	ID     int64 `json:"id"`
-	PostID int64 `json:"post_id"`
-	UserID int64 `json:"user_id"`
+// Create request (client → server)
+type CreatePostRequest struct {
+	Title      string `json:"title"`
+	Body       string `json:"body"`
+	Image      string `json:"image,omitempty"`
+	Visibility string `json:"visibility"`
+}
+
+// Update request (client → server)
+type UpdatePostRequest struct {
+	Title      *string `json:"title,omitempty"`
+	Body       *string `json:"body,omitempty"`
+	Image      *string `json:"image,omitempty"`
+	Visibility *string `json:"visibility,omitempty"`
 }

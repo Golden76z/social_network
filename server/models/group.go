@@ -1,6 +1,21 @@
 package models
 
-type Group struct {
+// ===== GROUP =====
+
+type CreateGroupRequest struct {
+	Title  string `json:"title"`
+	Avatar string `json:"avatar,omitempty"`
+	Bio    string `json:"bio,omitempty"`
+}
+
+type UpdateGroupRequest struct {
+	ID     int64   `json:"id"`
+	Title  *string `json:"title,omitempty"`
+	Avatar *string `json:"avatar,omitempty"`
+	Bio    *string `json:"bio,omitempty"`
+}
+
+type GroupResponse struct {
 	ID        int64  `json:"id"`
 	Title     string `json:"title"`
 	Avatar    string `json:"avatar,omitempty"`
@@ -10,76 +25,70 @@ type Group struct {
 	UpdatedAt string `json:"updated_at,omitempty"`
 }
 
-type GroupInvitation struct {
-	ID            int64  `json:"id"`
-	GroupID       int64  `json:"group_id"`
-	InvitedUserID int64  `json:"invited_user_id"`
-	InvitedBy     int64  `json:"invited_by"`
-	Status        string `json:"status"`
-	CreatedAt     string `json:"created_at"`
+// ===== GROUP POST =====
+
+type CreateGroupPostRequest struct {
+	GroupID int64  `json:"group_id"`
+	Title   string `json:"title"`
+	Body    string `json:"body"`
+	Image   string `json:"image,omitempty"`
 }
 
-type GroupRequest struct {
-	ID        int64  `json:"id"`
-	GroupID   int64  `json:"group_id"`
-	UserID    int64  `json:"user_id"`
-	Status    string `json:"status"`
-	CreatedAt string `json:"created_at"`
+type UpdateGroupPostRequest struct {
+	ID    int64   `json:"id"`
+	Title *string `json:"title,omitempty"`
+	Body  *string `json:"body,omitempty"`
+	Image *string `json:"image,omitempty"`
 }
 
-type GroupMember struct {
-	ID        int64  `json:"id"`
-	GroupID   int64  `json:"group_id"`
-	UserID    int64  `json:"user_id"`
-	Role      string `json:"role"`
-	Status    string `json:"status"`
-	InvitedBy *int64 `json:"invited_by,omitempty"`
-	CreatedAt string `json:"created_at"`
-}
+// ===== GROUP COMMENT =====
 
-type GroupPost struct {
-	ID        int64  `json:"id"`
-	GroupID   int64  `json:"group_id"`
-	UserID    int64  `json:"user_id"`
-	Title     string `json:"title"`
-	Body      string `json:"body"`
-	Image     string `json:"image,omitempty"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at,omitempty"`
-}
-
-type GroupComment struct {
-	ID          int64  `json:"id"`
+type CreateGroupCommentRequest struct {
 	GroupPostID int64  `json:"group_post_id"`
-	UserID      int64  `json:"user_id"`
 	Body        string `json:"body"`
 	Image       string `json:"image,omitempty"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at,omitempty"`
 }
 
-type GroupMessage struct {
-	ID        int64  `json:"id"`
-	GroupID   int64  `json:"group_id"`
-	SenderID  int64  `json:"sender_id"`
-	Body      string `json:"body"`
-	CreatedAt string `json:"created_at"`
+type UpdateGroupCommentRequest struct {
+	ID    int64   `json:"id"`
+	Body  *string `json:"body,omitempty"`
+	Image *string `json:"image,omitempty"`
 }
 
-type GroupEvent struct {
-	ID            int64  `json:"id"`
+// ===== GROUP EVENT =====
+
+type CreateGroupEventRequest struct {
 	GroupID       int64  `json:"group_id"`
-	CreatorID     int64  `json:"creator_id"`
 	Title         string `json:"title"`
 	Description   string `json:"description"`
 	EventDateTime string `json:"event_date_time"`
-	CreatedAt     string `json:"created_at"`
 }
 
-type EventRSVP struct {
-	ID        int64  `json:"id"`
-	EventID   int64  `json:"event_id"`
-	UserID    int64  `json:"user_id"`
-	Status    string `json:"status"`
-	CreatedAt string `json:"created_at"`
+type UpdateGroupEventRequest struct {
+	ID            int64   `json:"id"`
+	Title         *string `json:"title,omitempty"`
+	Description   *string `json:"description,omitempty"`
+	EventDateTime *string `json:"event_date_time,omitempty"`
+}
+
+// ===== GROUP MEMBER / INVITATION =====
+
+type InviteToGroupRequest struct {
+	GroupID   int64 `json:"group_id"`
+	UserID    int64 `json:"user_id"`
+	InvitedBy int64 `json:"invited_by"`
+}
+
+type LeaveGroupRequest struct {
+	GroupID int64 `json:"group_id"`
+	UserID  int64 `json:"user_id"`
+}
+
+// ===== RSVP =====
+
+type RSVPToEventRequest struct {
+	EventID int64 `json:"event_id"`
+	UserID  int64 `json:"user_id"`
+	// "going", "interested", "not_going"
+	Status string `json:"status"`
 }
