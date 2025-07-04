@@ -1,14 +1,21 @@
+import { Button } from "@/components/ui/button";
+
 export default function MessagesPage() {
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Messages</h1>
-      
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold mb-6">Messages</h1>
+        <Button variant="outline" className="mb-4 right-0" type="button">
+          New Conversation
+        </Button>
+      </div>
+
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Conversations List */}
         <div className="lg:col-span-1">
           <div className="p-4 border border-border rounded-lg bg-card">
             <h2 className="font-semibold mb-4">Conversations</h2>
-            
+
             <div className="space-y-2">
               <div className="p-3 rounded-lg hover:bg-accent cursor-pointer">
                 <div className="flex items-center gap-3">
@@ -24,7 +31,7 @@ export default function MessagesPage() {
                   <div className="text-xs text-muted-foreground">2m</div>
                 </div>
               </div>
-              
+
               <div className="p-3 rounded-lg hover:bg-accent cursor-pointer">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white text-sm">
@@ -42,7 +49,7 @@ export default function MessagesPage() {
             </div>
           </div>
         </div>
-        
+
         {/* Chat Area */}
         <div className="lg:col-span-2">
           <div className="p-4 border border-border rounded-lg bg-card h-96 flex items-center justify-center">
