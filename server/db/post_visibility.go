@@ -2,9 +2,14 @@ package db
 
 import (
 	"database/sql"
-
-	"github.com/Golden76z/social-network/models"
 )
+
+// PostVisibility represents a post visibility setting in the database
+type PostVisibility struct {
+	ID     int64 `json:"id"`
+	PostID int64 `json:"post_id"`
+	UserID int64 `json:"user_id"`
+}
 
 func CreatePostVisibility(db *sql.DB, postID, userID int64) error {
 	tx, err := db.Begin()
@@ -24,11 +29,11 @@ func CreatePostVisibility(db *sql.DB, postID, userID int64) error {
 	return err
 }
 
-func GetPostVisibilityByID(db *sql.DB, id int64) (*models.PostVisibility, error) {
+func GetPostVisibilityByID(db *sql.DB, id int64) (*PostVisibility, error) {
 	row := db.QueryRow(`
         SELECT id, post_id, user_id
         FROM post_visibility WHERE id = ?`, id)
-	var pv models.PostVisibility
+	var pv PostVisibility
 	err := row.Scan(&pv.ID, &pv.PostID, &pv.UserID)
 	if err != nil {
 		return nil, err

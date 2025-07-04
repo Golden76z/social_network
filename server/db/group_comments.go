@@ -6,7 +6,7 @@ import (
 	"github.com/Golden76z/social-network/models"
 )
 
-func CreateGroupComment(db *sql.DB, groupPostID, userID int64, body, image string) error {
+func CreateGroupComment(db *sql.DB, request models.CreateGroupCommentRequest, userID int64) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -20,23 +20,23 @@ func CreateGroupComment(db *sql.DB, groupPostID, userID int64, body, image strin
 	}()
 	_, err = tx.Exec(`
         INSERT INTO group_comments (group_post_id, user_id, body, image)
-        VALUES (?, ?, ?, ?)`, groupPostID, userID, body, image)
+        VALUES (?, ?, ?, ?)`, request.GroupPostID, userID, request.Body, request.Image)
 	return err
 }
 
-func GetGroupCommentByID(db *sql.DB, id int64) (*models.GroupComment, error) {
+func GetGroupCommentByID(db *sql.DB, id int64) (*models.Comment, error) {
 	row := db.QueryRow(`
-        SELECT id, group_post_id, user_id, body, image, created_at, updated_at
+        SELECT id, group_post_id, user_id, body, created_at, updated_at
         FROM group_comments WHERE id = ?`, id)
-	var gc models.GroupComment
-	err := row.Scan(&gc.ID, &gc.GroupPostID, &gc.UserID, &gc.Body, &gc.Image, &gc.CreatedAt, &gc.UpdatedAt)
+	var gc models.Comment
+	err := row.Scan(&gc.ID, &gc.PostID, &gc.UserID, &gc.Body, &gc.CreatedAt, &gc.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
 	return &gc, nil
 }
 
-func UpdateGroupComment(db *sql.DB, id int64, body, image string) error {
+func UpdateGroupComment(db *sql.DB, id int64, request models.UpdateGroupCommentRequest) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -48,9 +48,25 @@ func UpdateGroupComment(db *sql.DB, id int64, body, image string) error {
 			_ = tx.Commit()
 		}
 	}()
-	_, err = tx.Exec(`
-        UPDATE group_comments SET body = ?, image = ?, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?`, body, image, id)
+
+	// Build dynamic update query
+	query := "UPDATE group_comments SET updated_at = CURRENT_TIMESTAMP"
+	args := []interface{}{}
+
+	if request.Body != nil {
+		query += ", body = ?"
+		args = append(args, *request.Body)
+	}
+
+	if request.Image != nil {
+		query += ", image = ?"
+		args = append(args, *request.Image)
+	}
+
+	query += " WHERE id = ?"
+	args = append(args, id)
+
+	_, err = tx.Exec(query, args...)
 	return err
 }
 

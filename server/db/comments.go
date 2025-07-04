@@ -2,11 +2,12 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/Golden76z/social-network/models"
 )
 
-func CreateComment(db *sql.DB, postID, userID int64, body string) error {
+func CreateComment(db *sql.DB, req models.CreateCommentRequest) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -21,7 +22,7 @@ func CreateComment(db *sql.DB, postID, userID int64, body string) error {
 	_, err = tx.Exec(`
         INSERT INTO comments (post_id, user_id, body)
         VALUES (?, ?, ?)`,
-		postID, userID, body)
+		req.PostID, req.UserID, req.Body)
 	return err
 }
 
@@ -37,7 +38,7 @@ func GetCommentByID(db *sql.DB, commentID int64) (*models.Comment, error) {
 	return &comment, nil
 }
 
-func UpdateComment(db *sql.DB, commentID int64, body string) error {
+func UpdateComment(db *sql.DB, commentID int64, req models.UpdateCommentRequest) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -49,10 +50,15 @@ func UpdateComment(db *sql.DB, commentID int64, body string) error {
 			_ = tx.Commit()
 		}
 	}()
+
+	if req.Body == nil {
+		return fmt.Errorf("no fields to update")
+	}
+
 	_, err = tx.Exec(`
         UPDATE comments SET body = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?`,
-		body, commentID)
+		*req.Body, commentID)
 	return err
 }
 
