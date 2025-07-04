@@ -2,9 +2,16 @@ package db
 
 import (
 	"database/sql"
-
-	"github.com/Golden76z/social-network/models"
 )
+
+// GroupMessage represents a group message in the database
+type GroupMessage struct {
+	ID        int64  `json:"id"`
+	GroupID   int64  `json:"group_id"`
+	SenderID  int64  `json:"sender_id"`
+	Body      string `json:"body"`
+	CreatedAt string `json:"created_at"`
+}
 
 func CreateGroupMessage(db *sql.DB, groupID, senderID int64, body string) error {
 	tx, err := db.Begin()
@@ -24,11 +31,11 @@ func CreateGroupMessage(db *sql.DB, groupID, senderID int64, body string) error 
 	return err
 }
 
-func GetGroupMessageByID(db *sql.DB, id int64) (*models.GroupMessage, error) {
+func GetGroupMessageByID(db *sql.DB, id int64) (*GroupMessage, error) {
 	row := db.QueryRow(`
         SELECT id, group_id, sender_id, body, created_at
         FROM group_messages WHERE id = ?`, id)
-	var gm models.GroupMessage
+	var gm GroupMessage
 	err := row.Scan(&gm.ID, &gm.GroupID, &gm.SenderID, &gm.Body, &gm.CreatedAt)
 	if err != nil {
 		return nil, err

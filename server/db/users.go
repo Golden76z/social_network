@@ -3,11 +3,12 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/Golden76z/social-network/models"
 )
 
-func CreateUser(db *sql.DB, nickname, firstName, lastName, email, password, dateOfBirth, avatar, bio string, isPrivate bool) error {
+func CreateUser(db *sql.DB, req models.User) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -23,7 +24,7 @@ func CreateUser(db *sql.DB, nickname, firstName, lastName, email, password, date
 	_, err = tx.Exec(`
         INSERT INTO users (nickname, first_name, last_name, email, password, date_of_birth, avatar, bio, is_private)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		nickname, firstName, lastName, email, password, dateOfBirth, avatar, bio, isPrivate)
+		req.Nickname, req.FirstName, req.LastName, req.Email, req.Password, req.DateOfBirth, req.Avatar, req.Bio, req.IsPrivate)
 	return err
 }
 
@@ -74,7 +75,7 @@ func GetUserIDByUsername(db *sql.DB, identifier string) (int64, error) {
 	return userID, nil
 }
 
-func UpdateUser(db *sql.DB, user *models.User) error {
+func UpdateUser(db *sql.DB, userID int64, req models.UpdateUserProfileRequest) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -86,18 +87,51 @@ func UpdateUser(db *sql.DB, user *models.User) error {
 			_ = tx.Commit()
 		}
 	}()
-	_, err = tx.Exec(`
-        UPDATE users SET
-            nickname = ?,
-            first_name = ?,
-            last_name = ?,
-            email = ?,
-            date_of_birth = ?,
-            avatar = ?,
-            bio = ?,
-            is_private = ?
-        WHERE id = ?`,
-		user.Nickname, user.FirstName, user.LastName, user.Email, user.DateOfBirth, user.Avatar, user.Bio, user.IsPrivate, user.ID)
+
+	var setParts []string
+	var args []interface{}
+
+	if req.Nickname != nil {
+		setParts = append(setParts, "nickname = ?")
+		args = append(args, *req.Nickname)
+	}
+	if req.FirstName != nil {
+		setParts = append(setParts, "first_name = ?")
+		args = append(args, *req.FirstName)
+	}
+	if req.LastName != nil {
+		setParts = append(setParts, "last_name = ?")
+		args = append(args, *req.LastName)
+	}
+	if req.Email != nil {
+		setParts = append(setParts, "email = ?")
+		args = append(args, *req.Email)
+	}
+	if req.DateOfBirth != nil {
+		setParts = append(setParts, "date_of_birth = ?")
+		args = append(args, *req.DateOfBirth)
+	}
+	if req.Avatar != nil {
+		setParts = append(setParts, "avatar = ?")
+		args = append(args, *req.Avatar)
+	}
+	if req.Bio != nil {
+		setParts = append(setParts, "bio = ?")
+		args = append(args, *req.Bio)
+	}
+	if req.IsPrivate != nil {
+		setParts = append(setParts, "is_private = ?")
+		args = append(args, *req.IsPrivate)
+	}
+
+	if len(setParts) == 0 {
+		return fmt.Errorf("no fields to update")
+	}
+
+	query := fmt.Sprintf("UPDATE users SET %s WHERE id = ?", strings.Join(setParts, ", "))
+	args = append(args, userID)
+
+	_, err = tx.Exec(query, args...)
 	return err
 }
 
