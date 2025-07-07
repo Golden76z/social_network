@@ -15,6 +15,10 @@ type UpdateGroupRequest struct {
 	Bio    *string `json:"bio,omitempty"`
 }
 
+type DeleteGroupRequest struct {
+	ID int64 `json:"id"`
+}
+
 type GroupResponse struct {
 	ID        int64  `json:"id"`
 	Title     string `json:"title"`
@@ -41,6 +45,10 @@ type UpdateGroupPostRequest struct {
 	Image *string `json:"image,omitempty"`
 }
 
+type DeleteGroupPostRequest struct {
+	ID int64 `json:"id"`
+}
+
 // ===== GROUP COMMENT =====
 
 type CreateGroupCommentRequest struct {
@@ -53,6 +61,10 @@ type UpdateGroupCommentRequest struct {
 	ID    int64   `json:"id"`
 	Body  *string `json:"body,omitempty"`
 	Image *string `json:"image,omitempty"`
+}
+
+type DeleteGroupCommentRequest struct {
+	ID int64 `json:"id"`
 }
 
 // ===== GROUP EVENT =====
@@ -71,6 +83,10 @@ type UpdateGroupEventRequest struct {
 	EventDateTime *string `json:"event_date_time,omitempty"`
 }
 
+type DeleteGroupEventRequest struct {
+	ID int64 `json:"id"`
+}
+
 // ===== GROUP MEMBER / INVITATION =====
 
 type InviteToGroupRequest struct {
@@ -87,8 +103,12 @@ type LeaveGroupRequest struct {
 // ===== RSVP =====
 
 type RSVPToEventRequest struct {
+	EventID int64  `json:"event_id"`
+	UserID  int64  `json:"user_id"`
+	Status  string `json:"status"` // "going", "interested", "not_going"
+}
+
+type CancelRSVPRequest struct {
 	EventID int64 `json:"event_id"`
 	UserID  int64 `json:"user_id"`
-	// "going", "interested", "not_going"
-	Status string `json:"status"`
 }

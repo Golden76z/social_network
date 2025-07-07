@@ -11,8 +11,10 @@ type CreateNotificationRequest struct {
 }
 
 type UpdateNotificationRequest struct {
-	ID     int64 `json:"id"`
-	IsRead bool  `json:"is_read"`
+	ID         int64  `json:"id"`
+	Type       string `json:"type"`
+	ExternalID string `json:"external_id,omitempty"`
+	IsRead     bool   `json:"is_read"`
 }
 
 type NotificationResponse struct {
