@@ -76,7 +76,7 @@ export default function GroupsPage() {
         {/* Empty state when no groups */}
         <div className="text-center py-12 text-muted-foreground">
           <div className="text-4xl mb-4">👥</div>
-          <p className="mb-4">You haven't joined any groups yet</p>
+          <p className="mb-4">You haven&apos;t joined any groups yet</p>
           <button className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
             Discover Groups
           </button>
