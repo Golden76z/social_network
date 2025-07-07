@@ -26,3 +26,7 @@ type UpdatePostRequest struct {
 	Image      *string `json:"image,omitempty"`
 	Visibility *string `json:"visibility,omitempty"`
 }
+
+type DeletePostRequest struct {
+	ID int64 `json:"id"`
+}

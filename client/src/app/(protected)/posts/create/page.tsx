@@ -8,7 +8,7 @@ export default function CreatePostPage() {
           <form className="space-y-4">
             <div>
               <label htmlFor="content" className="block text-sm font-medium mb-2">
-                What's on your mind?
+                What&apos;s on your mind?
               </label>
               <textarea
                 id="content"
