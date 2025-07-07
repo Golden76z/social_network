@@ -13,6 +13,12 @@ type CreateFollowRequest struct {
 	TargetID    int64 `json:"target_id"`
 }
 
+type UpdateFollowStatusRequest struct {
+	RequesterID int64  `json:"requester_id"`
+	TargetID    int64  `json:"target_id"`
+	Status      string `json:"status"` // "accepted" or "rejected"
+}
+
 type DeleteFollowRequest struct {
 	RequesterID int64 `json:"requester_id"`
 	TargetID    int64 `json:"target_id"`
