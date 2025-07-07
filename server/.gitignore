@@ -24,5 +24,12 @@ go.work.sum
 # env file
 .env
 
-# Db
-.social_network.db
+# Database files
+*.db
+social_network.db
+app.db
+
+# Temporary seeder files
+temp_seeder
+temp_seeder.go
+seed
