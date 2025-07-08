@@ -125,7 +125,7 @@ export function RegisterForm({
                   onChange={handleChange}
                 />
               </div>
-              <div className="grid gap-3">
+              <div className="grid gap-3 mb-6">
                 <Label htmlFor="confirm-password">Confirm Password</Label>
                 <Input
                   id="confirm-password"
@@ -136,28 +136,41 @@ export function RegisterForm({
                   onChange={handleChange}
                 />
               </div>
-              <Label
-                htmlFor="terms"
-                className="flex items-center gap-2 text-sm text-muted-foreground"
-              >
-                <input
-                  type="checkbox"
-                  id="terms"
-                  name="terms"
-                  required
-                  className="h-4 w-4"
-                />
-                I agree to the Terms of Use and Privacy Policy
-              </Label>
-              <Button type="submit" className="w-full">
-                Register
-              </Button>
             </div>
+
+            <Button type="submit" className="w-full">
+              Next
+            </Button>
+
             <div className="mt-4 text-center text-sm">
               Already have an account?{" "}
               <a href="/login" className="underline underline-offset-4">
                 Login
               </a>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <div className="mt-6 mb-3 text-center text-sm text-muted-foreground">
+                Or
+              </div>
+
+              <Button
+                variant="outline"
+                className="w-full hover:bg-destructive hover:text-white"
+                type="button"
+              >
+                Login with Google
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full hover:bg-chart-3 hover:text-white"
+                type="button"
+              >
+                Login with Facebook
+              </Button>
+              <Button variant="outline" className="w-full mb-8" type="button">
+                Login with Apple
+              </Button>
             </div>
           </form>
         </CardContent>
