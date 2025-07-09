@@ -1,94 +1,151 @@
-"use client"
+'use client';
 
-import { Button } from "@/components/ui/button"
-import { useRouter, usePathname } from "next/navigation"
-import Link from "next/link"
+import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthProvider";
+import Link from "next/link";
 
 export default function Header() {
   const router = useRouter();
-  const pathname = usePathname();
-  
-  const handleLogout = () => {
-    // Clear auth cookies/tokens here
-    document.cookie = 'session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    document.cookie = 'auth-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    router.push("/login");
-  }
+  const { logout, isAuthenticated } = useAuth();
 
-  const navItems = [
-    { href: "/home", label: "Home", icon: "🏠" },
-    { href: "/profile", label: "Profile", icon: "👤" },
-    { href: "/messages", label: "Messages", icon: "💬" },
-    { href: "/notifications", label: "Notifications", icon: "🔔" },
-    { href: "/groups", label: "Groups", icon: "👥" },
-  ];
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
     <header className="w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
       <div className="container mx-auto flex items-center justify-between px-4 py-3">
-        <Link href="/home" className="font-semibold text-xl">
-          SocialNetwork
-        </Link>
-        
-        {/* Navigation */}
-        <nav className="hidden md:flex items-center space-x-1">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                pathname === item.href
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
-              }`}
-            >
-              <span className="mr-2">{item.icon}</span>
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        {/* Logo + Search */}
+        <div className="flex items-center gap-4">
+          <Link href="/" className="font-semibold text-xl">
+            Destagram
+          </Link>
 
-        {/* Right side */}
-        <div className="flex items-center gap-2">
-          <Link
-            href="/posts/create"
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 transition-colors"
-          >
-            ✏️ Post
-          </Link>
-          
-          <Link
-            href="/settings"
-            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-          >
-            ⚙️
-          </Link>
-          
-          <Button variant="outline" onClick={handleLogout} size="sm">
-            Logout
-          </Button>
+          {/* Search - hidden on small screens */}
+          <div className="hidden md:block">
+            <input
+              type="text"
+              placeholder="Search..."
+              className="px-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
         </div>
-      </div>
-      
-      {/* Mobile Navigation */}
-      <div className="md:hidden border-t border-border">
-        <div className="flex items-center justify-around py-2">
-          {navItems.slice(0, 4).map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`p-2 rounded-lg text-xs font-medium transition-colors flex flex-col items-center ${
-                pathname === item.href
-                  ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+
+        {/* Desktop menu */}
+        <div className="hidden md:flex items-center gap-3" ref={dropdownRef}>
+          {isAuthenticated ? (
+            <>
+              <Link
+                href="/posts/create"
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 transition-colors"
+              >
+                ✏️ Post
+              </Link>
+
+              <button
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="w-9 h-9 rounded-full border border-border flex items-center justify-center hover:bg-accent transition-colors"
+              >
+                👤
+              </button>
+
+              {dropdownOpen && (
+                <div className="absolute right-4 top-16 mt-1 w-40 rounded-md border border-border bg-popover shadow-md p-1 z-50">
+                  <Link
+                    href="/profile"
+                    className="block px-4 py-2 rounded-md text-sm hover:bg-accent transition-colors"
+                    onClick={() => setDropdownOpen(false)}
+                  >
+                    👤 Profile
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      logout();
+                    }}
+                    className="w-full text-left px-4 py-2 rounded-md text-sm hover:bg-accent transition-colors"
+                  >
+                    🚪 Logout
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <button
+              onClick={() => router.push("/login")}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 transition-colors"
             >
-              <span className="text-lg">{item.icon}</span>
-              <span>{item.label}</span>
-            </Link>
-          ))}
+              🔐 Sign In
+            </button>
+          )}
         </div>
+
+        {/* Mobile hamburger */}
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="md:hidden flex items-center justify-center w-9 h-9 rounded-md border border-border"
+        >
+          ☰
+        </button>
       </div>
+
+      {/* Mobile menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-t border-border px-4 py-3 space-y-2">
+          <input
+            type="text"
+            placeholder="Search..."
+            className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+
+          {isAuthenticated ? (
+            <>
+              <Link
+                href="/posts/create"
+                className="block w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 transition-colors text-center"
+              >
+                ✏️ Post
+              </Link>
+              <Link
+                href="/profile"
+                className="block w-full px-4 py-2 rounded-md text-sm hover:bg-accent transition-colors text-center"
+              >
+                👤 Profile
+              </Link>
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  logout();
+                }}
+                className="block w-full text-center px-4 py-2 rounded-md text-sm hover:bg-accent transition-colors"
+              >
+                🚪 Logout
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                router.push("/login");
+              }}
+              className="block w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 transition-colors text-center"
+            >
+              🔐 Sign In
+            </button>
+          )}
+        </div>
+      )}
     </header>
-  )
+  );
 }
