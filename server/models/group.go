@@ -8,6 +8,12 @@ type CreateGroupRequest struct {
 	Bio    string `json:"bio,omitempty"`
 }
 
+{
+	"title": "test",
+	"avatar": "url",
+	"bio":		"test",
+}
+
 type UpdateGroupRequest struct {
 	ID     int64   `json:"id"`
 	Title  *string `json:"title,omitempty"`
