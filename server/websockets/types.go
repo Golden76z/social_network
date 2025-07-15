@@ -1,7 +1,6 @@
 package websockets
 
 import (
-	"database/sql"
 	"sync"
 	"time"
 
@@ -10,23 +9,23 @@ import (
 
 // Message types for different WebSocket events
 const (
-	MessageTypeChat     = "chat"
-	MessageTypeNotify   = "notification"
-	MessageTypeUserList = "user_list"
-	MessageTypePing     = "ping"
-	MessageTypePong     = "pong"
-	MessageTypeError    = "error"
+	MessageTypeChat       = "chat"
+	MessageTypeNotify     = "notify"
+	MessageTypeUserList   = "user_list"
+	MessageTypeGroupList  = "group_list"
+	MessageTypeUserJoined = "user_joined"
+	MessageTypeUserLeft   = "user_left"
 )
 
 // Message represents a WebSocket message
 type Message struct {
 	Type      string      `json:"type"`
+	Content   string      `json:"content,omitempty"`
+	GroupID   string      `json:"group_id,omitempty"`
 	UserID    int         `json:"user_id"`
 	Username  string      `json:"username"`
-	Content   string      `json:"content,omitempty"`
-	Data      interface{} `json:"data,omitempty"`
 	Timestamp time.Time   `json:"timestamp"`
-	RoomID    string      `json:"room_id,omitempty"`
+	Data      interface{} `json:"data,omitempty"`
 }
 
 // Client represents a WebSocket client connection
@@ -37,17 +36,39 @@ type Client struct {
 	Conn     *websocket.Conn
 	Hub      *Hub
 	Send     chan Message
-	Rooms    map[string]bool // Track which rooms the client is in
-	mu       sync.RWMutex
+	Groups   map[string]*Group
+	// For thread-safe access to Groups
+	mu sync.RWMutex
+}
+
+// Group represents a chat group/room
+type Group struct {
+	ID        string
+	Name      string
+	Members   map[string]*Client
+	Broadcast chan Message
+	CreatedAt time.Time
+	mu        sync.RWMutex
 }
 
 // Hub maintains active clients and broadcasts messages
 type Hub struct {
-	clients    map[*Client]bool
-	rooms      map[string]map[*Client]bool // room_id -> clients
-	broadcast  chan Message
+	clients    map[string]*Client
+	groups     map[string]*Group
 	register   chan *Client
 	unregister chan *Client
-	db         *sql.DB
+	broadcast  chan Message
+	joinGroup  chan *GroupJoinRequest
+	leaveGroup chan *GroupLeaveRequest
 	mu         sync.RWMutex
+}
+
+type GroupJoinRequest struct {
+	Client  *Client
+	GroupID string
+}
+
+type GroupLeaveRequest struct {
+	Client  *Client
+	GroupID string
 }

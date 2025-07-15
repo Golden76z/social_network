@@ -3,18 +3,40 @@ package websockets
 import (
 	"database/sql"
 	"log"
+	"sync"
 	"time"
+
+	"github.com/Golden76z/social-network/db"
 )
+
+var (
+	hubInstance *Hub
+	hubOnce     sync.Once
+)
+
+// InitHub initializes the global singleton hub
+func InitHub(db *sql.DB) {
+	hubOnce.Do(func() {
+		hubInstance = NewHub(db)
+		go hubInstance.Run()
+	})
+}
+
+// GetHub returns the singleton hub instance
+func GetHub() *Hub {
+	return hubInstance
+}
 
 // NewHub creates a new WebSocket hub
 func NewHub(db *sql.DB) *Hub {
 	return &Hub{
-		clients:    make(map[*Client]bool),
-		rooms:      make(map[string]map[*Client]bool),
-		broadcast:  make(chan Message),
+		clients:    make(map[string]*Client),
+		groups:     make(map[string]*Group),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
-		db:         db,
+		broadcast:  make(chan Message),
+		joinGroup:  make(chan *GroupJoinRequest),
+		leaveGroup: make(chan *GroupLeaveRequest),
 	}
 }
 
@@ -30,16 +52,22 @@ func (h *Hub) Run() {
 
 		case message := <-h.broadcast:
 			h.BroadcastMessage(message)
+
+		case joinReq := <-h.joinGroup:
+			h.JoinGroup(joinReq.Client, joinReq.GroupID)
+
+		case leaveReq := <-h.leaveGroup:
+			h.LeaveGroup(leaveReq.Client, leaveReq.GroupID)
 		}
 	}
 }
 
-// registerClient adds a new client to the hub
+// RegisterClient adds a new client to the hub
 func (h *Hub) RegisterClient(client *Client) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	h.clients[client] = true
+	h.clients[client.ID] = client
 	log.Printf("Client %s (User: %s) connected. Total clients: %d",
 		client.ID, client.Username, len(h.clients))
 
@@ -54,117 +82,113 @@ func (h *Hub) RegisterClient(client *Client) {
 	case client.Send <- welcomeMsg:
 	default:
 		close(client.Send)
-		delete(h.clients, client)
+		delete(h.clients, client.ID)
+		return
 	}
 
+	// Auto-join user to their groups
+	h.autoJoinUserGroups(client)
+
 	// Broadcast user list update
-	h.BroadcastUserList()
+	go h.BroadcastUserList()
 }
 
-// unregisterClient removes a client from the hub
+// UnregisterClient removes a client from the hub
 func (h *Hub) UnregisterClient(client *Client) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	if _, ok := h.clients[client]; ok {
-		// Remove from all rooms
-		for roomID := range client.Rooms {
-			h.LeaveRoom(client, roomID)
-		}
-
-		delete(h.clients, client)
-		close(client.Send)
-
-		log.Printf("Client %s (User: %s) disconnected. Total clients: %d",
-			client.ID, client.Username, len(h.clients))
-
-		// Broadcast user list update
-		h.BroadcastUserList()
-	}
-}
-
-// broadcastMessage sends a message to appropriate clients
-func (h *Hub) BroadcastMessage(message Message) {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-
-	// If message has a room ID, only send to clients in that room
-	if message.RoomID != "" {
-		if room, exists := h.rooms[message.RoomID]; exists {
-			for client := range room {
-				select {
-				case client.Send <- message:
-				default:
-					close(client.Send)
-					delete(h.clients, client)
-				}
-			}
-		}
+	if _, exists := h.clients[client.ID]; !exists {
 		return
 	}
 
-	// Broadcast to all clients
-	for client := range h.clients {
-		select {
-		case client.Send <- message:
-		default:
-			close(client.Send)
-			delete(h.clients, client)
+	// Remove client from all groups
+	client.mu.RLock()
+	groupIDs := make([]string, 0, len(client.Groups))
+	for groupID := range client.Groups {
+		groupIDs = append(groupIDs, groupID)
+	}
+	client.mu.RUnlock()
+
+	for _, groupID := range groupIDs {
+		h.RemoveClientFromGroup(client, groupID)
+	}
+
+	// Remove client from hub
+	delete(h.clients, client.ID)
+	close(client.Send)
+
+	log.Printf("Client %s (User: %s) disconnected. Total clients: %d",
+		client.ID, client.Username, len(h.clients))
+
+	// Broadcast user list update
+	go h.BroadcastUserList()
+}
+
+// autoJoinUserGroups automatically joins a user to their groups when they connect
+func (h *Hub) autoJoinUserGroups(client *Client) {
+	userGroups, err := db.DBService.GetUserGroups(client.UserID)
+	if err != nil {
+		log.Printf("Error fetching user groups for user %d: %v", client.UserID, err)
+		return
+	}
+
+	for _, groupID := range userGroups {
+		if err := h.JoinGroup(client, groupID); err != nil {
+			log.Printf("Error joining group %s for user %d: %v", groupID, client.UserID, err)
 		}
 	}
 }
 
-// joinRoom adds a client to a room
-func (h *Hub) JoinRoom(client *Client, roomID string) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+// // canJoinGroup checks if a user has permission to join a group
+// func (h *Hub) canJoinGroup(userID int, groupID string) bool {
+// 	query := `
+// 		SELECT COUNT(*) FROM group_members
+// 		WHERE user_id = ? AND group_id = ? AND status = 'active'
+// 	`
 
-	if h.rooms[roomID] == nil {
-		h.rooms[roomID] = make(map[*Client]bool)
+// 	var count int
+// 	err := h.db.QueryRow(query, userID, groupID).Scan(&count)
+// 	if err != nil {
+// 		log.Printf("Error checking group membership: %v", err)
+// 		return false
+// 	}
+
+// 	return count > 0
+// }
+
+// GetGroupMembers returns the list of members in a group
+func (h *Hub) GetGroupMembers(groupID string) []map[string]interface{} {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	group, exists := h.groups[groupID]
+	if !exists {
+		return nil
 	}
 
-	h.rooms[roomID][client] = true
-	client.mu.Lock()
-	client.Rooms[roomID] = true
-	client.mu.Unlock()
+	group.mu.RLock()
+	defer group.mu.RUnlock()
 
-	log.Printf("Client %s joined room %s", client.Username, roomID)
-}
-
-// leaveRoom removes a client from a room
-func (h *Hub) LeaveRoom(client *Client, roomID string) {
-	if room, exists := h.rooms[roomID]; exists {
-		delete(room, client)
-		if len(room) == 0 {
-			delete(h.rooms, roomID)
-		}
-	}
-
-	client.mu.Lock()
-	delete(client.Rooms, roomID)
-	client.mu.Unlock()
-
-	log.Printf("Client %s left room %s", client.Username, roomID)
-}
-
-// broadcastUserList sends the current user list to all clients
-func (h *Hub) BroadcastUserList() {
-	users := make([]map[string]interface{}, 0, len(h.clients))
-
-	for client := range h.clients {
-		users = append(users, map[string]interface{}{
+	members := make([]map[string]interface{}, 0, len(group.Members))
+	for _, client := range group.Members {
+		members = append(members, map[string]interface{}{
 			"id":       client.UserID,
 			"username": client.Username,
 		})
 	}
 
-	message := Message{
-		Type:      MessageTypeUserList,
-		Data:      users,
-		Timestamp: time.Now(),
-	}
+	return members
+}
 
-	go func() {
-		h.broadcast <- message
-	}()
+// GetStats returns hub statistics
+func (h *Hub) GetStats() map[string]interface{} {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	return map[string]interface{}{
+		"total_clients": len(h.clients),
+		"total_groups":  len(h.groups),
+		"timestamp":     time.Now(),
+	}
 }
