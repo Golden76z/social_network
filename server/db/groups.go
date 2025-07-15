@@ -36,6 +36,19 @@ func GetGroupByID(db *sql.DB, groupID int64) (*models.GroupResponse, error) {
 	return &g, nil
 }
 
+// getGroupName retrieves the group name from the database
+func (s *Service) GetGroupName(groupID string) error {
+	query := `SELECT name FROM groups WHERE id = ?`
+
+	var name string
+	err := s.DB.QueryRow(query, groupID).Scan(&name)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func UpdateGroup(db *sql.DB, groupID int64, request models.UpdateGroupRequest) error {
 	tx, err := db.Begin()
 	if err != nil {

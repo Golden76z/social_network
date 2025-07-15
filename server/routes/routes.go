@@ -4,20 +4,21 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/Golden76z/social-network/config"
 	"github.com/Golden76z/social-network/middleware"
 	"github.com/Golden76z/social-network/websockets"
 )
 
-func SetupRoutes(r *Router, db *sql.DB, wsHub *websockets.Hub) {
-	setupPublicRoutes(r, wsHub)
+func SetupRoutes(r *Router, db *sql.DB, wsHub *websockets.Hub, cfg *config.Config) {
+	setupPublicRoutes(r, wsHub, cfg)
 	setupProtectedRoutes(r)
 }
 
-func setupPublicRoutes(r *Router, wsHub *websockets.Hub) {
+func setupPublicRoutes(r *Router, wsHub *websockets.Hub, cfg *config.Config) {
 	// Public routes group
 	r.Group(func(r *Router) {
 		setupAuthRoutes(r)
-		setupWebSocketRoutes(r, wsHub)
+		setupWebSocketRoutes(r, wsHub, cfg)
 	})
 }
 
@@ -26,7 +27,7 @@ func setupProtectedRoutes(r *Router) {
 	r.Group(func(r *Router) {
 		// Apply auth middleware
 		r.Use(middleware.AuthMiddleware())
-		r.Use(middleware.CSRFMiddleware)
+		// r.Use(middleware.CSRFMiddleware)
 		r.Use(middleware.RateLimit(100, time.Minute))
 
 		setupUserRoutes(r)

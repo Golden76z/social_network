@@ -53,11 +53,11 @@ func GetUserByEmail(db *sql.DB, email string) (*models.User, error) {
 }
 
 // GetUserIDByIdentifier retrieves a user's ID by either nickname or email
-func GetUserIDByUsername(db *sql.DB, identifier string) (int64, error) {
+func (s *Service) GetUserIDByUsername(identifier string) (int64, error) {
 	var userID int64
 
 	// Single query that checks both nickname and email
-	err := db.QueryRow(`
+	err := s.DB.QueryRow(`
         SELECT id 
         FROM users 
         WHERE nickname = ? OR email = ? 
