@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/Golden76z/social-network/db"
 )
 
 // GenerateSecureKey creates a random 256-bit key for JWT signing (same as before)
@@ -24,22 +26,29 @@ func GenerateSecureKey() (string, error) {
 
 // JWTGeneration creates a signed JWT token (manual implementation)
 func JWTGeneration(username string, secretKey string, w http.ResponseWriter) (string, error) {
-	// 1. Define the JWT claims (payload)
+	// 1. Getting the userID with the username
+	userID, errID := db.DBService.GetUserIDByUsername(username)
+	if errID != nil {
+		return "", errID
+	}
+
+	// 2. Define the JWT claims (payload)
 	claims := map[string]any{
 		"username": username,
+		"user_id":  userID,
 		// 15min duration token
 		"exp": time.Now().Add(15 * time.Minute).Unix(),
 		"iat": time.Now().Unix(),
 		"iss": "social-network",
 	}
 
-	// 2. Encode the header (always HS256 in this case)
+	// 3. Encode the header (always HS256 in this case)
 	header := map[string]string{
 		"alg": "HS256",
 		"typ": "JWT",
 	}
 
-	// 3. Base64-encode header and claims
+	// 4. Base64-encode header and claims
 	headerJSON, err := json.Marshal(header)
 	if err != nil {
 		return "", err
@@ -52,16 +61,16 @@ func JWTGeneration(username string, secretKey string, w http.ResponseWriter) (st
 	}
 	claimsB64 := base64.RawURLEncoding.EncodeToString(claimsJSON)
 
-	// 4. Combine header + claims with a dot (.)
+	// 5. Combine header + claims with a dot (.)
 	unsignedToken := headerB64 + "." + claimsB64
 
-	// 5. Sign the token with HMAC-SHA256
+	// 6. Sign the token with HMAC-SHA256
 	h := hmac.New(sha256.New, []byte(secretKey))
 	h.Write([]byte(unsignedToken))
 	signature := h.Sum(nil)
 	signatureB64 := base64.RawURLEncoding.EncodeToString(signature)
 
-	// 6. Final JWT: header.claims.signature
+	// 7. Final JWT: header.claims.signature
 	token := unsignedToken + "." + signatureB64
 
 	return token, nil

@@ -46,6 +46,10 @@ func WebSocketHandler(hub *Hub, cfg *config.Config) http.HandlerFunc {
 			http.Error(w, "Missing token", http.StatusUnauthorized)
 			return
 		}
+
+		// Test with postman
+		// cookie := r.URL.Query().Get("jwt_token")
+		// fmt.Println("Cookie received")
 		tokenString := cookie.Value
 
 		// Decoding the token and getting the User's informations
