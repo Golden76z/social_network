@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/Golden76z/social-network/config"
+	"github.com/Golden76z/social-network/utils"
 	"net/http"
 	"strconv"
 
@@ -12,11 +14,11 @@ import (
 )
 
 // Define custom types for context keys to avoid collisions.
-type contextKey string
+//type contextKey string
 
-const (
-	userIDKey contextKey = "user_id"
-)
+//const (
+//	userIDKey contextKey = "user_id"
+//)
 
 // Handler to access User's Profile data
 func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
@@ -27,18 +29,31 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Get current user ID from context (injected by AuthMiddleware)
-	currentUserID, ok := r.Context().Value(userIDKey).(int)
-	if !ok {
-		//fmt.Println("[ERROR]:", "User ID not found in context", currentUserID)
-		//http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		//return
+	//currentUserID, ok := r.Context().Value(userIDKey).(int)
+	//if !ok {
+	//fmt.Println("[ERROR]:", "User ID not found in context", currentUserID)
+	//http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	//return
+	//}
+	token, err := r.Cookie("jwt_token")
+	if err != nil {
+		http.Error(w, "Unauthorized: Missing token", http.StatusUnauthorized)
+		return
 	}
+	key := config.GetConfig().JWTKey
+	claims, errValidation := utils.ValidateToken(token.Value, key)
+	if errValidation != nil {
+		fmt.Println("Error decoding token")
+	}
+	fmt.Println("[CLAIMS]", claims)
+
+	currentUserID := 1
 
 	// Parse optional id query parameter
 	idParam := r.URL.Query().Get("id")
 	fmt.Println("[USERID]:", currentUserID)
 	var targetUserID int64
-	var err error
+	//var err error
 
 	if idParam == "" {
 		// No id parameter, return the current user's profile
