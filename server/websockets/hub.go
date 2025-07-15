@@ -158,7 +158,7 @@ func (h *Hub) autoJoinUserGroups(client *Client) {
 // }
 
 // GetGroupMembers returns the list of members in a group
-func (h *Hub) GetGroupMembers(groupID string) []map[string]interface{} {
+func (h *Hub) GetGroupMembers(groupID string) []map[string]any {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
@@ -170,9 +170,9 @@ func (h *Hub) GetGroupMembers(groupID string) []map[string]interface{} {
 	group.mu.RLock()
 	defer group.mu.RUnlock()
 
-	members := make([]map[string]interface{}, 0, len(group.Members))
+	members := make([]map[string]any, 0, len(group.Members))
 	for _, client := range group.Members {
-		members = append(members, map[string]interface{}{
+		members = append(members, map[string]any{
 			"id":       client.UserID,
 			"username": client.Username,
 		})
@@ -182,11 +182,11 @@ func (h *Hub) GetGroupMembers(groupID string) []map[string]interface{} {
 }
 
 // GetStats returns hub statistics
-func (h *Hub) GetStats() map[string]interface{} {
+func (h *Hub) GetStats() map[string]any {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	return map[string]interface{}{
+	return map[string]any{
 		"total_clients": len(h.clients),
 		"total_groups":  len(h.groups),
 		"timestamp":     time.Now(),

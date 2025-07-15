@@ -49,7 +49,7 @@ func main() {
 
 	// Setup router and middleware
 	r := routes.New()
-	r.Use(middleware.Logger)
+	// r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.SecurityHeaders)
 	r.Use(middleware.SetupCORS())
