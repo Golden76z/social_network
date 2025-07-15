@@ -22,10 +22,11 @@ import (
 
 func main() {
 	// Load configuration
-	cfg, err := config.Load()
+	err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
+	cfg := config.GetConfig()
 
 	// Run DB migrations
 	if err := migrations.RunMigrations(cfg.DBPath, cfg.MigrationsDir); err != nil {
@@ -43,18 +44,18 @@ func main() {
 	go utils.StartSessionCleanup(dbService.DB, 1*time.Hour)
 
 	// Initialize WebSocket hub
-	wsHub := websockets.NewHub(dbService.DB)
-	go wsHub.Run()
+	websockets.InitHub(dbService.DB)
+	wsHub := websockets.GetHub()
 
 	// Setup router and middleware
 	r := routes.New()
-	r.Use(middleware.Logger)
+	// r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.SecurityHeaders)
 	r.Use(middleware.SetupCORS())
 
 	// Setup routes
-	routes.SetupRoutes(r, dbService.DB, wsHub)
+	routes.SetupRoutes(r, dbService.DB, wsHub, cfg)
 
 	// Start server
 	startServer(r, cfg)

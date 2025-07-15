@@ -35,6 +35,32 @@ func CreateGroupMember(db *sql.DB, groupID, userID int64, role, status string, i
 	return err
 }
 
+// getUserGroups retrieves the groups a user belongs to from the database
+func (s *Service) GetUserGroups(userID int) ([]string, error) {
+	query := `
+		SELECT g.id FROM groups g
+		JOIN group_members gm ON g.id = gm.group_id
+		WHERE gm.user_id = ? AND gm.status = 'active'
+	`
+
+	rows, err := s.DB.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var groups []string
+	for rows.Next() {
+		var groupID string
+		if err := rows.Scan(&groupID); err != nil {
+			return nil, err
+		}
+		groups = append(groups, groupID)
+	}
+
+	return groups, nil
+}
+
 func GetGroupMemberByID(db *sql.DB, memberID int64) (*GroupMember, error) {
 	row := db.QueryRow(`
         SELECT id, group_id, user_id, role, status, invited_by, created_at
