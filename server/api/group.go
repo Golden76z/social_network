@@ -9,16 +9,10 @@ import (
 )
 
 func CreateGroupHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("test")
-	token, err := r.Cookie("jwt_token")
-	if err != nil {
-		http.Error(w, "Unauthorized: Missing token", http.StatusUnauthorized)
+	claims, errToken := utils.TokenInformations(w, r, config.GetConfig().JWTKey)
+	if errToken != nil {
+		http.Error(w, "Error retrieving the token informations", http.StatusMethodNotAllowed)
 		return
-	}
-	key := config.GetConfig().JWTKey
-	claims, errValidation := utils.ValidateToken(token.Value, key)
-	if errValidation != nil {
-		fmt.Println("Error decoding token")
 	}
 	fmt.Println(claims)
 }
