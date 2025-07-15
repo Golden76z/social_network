@@ -15,7 +15,7 @@ func CreateGroupHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized: Missing token", http.StatusUnauthorized)
 		return
 	}
-	key := config.Config.JWTKey
+	key := config.GetConfig().JWTKey
 	claims, errValidation := utils.ValidateToken(token.Value, key)
 	if errValidation != nil {
 		fmt.Println("Error decoding token")
