@@ -9,23 +9,30 @@ import (
 
 // Message types for different WebSocket events
 const (
-	MessageTypeChat       = "chat"
-	MessageTypeNotify     = "notify"
-	MessageTypeUserList   = "user_list"
-	MessageTypeGroupList  = "group_list"
-	MessageTypeUserJoined = "user_joined"
-	MessageTypeUserLeft   = "user_left"
+	MessageTypeChat            = "chat"
+	MessageTypePing            = "ping"
+	MessageTypePong            = "pong"
+	MessageTypeError           = "error"
+	MessageTypeNotify          = "notify"
+	MessageTypeUserList        = "user_list"
+	MessageTypeGroupList       = "group_list"
+	MessageTypeUserJoined      = "user_joined"
+	MessageTypeUserLeft        = "user_left"
+	MessageTypeJoinGroup       = "join_group"
+	MessageTypeLeaveGroup      = "leave_group"
+	MessageTypeGetGroupMembers = "get_group_members"
+	MessageTypeGroupMembers    = "group_members"
 )
 
 // Message represents a WebSocket message
 type Message struct {
-	Type      string      `json:"type"`
-	Content   string      `json:"content,omitempty"`
-	GroupID   string      `json:"group_id,omitempty"`
-	UserID    int         `json:"user_id"`
-	Username  string      `json:"username"`
-	Timestamp time.Time   `json:"timestamp"`
-	Data      interface{} `json:"data,omitempty"`
+	Type      string    `json:"type"`
+	Content   string    `json:"content,omitempty"`
+	GroupID   string    `json:"group_id,omitempty"`
+	UserID    int       `json:"user_id"`
+	Username  string    `json:"username"`
+	Timestamp time.Time `json:"timestamp"`
+	Data      any       `json:"data,omitempty"`
 }
 
 // Client represents a WebSocket client connection
