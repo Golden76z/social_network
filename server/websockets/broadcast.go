@@ -48,7 +48,7 @@ func (h *Hub) broadcastToGroup(groupID string, message Message) {
 }
 
 // broadcastToUser sends a message to all connections of a specific user
-func (h *Hub) broadcastToUser(userID int, message Message) {
+func (h *Hub) BroadcastToUser(userID int, message Message) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
@@ -70,9 +70,9 @@ func (h *Hub) BroadcastUserList() {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	users := make([]map[string]interface{}, 0, len(h.clients))
+	users := make([]map[string]any, 0, len(h.clients))
 	for _, client := range h.clients {
-		users = append(users, map[string]interface{}{
+		users = append(users, map[string]any{
 			"id":       client.UserID,
 			"username": client.Username,
 		})
@@ -92,10 +92,10 @@ func (h *Hub) BroadcastGroupList(client *Client) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	groups := make([]map[string]interface{}, 0)
+	groups := make([]map[string]any, 0)
 	client.mu.RLock()
 	for groupID, group := range client.Groups {
-		groups = append(groups, map[string]interface{}{
+		groups = append(groups, map[string]any{
 			"id":           groupID,
 			"name":         group.Name,
 			"member_count": len(group.Members),

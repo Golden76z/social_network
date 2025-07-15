@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/Golden76z/social-network/config"
-	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/utils"
 	"github.com/gorilla/websocket"
 )
@@ -55,19 +54,19 @@ func (c *Client) ReadPump() {
 			}
 			c.Hub.broadcast <- msg
 
-		case "MessageTypePing":
+		case MessageTypePing:
 			// Validate session and respond with pong
 			c.handlePing(msg)
 
-		case "MessageTypeJoinGroup":
+		case MessageTypeJoinGroup:
 			// Handle join group request
 			c.handleJoinGroup(msg)
 
-		case "MessageTypeLeaveGroup":
+		case MessageTypeLeaveGroup:
 			// Handle leave group request
 			c.handleLeaveGroup(msg)
 
-		case "MessageTypeGetGroupMembers":
+		case MessageTypeGetGroupMembers:
 			// Handle get group members request
 			c.handleGetGroupMembers(msg)
 
@@ -145,8 +144,8 @@ func (c *Client) handlePing(msg Message) {
 		return
 	}
 
-	// Validate session in database
-	if !c.validateSession(int(userID)) {
+	_, errToken := utils.ValidateToken(tokenString, config.GetConfig().JWTKey)
+	if errToken != nil {
 		c.sendError("Invalid session")
 		log.Printf("Session validation failed for client %s, user %d", c.ID, int(userID))
 		go func() {
@@ -154,9 +153,6 @@ func (c *Client) handlePing(msg Message) {
 		}()
 		return
 	}
-
-	// Update last activity
-	c.updateLastActivity(int(userID))
 
 	// Send pong response
 	pongMsg := Message{
@@ -247,47 +243,6 @@ func (c *Client) handleGetGroupMembers(msg Message) {
 	}
 }
 
-// validateSession checks if the user has a valid session in the database
-func (c *Client) validateSession(userID int) bool {
-	query := `
-		SELECT id, expires_at 
-		FROM user_sessions 
-		WHERE user_id = ? AND is_active = 1 AND expires_at > NOW()
-		LIMIT 1
-	`
-
-	var sessionID string
-	var expiresAt time.Time
-
-	err := db.DBService.DB.QueryRow(query, userID).Scan(&sessionID, &expiresAt)
-	if err != nil {
-		log.Printf("Session validation query failed: %v", err)
-		return false
-	}
-
-	// Check if session is still valid
-	if time.Now().After(expiresAt) {
-		log.Printf("Session expired for user %d", userID)
-		return false
-	}
-
-	return true
-}
-
-// updateLastActivity updates the user's last activity timestamp
-func (c *Client) updateLastActivity(userID int) {
-	query := `
-		UPDATE user_sessions 
-		SET last_activity = NOW() 
-		WHERE user_id = ? AND is_active = 1
-	`
-
-	_, err := db.DBService.DB.Exec(query, userID)
-	if err != nil {
-		log.Printf("Failed to update last activity for user %d: %v", userID, err)
-	}
-}
-
 // isInGroup checks if the client is a member of the specified group
 func (c *Client) isInGroup(groupID string) bool {
 	c.mu.RLock()
@@ -316,23 +271,23 @@ func (c *Client) sendError(errorMsg string) {
 }
 
 // sendNotification sends a notification message to the client
-func (c *Client) sendNotification(content string) {
-	notifyMsg := Message{
-		Type:      MessageTypeNotify,
-		Content:   content,
-		Timestamp: time.Now(),
-	}
+// func (c *Client) sendNotification(content string) {
+// 	notifyMsg := Message{
+// 		Type:      MessageTypeNotify,
+// 		Content:   content,
+// 		Timestamp: time.Now(),
+// 	}
 
-	select {
-	case c.Send <- notifyMsg:
-	default:
-		// Send channel is full
-		log.Printf("Failed to send notification to client %s", c.ID)
-	}
-}
+// 	select {
+// 	case c.Send <- notifyMsg:
+// 	default:
+// 		// Send channel is full
+// 		log.Printf("Failed to send notification to client %s", c.ID)
+// 	}
+// }
 
 // GetClientInfo returns basic client information
-func (c *Client) GetClientInfo() map[string]interface{} {
+func (c *Client) GetClientInfo() map[string]any {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -341,7 +296,7 @@ func (c *Client) GetClientInfo() map[string]interface{} {
 		groups = append(groups, groupID)
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"id":        c.ID,
 		"user_id":   c.UserID,
 		"username":  c.Username,

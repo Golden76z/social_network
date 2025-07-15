@@ -18,7 +18,7 @@ func CookieSession(username string, w http.ResponseWriter) error {
 	}
 
 	// Get user_id with the username
-	user_id, errUserID := db.GetUserIDByUsername(db.DBService.DB, username)
+	user_id, errUserID := db.DBService.GetUserIDByUsername(username)
 	if errUserID != nil {
 		return errUserID
 	}

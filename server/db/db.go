@@ -19,7 +19,7 @@ type Service struct {
 func InitDB() (*Service, error) {
 	dbPath := os.Getenv("DB_PATH")
 	if dbPath == "" {
-		dbPath = "./app.db"
+		dbPath = "./social_network.db"
 	}
 
 	db, err := sql.Open("sqlite3", dbPath)
