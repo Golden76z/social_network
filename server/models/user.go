@@ -1,17 +1,19 @@
 package models
 
+import "database/sql"
+
 // Struct POST - User creation
 type User struct {
-	ID          int64  `json:"id"`
-	Nickname    string `json:"nickname,omitempty"`
-	FirstName   string `json:"first_name"`
-	LastName    string `json:"last_name"`
-	Email       string `json:"email"`
-	Password    string `json:"password"`
-	DateOfBirth string `json:"date_of_birth"`
-	Avatar      string `json:"avatar,omitempty"`
-	Bio         string `json:"bio,omitempty"`
-	IsPrivate   bool   `json:"is_private"`
+	ID          int64          `json:"id"`
+	Nickname    string         `json:"nickname,omitempty"`
+	FirstName   string         `json:"first_name"`
+	LastName    string         `json:"last_name"`
+	Email       string         `json:"email"`
+	Password    string         `json:"password"`
+	DateOfBirth string         `json:"date_of_birth"`
+	Avatar      sql.NullString `json:"avatar,omitempty"`
+	Bio         sql.NullString `json:"bio,omitempty"`
+	IsPrivate   bool           `json:"is_private"`
 }
 
 // Struct GET - User information retrieving (Profile page)
@@ -37,4 +39,26 @@ type UpdateUserProfileRequest struct {
 	Avatar      *string `json:"avatar,omitempty"`
 	Bio         *string `json:"bio,omitempty"`
 	IsPrivate   *bool   `json:"is_private,omitempty"`
+}
+
+// Helper methods to convert sql.NullString to string
+//func (u *User) GetNickname() string {
+//	if u.Nickname.Valid {
+//		return u.Nickname.String
+//	}
+//	return ""
+//}
+
+func (u *User) GetAvatar() string {
+	if u.Avatar.Valid {
+		return u.Avatar.String
+	}
+	return ""
+}
+
+func (u *User) GetBio() string {
+	if u.Bio.Valid {
+		return u.Bio.String
+	}
+	return ""
 }
