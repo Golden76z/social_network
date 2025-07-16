@@ -30,6 +30,7 @@ func AuthMiddleware() func(http.Handler) http.Handler {
 				http.Error(w, "Unauthorized: Missing token", http.StatusUnauthorized)
 				return
 			}
+
 			// 2. Verify JWT validity
 			utils.ValidateToken(token.Value, utils.Settings.JwtKey)
 
