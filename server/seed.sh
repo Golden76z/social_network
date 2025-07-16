@@ -284,7 +284,7 @@ func seedComments(db *sql.DB, postIDs, userIDs []int) []int {
 			comment := comments[rand.Intn(len(comments))]
 			
 			result, err := db.Exec(`
-				INSERT INTO comments (post_id, user_id, content)
+				INSERT INTO comments (post_id, user_id, body)
 				VALUES (?, ?, ?)`,
 				postID, userID, comment)
 			if err != nil {
@@ -576,7 +576,7 @@ func seedGroupComments(db *sql.DB, groupPostIDs, userIDs []int) []int {
 			comment := groupComments[rand.Intn(len(groupComments))]
 			
 			result, err := db.Exec(`
-				INSERT INTO group_comments (group_post_id, user_id, content)
+				INSERT INTO group_comments (group_post_id, user_id, body)
 				VALUES (?, ?, ?)`, postID, userID, comment)
 			if err != nil {
 				log.Printf("Warning: Could not insert group comment: %v", err)
@@ -709,7 +709,7 @@ func seedGroupMessages(db *sql.DB, groupIDs, userIDs []int) []int {
 			message := groupMessageTexts[rand.Intn(len(groupMessageTexts))]
 			
 			result, err := db.Exec(`
-				INSERT INTO group_messages (group_id, sender_id, content)
+				INSERT INTO group_messages (group_id, sender_id, body)
 				VALUES (?, ?, ?)`, groupID, senderID, message)
 			if err != nil {
 				log.Printf("Warning: Could not insert group message: %v", err)
@@ -755,7 +755,7 @@ func seedPrivateMessages(db *sql.DB, userIDs []int) []int {
 		message := privateMessageTexts[rand.Intn(len(privateMessageTexts))]
 		
 		result, err := db.Exec(`
-			INSERT INTO private_messages (sender_id, receiver_id, content)
+			INSERT INTO private_messages (sender_id, receiver_id, body)
 			VALUES (?, ?, ?)`, senderID, receiverID, message)
 		if err != nil {
 			log.Printf("Warning: Could not insert private message: %v", err)

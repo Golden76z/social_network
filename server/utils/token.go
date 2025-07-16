@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -117,5 +118,18 @@ func ValidateToken(tokenString string, secretKey string) (map[string]any, error)
 		return nil, errors.New("token expired")
 	}
 
+	return claims, nil
+}
+
+func TokenInformations(w http.ResponseWriter, r *http.Request, key string) (map[string]any, error) {
+	token, err := r.Cookie("jwt_token")
+	if err != nil {
+		http.Error(w, "Unauthorized: Missing token", http.StatusUnauthorized)
+		return nil, err
+	}
+	claims, errValidation := ValidateToken(token.Value, key)
+	if errValidation != nil {
+		fmt.Println("Error decoding token")
+	}
 	return claims, nil
 }

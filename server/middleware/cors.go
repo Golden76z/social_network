@@ -140,10 +140,10 @@ func getClientIP(r *http.Request) string {
 }
 
 func SetUserID(ctx context.Context, userID int) context.Context {
-	return context.WithValue(ctx, userIDKey, userID)
+	return context.WithValue(ctx, UserIDKey, userID)
 }
 
 func GetUserID(r *http.Request) (int, bool) {
-	userID, ok := r.Context().Value(userIDKey).(int)
+	userID, ok := r.Context().Value(UserIDKey).(int)
 	return userID, ok
 }
