@@ -41,6 +41,12 @@ type UpdateUserProfileRequest struct {
 	IsPrivate   *bool   `json:"is_private,omitempty"`
 }
 
+// Struct for update response with updated fields
+type UpdateProfileResponse struct {
+	Message       string                 `json:"message"`
+	UpdatedFields map[string]interface{} `json:"updated_fields"`
+}
+
 // Helper methods to convert sql.NullString to string
 //func (u *User) GetNickname() string {
 //	if u.Nickname.Valid {

@@ -39,8 +39,8 @@ func CookieSession(username string, w http.ResponseWriter) error {
 		Secure:   false,
 		SameSite: http.SameSiteStrictMode, // may affect how cookies are sent in cross-origin requests.
 		Path:     "/api/",
-		// 15min cookie
-		MaxAge: 15 * 60,
+		//MaxAge: 15 * 60, // 15min cookie
+		MaxAge: 12 * 60 * 60, // 12H cookie
 	})
 
 	return nil
