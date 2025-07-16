@@ -210,25 +210,6 @@ func UpdateUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//// Fetch updated profile and return it
-	//updatedProfile, err := getUserProfileFromDB(int64(currentUserID))
-	//if err != nil {
-	//	http.Error(w, "Failed to fetch updated profile", http.StatusInternalServerError)
-	//	return
-	//}
-	//
-	//response := models.UserProfileResponse{
-	//	ID:          updatedProfile.ID,
-	//	Nickname:    updatedProfile.Nickname,
-	//	FirstName:   updatedProfile.FirstName,
-	//	LastName:    updatedProfile.LastName,
-	//	Email:       updatedProfile.Email,
-	//	DateOfBirth: updatedProfile.DateOfBirth,
-	//	Avatar:      updatedProfile.GetAvatar(),
-	//	Bio:         updatedProfile.GetBio(),
-	//	IsPrivate:   updatedProfile.IsPrivate,
-	//}
-
 	// Build updated fields map for response
 	updatedFields := make(map[string]interface{})
 	if updateRequest.FirstName != nil {
