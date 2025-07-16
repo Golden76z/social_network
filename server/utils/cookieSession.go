@@ -23,6 +23,8 @@ func CookieSession(username string, w http.ResponseWriter) error {
 		return errUserID
 	}
 
+	fmt.Println("USERID", user_id)
+
 	// Creating the session in the database
 	errDbSession := db.DBService.CreateSession(int(user_id), token, 15*time.Minute)
 	if errDbSession != nil {
@@ -34,8 +36,9 @@ func CookieSession(username string, w http.ResponseWriter) error {
 		Name:     "jwt_token",
 		Value:    token,
 		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
+		Secure:   false,
+		SameSite: http.SameSiteStrictMode, // may affect how cookies are sent in cross-origin requests.
+		Path:     "/api/",
 		// 15min cookie
 		MaxAge: 15 * 60,
 	})

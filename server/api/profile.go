@@ -4,13 +4,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/Golden76z/social-network/config"
-	"github.com/Golden76z/social-network/utils"
-	"net/http"
-	"strconv"
-
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/models"
+	"strconv"
+
+	//"github.com/Golden76z/social-network/config"
+	"github.com/Golden76z/social-network/middleware"
+	//"github.com/Golden76z/social-network/utils"
+	"net/http"
 )
 
 // Define custom types for context keys to avoid collisions.
@@ -22,38 +23,32 @@ import (
 
 // Handler to access User's Profile data
 func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("[REQUEST]:", r.URL.Path)
+	fmt.Println("[PROFILE] GetUserProfileHandler")
 	// Only GET method allowed
 	if r.Method != http.MethodGet {
 		http.Error(w, "Only GET method allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
 	// Get current user ID from context (injected by AuthMiddleware)
-	//currentUserID, ok := r.Context().Value(userIDKey).(int)
-	//if !ok {
-	//fmt.Println("[ERROR]:", "User ID not found in context", currentUserID)
-	//http.Error(w, "Unauthorized", http.StatusUnauthorized)
-	//return
-	//}
-	token, err := r.Cookie("jwt_token")
-	if err != nil {
-		http.Error(w, "Unauthorized: Missing token", http.StatusUnauthorized)
+	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
+	fmt.Println("[PROFILE] Current User ID:", currentUserID)
+
+	if !ok {
+		fmt.Println("[ERROR]:", "User ID not found in context")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	key := config.GetConfig().JWTKey
-	claims, errValidation := utils.ValidateToken(token.Value, key)
-	if errValidation != nil {
-		fmt.Println("Error decoding token")
-	}
-	fmt.Println("[CLAIMS]", claims)
 
-	currentUserID := 1
+	fmt.Println("[PROFILE] Current User ID from context:", currentUserID)
+
+	//currentUserID := 1
 
 	// Parse optional id query parameter
 	idParam := r.URL.Query().Get("id")
 	fmt.Println("[USERID]:", currentUserID)
 	var targetUserID int64
-	//var err error
+	var err error
 
 	if idParam == "" {
 		// No id parameter, return the current user's profile
@@ -120,6 +115,7 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 	fmt.Println("[RESPONSE]:", response)
+
 }
 
 // Helper function to fetch user profile from database
@@ -128,7 +124,7 @@ func getUserProfileFromDB(userID int64) (*models.User, error) {
 
 	query := `
 		SELECT id, nickname, first_name, last_name, email, date_of_birth, avatar, bio, is_private
-		FROM users 
+		FROM users
 		WHERE id = ?
 	`
 
