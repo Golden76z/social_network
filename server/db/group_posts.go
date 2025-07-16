@@ -6,8 +6,8 @@ import (
 	"github.com/Golden76z/social-network/models"
 )
 
-func CreateGroupPost(db *sql.DB, request models.CreateGroupPostRequest, userID int64) error {
-	tx, err := db.Begin()
+func (s *Service) CreateGroupPost(request models.CreateGroupPostRequest, userID int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}

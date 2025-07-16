@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/Golden76z/social-network/config"
 	"github.com/Golden76z/social-network/db"
@@ -57,36 +56,29 @@ func CreateGroupHandler(w http.ResponseWriter, r *http.Request) {
 
 // Handler to get a group by ID
 func GetGroupHandler(w http.ResponseWriter, r *http.Request) {
-	// Retrieving user's informations via the JWT stored in the cookie
+	// Check JWT
 	_, errToken := utils.TokenInformations(w, r, config.GetConfig().JWTKey)
 	if errToken != nil {
-		http.Error(w, "Error retrieving the token informations", http.StatusUnauthorized)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	// Extract group ID from URL path
-	// Assuming URL pattern like /groups/{id}
-	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 3 {
-		http.Error(w, "Invalid URL format", http.StatusBadRequest)
-		return
-	}
-
-	groupIDStr := pathParts[len(pathParts)-1]
-	groupID, err := strconv.ParseInt(groupIDStr, 10, 64)
-	if err != nil {
+	// Extract the group ID from the query string
+	idParam := r.URL.Query().Get("id")
+	groupID, err := strconv.Atoi(idParam)
+	if err != nil || groupID <= 0 {
 		http.Error(w, "Invalid group ID", http.StatusBadRequest)
 		return
 	}
 
-	// Get group from database
-	group, errDB := db.DBService.GetGroupByID(groupID)
-	if errDB != nil {
+	// Query DB
+	group, err := db.DBService.GetGroupByID(int64(groupID))
+	if err != nil {
 		http.Error(w, "Group not found", http.StatusNotFound)
 		return
 	}
 
-	// Send response
+	// Return result
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(group)

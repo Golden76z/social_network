@@ -462,7 +462,7 @@ func TestGroupPostCRUD(t *testing.T) {
 		Image:   "image.png",
 	}
 
-	err := CreateGroupPost(db, postReq, user.ID)
+	err := DBService.CreateGroupPost(postReq, user.ID)
 	if err != nil {
 		t.Fatalf("CreateGroupPost failed: %v", err)
 	}
@@ -673,7 +673,7 @@ func TestGroupCommentCRUD(t *testing.T) {
 		Body:    "Body",
 		Image:   "image.png",
 	}
-	_ = CreateGroupPost(db, postReq, user.ID)
+	_ = DBService.CreateGroupPost(postReq, user.ID)
 
 	commentReq := models.CreateGroupCommentRequest{
 		GroupPostID: 1,
