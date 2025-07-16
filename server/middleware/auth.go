@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -14,12 +15,13 @@ import (
 type contextKey string
 
 const (
-	userIDKey   contextKey = "user_id"
-	usernameKey contextKey = "username"
+	UserIDKey   contextKey = "user_id"
+	UsernameKey contextKey = "username"
 )
 
 // AuthMiddleware validates the session and attaches userID + username to the context.
 func AuthMiddleware() func(http.Handler) http.Handler {
+	fmt.Println("[AuthMiddleware]")
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// 1. Check session cookie
@@ -40,6 +42,9 @@ func AuthMiddleware() func(http.Handler) http.Handler {
 				time.Now(),
 			).Scan(&userID)
 
+			// Add this line to see what the DB actually returns
+			//fmt.Println("[AUTH] Database returned userID:", userID)
+
 			if err != nil {
 				if err == sql.ErrNoRows {
 					http.Error(w, "Invalid session", http.StatusUnauthorized)
@@ -51,8 +56,12 @@ func AuthMiddleware() func(http.Handler) http.Handler {
 
 			// 4. Attach user data to context using custom keys
 			ctx := r.Context()
-			ctx = context.WithValue(ctx, userIDKey, userID)
-			// ctx = context.WithValue(ctx, usernameKey, username)
+			ctx = context.WithValue(ctx, UserIDKey, userID)
+			// ctx = context.WithValue(ctx, UsernameKey, username)
+
+			// Debug prints
+			//fmt.Println("[AUTH] Setting userID in context:", userID)
+			//fmt.Println("[AUTH] Context value:", ctx.Value(UserIDKey))
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
