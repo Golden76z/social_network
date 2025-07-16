@@ -380,12 +380,12 @@ func TestGroupCRUD(t *testing.T) {
 		Bio:    "bio",
 	}
 
-	err := CreateGroup(db, groupReq, user.ID)
+	err := DBService.CreateGroup(groupReq, user.ID)
 	if err != nil {
 		t.Fatalf("CreateGroup failed: %v", err)
 	}
 
-	group, err := GetGroupByID(db, 1)
+	group, err := DBService.GetGroupByID(1)
 	if err != nil || group.Title != "GroupTitle" {
 		t.Fatalf("GetGroupByID failed: %v", err)
 	}
@@ -399,12 +399,12 @@ func TestGroupCRUD(t *testing.T) {
 		Bio:    &newBio,
 	}
 
-	err = UpdateGroup(db, group.ID, updateReq)
+	err = DBService.UpdateGroup(group.ID, updateReq)
 	if err != nil {
 		t.Fatalf("UpdateGroup failed: %v", err)
 	}
 
-	err = DeleteGroup(db, group.ID)
+	err = DBService.DeleteGroup(group.ID)
 	if err != nil {
 		t.Fatalf("DeleteGroup failed: %v", err)
 	}
@@ -420,7 +420,7 @@ func TestGroupMemberCRUD(t *testing.T) {
 		Avatar: "avatar.png",
 		Bio:    "bio",
 	}
-	_ = CreateGroup(db, groupReq, user.ID)
+	_ = DBService.CreateGroup(groupReq, user.ID)
 
 	err := CreateGroupMember(db, 1, user.ID, "member", "pending", nil)
 	if err != nil {
@@ -453,7 +453,7 @@ func TestGroupPostCRUD(t *testing.T) {
 		Avatar: "avatar.png",
 		Bio:    "bio",
 	}
-	_ = CreateGroup(db, groupReq, user.ID)
+	_ = DBService.CreateGroup(groupReq, user.ID)
 
 	postReq := models.CreateGroupPostRequest{
 		GroupID: 1,
@@ -462,7 +462,7 @@ func TestGroupPostCRUD(t *testing.T) {
 		Image:   "image.png",
 	}
 
-	err := CreateGroupPost(db, postReq, user.ID)
+	err := DBService.CreateGroupPost(postReq, user.ID)
 	if err != nil {
 		t.Fatalf("CreateGroupPost failed: %v", err)
 	}
@@ -502,7 +502,7 @@ func TestGroupRequestCRUD(t *testing.T) {
 		Avatar: "avatar.png",
 		Bio:    "bio",
 	}
-	_ = CreateGroup(db, groupReq, user.ID)
+	_ = DBService.CreateGroup(groupReq, user.ID)
 
 	err := CreateGroupRequest(db, 1, user.ID, "pending")
 	if err != nil {
@@ -535,7 +535,7 @@ func TestGroupMessageCRUD(t *testing.T) {
 		Avatar: "avatar.png",
 		Bio:    "bio",
 	}
-	_ = CreateGroup(db, groupReq, user.ID)
+	_ = DBService.CreateGroup(groupReq, user.ID)
 
 	err := CreateGroupMessage(db, 1, user.ID, "Hello group!")
 	if err != nil {
@@ -665,7 +665,7 @@ func TestGroupCommentCRUD(t *testing.T) {
 		Avatar: "avatar.png",
 		Bio:    "bio",
 	}
-	_ = CreateGroup(db, groupReq, user.ID)
+	_ = DBService.CreateGroup(groupReq, user.ID)
 
 	postReq := models.CreateGroupPostRequest{
 		GroupID: 1,
@@ -673,7 +673,7 @@ func TestGroupCommentCRUD(t *testing.T) {
 		Body:    "Body",
 		Image:   "image.png",
 	}
-	_ = CreateGroupPost(db, postReq, user.ID)
+	_ = DBService.CreateGroupPost(postReq, user.ID)
 
 	commentReq := models.CreateGroupCommentRequest{
 		GroupPostID: 1,

@@ -1,13 +1,11 @@
 package db
 
 import (
-	"database/sql"
-
 	"github.com/Golden76z/social-network/models"
 )
 
-func CreateGroup(db *sql.DB, request models.CreateGroupRequest, creatorID int64) error {
-	tx, err := db.Begin()
+func (s *Service) CreateGroup(request models.CreateGroupRequest, creatorID int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -24,8 +22,8 @@ func CreateGroup(db *sql.DB, request models.CreateGroupRequest, creatorID int64)
 	return err
 }
 
-func GetGroupByID(db *sql.DB, groupID int64) (*models.GroupResponse, error) {
-	row := db.QueryRow(`
+func (s *Service) GetGroupByID(groupID int64) (*models.GroupResponse, error) {
+	row := s.DB.QueryRow(`
         SELECT id, title, avatar, bio, creator_id, created_at, updated_at
         FROM groups WHERE id = ?`, groupID)
 	var g models.GroupResponse
@@ -49,8 +47,8 @@ func (s *Service) GetGroupName(groupID string) error {
 	return nil
 }
 
-func UpdateGroup(db *sql.DB, groupID int64, request models.UpdateGroupRequest) error {
-	tx, err := db.Begin()
+func (s *Service) UpdateGroup(groupID int64, request models.UpdateGroupRequest) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -88,8 +86,8 @@ func UpdateGroup(db *sql.DB, groupID int64, request models.UpdateGroupRequest) e
 	return err
 }
 
-func DeleteGroup(db *sql.DB, groupID int64) error {
-	tx, err := db.Begin()
+func (s *Service) DeleteGroup(groupID int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
