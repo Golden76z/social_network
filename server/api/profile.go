@@ -23,7 +23,7 @@ import (
 
 // Handler to access User's Profile data
 func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("[PROFILE] GetUserProfileHandler")
+	//fmt.Println("[PROFILE] GetUserProfileHandler")
 
 	// Only GET method allowed
 	if r.Method != http.MethodGet {
@@ -33,24 +33,23 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Get current user ID from context (injected by AuthMiddleware)
 	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
-	fmt.Println("[PROFILE] Current User ID:", currentUserID)
+	//fmt.Println("[PROFILE] Current User ID:", currentUserID)
 
 	if !ok {
-		fmt.Println("[ERROR]:", "User ID not found in context")
+		//fmt.Println("[ERROR]:", "User ID not found in context")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	// Check if database connection is available
 	if db.DBService.DB == nil {
-		fmt.Println("[ERROR]: Database connection is nil")
+		//fmt.Println("[ERROR]: Database connection is nil")
 		http.Error(w, "Database connection error", http.StatusInternalServerError)
 		return
 	}
 
 	// Parse optional id query parameter
 	idParam := r.URL.Query().Get("id")
-	//fmt.Println("[USERID]:", currentUserID)
 	var targetUserID int64
 	var err error
 
@@ -66,7 +65,7 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	fmt.Printf("[PROFILE] Fetching profile for user ID: %d\n", targetUserID)
+	//fmt.Printf("[PROFILE] Fetching profile for user ID: %d\n", targetUserID)
 
 	// Fetch user profile from database
 	profile, err := getUserProfileFromDB(targetUserID)
@@ -100,9 +99,10 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 	} else if profile.IsPrivate {
 		// Private profile - return minimal information
 		response = models.UserProfileResponse{
-			ID:       profile.ID,
-			Nickname: profile.Nickname,
-			Avatar:   profile.GetAvatar(),
+			ID:        profile.ID,
+			Nickname:  profile.Nickname,
+			Avatar:    profile.GetAvatar(),
+			IsPrivate: profile.IsPrivate,
 		}
 	} else {
 		// Public profile - return profile without sensitive data
@@ -121,7 +121,7 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
-	fmt.Println("[RESPONSE]:", response)
+	//fmt.Println("[RESPONSE]:", response)
 
 }
 
@@ -135,7 +135,7 @@ func getUserProfileFromDB(userID int64) (*models.User, error) {
 		WHERE id = ?
 	`
 
-	fmt.Printf("[DB] Querying user with ID: %d\n", userID)
+	//fmt.Printf("[DB] Querying user with ID: %d\n", userID)
 
 	err := db.DBService.DB.QueryRow(query, userID).Scan(
 		&user.ID,
@@ -150,11 +150,11 @@ func getUserProfileFromDB(userID int64) (*models.User, error) {
 	)
 
 	if err != nil {
-		fmt.Printf("[DB ERROR] Failed to query user: %v\n", err)
+		//fmt.Printf("[DB ERROR] Failed to query user: %v\n", err)
 		return nil, err
 	}
 
-	fmt.Printf("[DB SUCCESS] Found user: %+v\n", user)
+	//fmt.Printf("[DB SUCCESS] Found user: %+v\n", user)
 	return &user, nil
 }
 
