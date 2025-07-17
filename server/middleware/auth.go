@@ -57,7 +57,7 @@ func AuthMiddleware() func(http.Handler) http.Handler {
 			// 4. Attach user data to context using custom keys
 			ctx := r.Context()
 			ctx = context.WithValue(ctx, UserIDKey, userID)
-			//ctx = context.WithValue(ctx, UsernameKey, username)
+			// ctx = context.WithValue(ctx, UsernameKey, username)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
