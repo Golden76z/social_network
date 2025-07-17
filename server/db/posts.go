@@ -23,7 +23,7 @@ func CreatePost(db *sql.DB, userID int64, req models.CreatePostRequest) error {
 	_, err = tx.Exec(`
         INSERT INTO posts (user_id, title, body, image, visibility)
         VALUES (?, ?, ?, ?, ?)`,
-		userID, req.Title, req.Body, req.Image, req.Visibility)
+		userID, req.Title, req.Body, req.Images, req.Visibility)
 	return err
 }
 
@@ -37,7 +37,7 @@ func GetPostByID(db *sql.DB, postID int64) (*models.Post, error) {
 		&post.UserID,
 		&post.Title,
 		&post.Body,
-		&post.Image,
+		&post.Images,
 		&post.Visibility,
 		&post.CreatedAt,
 		&post.UpdatedAt,
@@ -72,9 +72,9 @@ func UpdatePost(db *sql.DB, postID int64, req models.UpdatePostRequest) error {
 		setParts = append(setParts, "body = ?")
 		args = append(args, *req.Body)
 	}
-	if req.Image != nil {
+	if req.Images != nil {
 		setParts = append(setParts, "image = ?")
-		args = append(args, *req.Image)
+		args = append(args, *req.Images)
 	}
 	if req.Visibility != nil {
 		setParts = append(setParts, "visibility = ?")

@@ -231,7 +231,7 @@ func TestPostCRUD(t *testing.T) {
 	postReq := models.CreatePostRequest{
 		Title:      "Title",
 		Body:       "Body",
-		Image:      "image.png",
+		Images:      []string{"images.png"},
 		Visibility: "public",
 	}
 
@@ -252,7 +252,7 @@ func TestPostCRUD(t *testing.T) {
 	updateReq := models.UpdatePostRequest{
 		Title:      &newTitle,
 		Body:       &newBody,
-		Image:      &newImage,
+		Images:      &[]string{newImage},
 		Visibility: &newVisibility,
 	}
 
@@ -276,7 +276,7 @@ func TestPostVisibilityCRUD(t *testing.T) {
 	postReq := models.CreatePostRequest{
 		Title:      "Title",
 		Body:       "Body",
-		Image:      "image.png",
+		Images:      []string{"image.png"},
 		Visibility: "public",
 	}
 	_ = CreatePost(db, user.ID, postReq)
@@ -340,7 +340,7 @@ func TestLikeDislikeCRUD(t *testing.T) {
 	postReq := models.CreatePostRequest{
 		Title:      "Title",
 		Body:       "Body",
-		Image:      "image.png",
+		Images:      []string{"image.png"},
 		Visibility: "public",
 	}
 	_ = CreatePost(db, user.ID, postReq)

@@ -29,7 +29,7 @@ func GetGroupPostByID(db *sql.DB, id int64) (*models.Post, error) {
         SELECT id, user_id, title, body, image, created_at, updated_at
         FROM group_posts WHERE id = ?`, id)
 	var gp models.Post
-	err := row.Scan(&gp.ID, &gp.UserID, &gp.Title, &gp.Body, &gp.Image, &gp.CreatedAt, &gp.UpdatedAt)
+	err := row.Scan(&gp.ID, &gp.UserID, &gp.Title, &gp.Body, &gp.Images, &gp.CreatedAt, &gp.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
