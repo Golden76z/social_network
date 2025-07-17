@@ -3,7 +3,6 @@ package middleware
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -21,7 +20,7 @@ const (
 
 // AuthMiddleware validates the session and attaches userID + username to the context.
 func AuthMiddleware() func(http.Handler) http.Handler {
-	fmt.Println("[AuthMiddleware]")
+	//fmt.Println("[AuthMiddleware]")
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// 1. Check session cookie
@@ -32,7 +31,7 @@ func AuthMiddleware() func(http.Handler) http.Handler {
 			}
 
 			// 2. Verify JWT validity
-			utils.ValidateToken(token.Value, utils.Settings.JwtKey)
+			utils.ValidateToken(token.Value)
 
 			// 3. Verify session in database
 			var userID int
@@ -58,11 +57,7 @@ func AuthMiddleware() func(http.Handler) http.Handler {
 			// 4. Attach user data to context using custom keys
 			ctx := r.Context()
 			ctx = context.WithValue(ctx, UserIDKey, userID)
-			// ctx = context.WithValue(ctx, UsernameKey, username)
-
-			// Debug prints
-			//fmt.Println("[AUTH] Setting userID in context:", userID)
-			//fmt.Println("[AUTH] Context value:", ctx.Value(UserIDKey))
+			//ctx = context.WithValue(ctx, UsernameKey, username)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

@@ -27,7 +27,7 @@ func setupProtectedRoutes(r *Router) {
 	r.Group(func(r *Router) {
 		// Apply auth middleware
 		r.Use(middleware.AuthMiddleware())
-		// r.Use(middleware.CSRFMiddleware)
+		r.Use(middleware.CSRFMiddleware)
 		r.Use(middleware.RateLimit(100, time.Minute))
 
 		setupUserRoutes(r)
