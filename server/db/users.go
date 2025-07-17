@@ -8,8 +8,8 @@ import (
 	"github.com/Golden76z/social-network/models"
 )
 
-func CreateUser(db *sql.DB, req models.User) error {
-	tx, err := db.Begin()
+func (s *Service) CreateUser(req models.User) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -28,8 +28,8 @@ func CreateUser(db *sql.DB, req models.User) error {
 	return err
 }
 
-func GetUserByEmail(db *sql.DB, email string) (*models.User, error) {
-	row := db.QueryRow(`
+func (s *Service) GetUserByEmail(email string) (*models.User, error) {
+	row := s.DB.QueryRow(`
         SELECT id, nickname, first_name, last_name, email, password, date_of_birth, avatar, bio, is_private
         FROM users WHERE email = ?`, email)
 
@@ -75,8 +75,8 @@ func (s *Service) GetUserIDByUsername(identifier string) (int64, error) {
 	return userID, nil
 }
 
-func UpdateUser(db *sql.DB, userID int64, req models.UpdateUserProfileRequest) error {
-	tx, err := db.Begin()
+func (s *Service) UpdateUser(userID int64, req models.UpdateUserProfileRequest) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -135,8 +135,8 @@ func UpdateUser(db *sql.DB, userID int64, req models.UpdateUserProfileRequest) e
 	return err
 }
 
-func DeleteUser(db *sql.DB, userID int64) error {
-	tx, err := db.Begin()
+func (s *Service) DeleteUser(userID int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
