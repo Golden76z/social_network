@@ -22,11 +22,22 @@ import (
 
 func main() {
 	// Load configuration
-	err := config.Load()
-	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+	if err := config.Load(); err != nil {
+		log.Fatal("Failed to load config:", err)
 	}
+
+	// Get config instance
 	cfg := config.GetConfig()
+
+	// Set up utils package with config
+	utils.SetConfig(
+		cfg.JwtExpiration,
+		cfg.JwtPrivateKey,
+		cfg.JwtPublicKey,
+		cfg.Environment,
+		cfg.PostMaxLength,
+		cfg.MaxFileSizeMB,
+	)
 
 	// Run DB migrations
 	if err := migrations.RunMigrations(cfg.DBPath, cfg.MigrationsDir); err != nil {
@@ -40,8 +51,8 @@ func main() {
 	}
 	defer dbService.DB.Close()
 
-	// Start session cleanup - Goroutine that clean expired sessions in db every hour
-	go utils.StartSessionCleanup(dbService.DB, 1*time.Hour)
+	// Start session cleanup with configurable interval
+	go utils.StartSessionCleanup(dbService.DB, cfg.SessionCleanupInterval)
 
 	// Initialize WebSocket hub
 	websockets.InitHub(dbService.DB)
@@ -85,6 +96,9 @@ func startServer(handler http.Handler, cfg *config.Config) {
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  120 * time.Second,
 	}
+
+	//fmt.Println("[SERVER] Starting server...")
+	//fmt.Println("[SERVER] CFG", cfg)
 
 	// Start server
 	go func() {

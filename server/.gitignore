@@ -33,3 +33,7 @@ app.db
 temp_seeder
 temp_seeder.go
 seed
+
+/tmp
+.air*
+.gitignore
