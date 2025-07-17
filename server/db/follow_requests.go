@@ -1,13 +1,11 @@
 package db
 
 import (
-	"database/sql"
-
 	"github.com/Golden76z/social-network/models"
 )
 
-func CreateFollowRequest(db *sql.DB, requesterID, targetID int64, status string) error {
-	tx, err := db.Begin()
+func (s *Service) CreateFollowRequest(requesterID, targetID int64, status string) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -25,8 +23,8 @@ func CreateFollowRequest(db *sql.DB, requesterID, targetID int64, status string)
 	return err
 }
 
-func GetFollowRequestByID(db *sql.DB, requestID int64) (*models.FollowRequest, error) {
-	row := db.QueryRow(`
+func (s *Service) GetFollowRequestByID(requestID int64) (*models.FollowRequest, error) {
+	row := s.DB.QueryRow(`
         SELECT id, requester_id, target_id, status, created_at
         FROM follow_requests WHERE id = ?`, requestID)
 	var fr models.FollowRequest
@@ -37,8 +35,8 @@ func GetFollowRequestByID(db *sql.DB, requestID int64) (*models.FollowRequest, e
 	return &fr, nil
 }
 
-func UpdateFollowRequestStatus(db *sql.DB, requestID int64, status string) error {
-	tx, err := db.Begin()
+func (s *Service) UpdateFollowRequestStatus(requestID int64, status string) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -55,8 +53,8 @@ func UpdateFollowRequestStatus(db *sql.DB, requestID int64, status string) error
 	return err
 }
 
-func DeleteFollowRequest(db *sql.DB, requestID int64) error {
-	tx, err := db.Begin()
+func (s *Service) DeleteFollowRequest(requestID int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}

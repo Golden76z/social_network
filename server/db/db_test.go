@@ -162,17 +162,17 @@ func createTestUser(db *sql.DB, t *testing.T, nickname, firstName, lastName, ema
 		Email:       email,
 		Password:    "pass",
 		DateOfBirth: "2000-01-01",
-		Avatar:      "",
-		Bio:         "",
-		IsPrivate:   false,
+		// Avatar:      "",
+		// Bio:         "",
+		IsPrivate: false,
 	}
 
-	err := CreateUser(db, userReq)
+	err := DBService.CreateUser(userReq)
 	if err != nil {
 		t.Fatalf("CreateUser failed: %v", err)
 	}
 
-	user, err := GetUserByEmail(db, email)
+	user, err := DBService.GetUserByEmail(email)
 	if err != nil {
 		t.Fatalf("GetUserByEmail failed: %v", err)
 	}
@@ -191,17 +191,17 @@ func TestUserCRUD(t *testing.T) {
 		Email:       "john@doe.com",
 		Password:    "pass",
 		DateOfBirth: "2000-01-01",
-		Avatar:      "",
-		Bio:         "",
-		IsPrivate:   false,
+		// Avatar:      "",
+		// Bio:         "",
+		IsPrivate: false,
 	}
 
-	err := CreateUser(db, userReq)
+	err := DBService.CreateUser(userReq)
 	if err != nil {
 		t.Fatalf("CreateUser failed: %v", err)
 	}
 
-	user, err := GetUserByEmail(db, "john@doe.com")
+	user, err := DBService.GetUserByEmail("john@doe.com")
 	if err != nil || user.Nickname != "nick" {
 		t.Fatalf("GetUserByEmail failed: %v", err)
 	}
@@ -211,12 +211,12 @@ func TestUserCRUD(t *testing.T) {
 	updateReq := models.UpdateUserProfileRequest{
 		Bio: &newBio,
 	}
-	err = UpdateUser(db, user.ID, updateReq)
+	err = DBService.UpdateUser(user.ID, updateReq)
 	if err != nil {
 		t.Fatalf("UpdateUser failed: %v", err)
 	}
 
-	err = DeleteUser(db, user.ID)
+	err = DBService.DeleteUser(user.ID)
 	if err != nil {
 		t.Fatalf("DeleteUser failed: %v", err)
 	}
@@ -235,12 +235,12 @@ func TestPostCRUD(t *testing.T) {
 		Visibility: "public",
 	}
 
-	err := CreatePost(db, user.ID, postReq)
+	err := DBService.CreatePost(user.ID, postReq)
 	if err != nil {
 		t.Fatalf("CreatePost failed: %v", err)
 	}
 
-	post, err := GetPostByID(db, 1)
+	post, err := DBService.GetPostByID(1)
 	if err != nil || post.Title != "Title" {
 		t.Fatalf("GetPostByID failed: %v", err)
 	}
@@ -256,12 +256,12 @@ func TestPostCRUD(t *testing.T) {
 		Visibility: &newVisibility,
 	}
 
-	err = UpdatePost(db, post.ID, updateReq)
+	err = DBService.UpdatePost(post.ID, updateReq)
 	if err != nil {
 		t.Fatalf("UpdatePost failed: %v", err)
 	}
 
-	err = DeletePost(db, post.ID)
+	err = DBService.DeletePost(post.ID)
 	if err != nil {
 		t.Fatalf("DeletePost failed: %v", err)
 	}
@@ -279,7 +279,7 @@ func TestPostVisibilityCRUD(t *testing.T) {
 		Image:      "image.png",
 		Visibility: "public",
 	}
-	_ = CreatePost(db, user.ID, postReq)
+	_ = DBService.CreatePost(user.ID, postReq)
 
 	err := CreatePostVisibility(db, 1, user.ID)
 	if err != nil {
@@ -343,7 +343,7 @@ func TestLikeDislikeCRUD(t *testing.T) {
 		Image:      "image.png",
 		Visibility: "public",
 	}
-	_ = CreatePost(db, user.ID, postReq)
+	_ = DBService.CreatePost(user.ID, postReq)
 
 	postID := int64(1)
 	reactionReq := models.CreateReactionRequest{
@@ -467,7 +467,7 @@ func TestGroupPostCRUD(t *testing.T) {
 		t.Fatalf("CreateGroupPost failed: %v", err)
 	}
 
-	gp, err := GetGroupPostByID(db, 1)
+	gp, err := DBService.GetGroupPostByID(1)
 	if err != nil || gp.Title != "Title" {
 		t.Fatalf("GetGroupPostByID failed: %v", err)
 	}
@@ -481,12 +481,12 @@ func TestGroupPostCRUD(t *testing.T) {
 		Image: &newImage,
 	}
 
-	err = UpdateGroupPost(db, gp.ID, updateReq)
+	err = DBService.UpdateGroupPost(gp.ID, updateReq)
 	if err != nil {
 		t.Fatalf("UpdateGroupPost failed: %v", err)
 	}
 
-	err = DeleteGroupPost(db, gp.ID)
+	err = DBService.DeleteGroupPost(gp.ID)
 	if err != nil {
 		t.Fatalf("DeleteGroupPost failed: %v", err)
 	}
@@ -583,22 +583,22 @@ func TestFollowRequestCRUD(t *testing.T) {
 	requester := createTestUser(db, t, "nick", "John", "Doe", "john@doe.com")
 	target := createTestUser(db, t, "nick2", "Jane", "Smith", "jane@smith.com")
 
-	err := CreateFollowRequest(db, requester.ID, target.ID, "pending")
+	err := DBService.CreateFollowRequest(requester.ID, target.ID, "pending")
 	if err != nil {
 		t.Fatalf("CreateFollowRequest failed: %v", err)
 	}
 
-	fr, err := GetFollowRequestByID(db, 1)
+	fr, err := DBService.GetFollowRequestByID(1)
 	if err != nil || fr.RequesterID != requester.ID {
 		t.Fatalf("GetFollowRequestByID failed: %v", err)
 	}
 
-	err = UpdateFollowRequestStatus(db, fr.ID, "accepted")
+	err = DBService.UpdateFollowRequestStatus(fr.ID, "accepted")
 	if err != nil {
 		t.Fatalf("UpdateFollowRequestStatus failed: %v", err)
 	}
 
-	err = DeleteFollowRequest(db, fr.ID)
+	err = DBService.DeleteFollowRequest(fr.ID)
 	if err != nil {
 		t.Fatalf("DeleteFollowRequest failed: %v", err)
 	}

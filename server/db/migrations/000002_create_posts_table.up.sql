@@ -3,7 +3,6 @@ CREATE TABLE IF NOT EXISTS posts (
   user_id INTEGER NOT NULL,
   title VARCHAR(255) NOT NULL,
   body TEXT NOT NULL,
-  image VARCHAR(255),
   visibility VARCHAR(20) DEFAULT 'public' CHECK (visibility IN ('public', 'private')) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
