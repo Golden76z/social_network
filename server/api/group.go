@@ -2,10 +2,11 @@ package api
 
 import (
 	"encoding/json"
+	"github.com/Golden76z/social-network/middleware"
 	"net/http"
 	"strconv"
 
-	"github.com/Golden76z/social-network/config"
+	//"github.com/Golden76z/social-network/config"
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/models"
 	"github.com/Golden76z/social-network/utils"
@@ -13,12 +14,14 @@ import (
 
 // Handler to create a new Group
 func CreateGroupHandler(w http.ResponseWriter, r *http.Request) {
-	// Retrieving user's informations via the JWT stored in the cookie
-	claims, errToken := utils.TokenInformations(w, r, config.GetConfig().JWTKey)
-	if errToken != nil {
-		http.Error(w, "Error retrieving the token informations", http.StatusMethodNotAllowed)
+	// Get current user ID from context (injected by AuthMiddleware)
+	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+
+	userID := int64(currentUserID)
 
 	// Converting the JSON sent by client-side to struct
 	var req models.CreateGroupRequest
@@ -34,14 +37,6 @@ func CreateGroupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Type assertion for user_id
-	userIDFloat, ok := claims["user_id"].(float64)
-	if !ok {
-		http.Error(w, "Invalid user ID in token", http.StatusBadRequest)
-		return
-	}
-	userID := int64(userIDFloat)
-
 	// Calling the Database to create the new Group
 	errDB := db.DBService.CreateGroup(req, userID)
 	if errDB != nil {
@@ -56,13 +51,6 @@ func CreateGroupHandler(w http.ResponseWriter, r *http.Request) {
 
 // Handler to get a group by ID
 func GetGroupHandler(w http.ResponseWriter, r *http.Request) {
-	// Check JWT
-	_, errToken := utils.TokenInformations(w, r, config.GetConfig().JWTKey)
-	if errToken != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	// Extract the group ID from the query string
 	idParam := r.URL.Query().Get("id")
 	groupID, err := strconv.Atoi(idParam)
@@ -86,12 +74,14 @@ func GetGroupHandler(w http.ResponseWriter, r *http.Request) {
 
 // Handler to update a group
 func UpdateGroupHandler(w http.ResponseWriter, r *http.Request) {
-	// Retrieving user's informations via the JWT stored in the cookie
-	claims, errToken := utils.TokenInformations(w, r, config.GetConfig().JWTKey)
-	if errToken != nil {
-		http.Error(w, "Error retrieving the token informations", http.StatusUnauthorized)
+	// Get current user ID from context (injected by AuthMiddleware)
+	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+
+	userID := int64(currentUserID)
 
 	// Converting the JSON sent by client-side to struct
 	var req models.UpdateGroupRequest
@@ -105,14 +95,6 @@ func UpdateGroupHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid group ID", http.StatusBadRequest)
 		return
 	}
-
-	// Type assertion for user_id
-	userIDFloat, ok := claims["user_id"].(float64)
-	if !ok {
-		http.Error(w, "Invalid user ID in token", http.StatusBadRequest)
-		return
-	}
-	userID := int64(userIDFloat)
 
 	// Check if user is the creator of the group
 	group, errGet := db.DBService.GetGroupByID(req.ID)
@@ -151,12 +133,14 @@ func UpdateGroupHandler(w http.ResponseWriter, r *http.Request) {
 
 // Handler to delete a group
 func DeleteGroupHandler(w http.ResponseWriter, r *http.Request) {
-	// Retrieving user's informations via the JWT stored in the cookie
-	claims, errToken := utils.TokenInformations(w, r, config.GetConfig().JWTKey)
-	if errToken != nil {
-		http.Error(w, "Error retrieving the token informations", http.StatusUnauthorized)
+	// Get current user ID from context (injected by AuthMiddleware)
+	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+
+	userID := int64(currentUserID)
 
 	// Converting the JSON sent by client-side to struct
 	var req models.DeleteGroupRequest
@@ -170,14 +154,6 @@ func DeleteGroupHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid group ID", http.StatusBadRequest)
 		return
 	}
-
-	// Type assertion for user_id
-	userIDFloat, ok := claims["user_id"].(float64)
-	if !ok {
-		http.Error(w, "Invalid user ID in token", http.StatusBadRequest)
-		return
-	}
-	userID := int64(userIDFloat)
 
 	// Check if user is the creator of the group
 	group, errGet := db.DBService.GetGroupByID(req.ID)

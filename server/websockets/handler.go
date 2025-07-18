@@ -1,6 +1,7 @@
 package websockets
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -47,31 +48,21 @@ func WebSocketHandler(hub *Hub, cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
-		// Test with postman
-		// cookie := r.URL.Query().Get("jwt_token")
-		// fmt.Println("Cookie received")
+		// Get current user ID from context (injected by AuthMiddleware)
 		tokenString := cookie.Value
 
 		// Decoding the token and getting the User's informations
-		claims, errTokenValidate := utils.ValidateToken(tokenString, cfg.JWTKey)
+		claims, errTokenValidate := utils.ValidateToken(tokenString)
 		if errTokenValidate != nil {
 			http.Error(w, "Error decoding JWT", http.StatusUnauthorized)
 			return
 		}
 
-		// Extracting userID
-		userID, ok := claims["user_id"].(float64)
-		if !ok {
-			http.Error(w, "Missing user_id in token", http.StatusUnauthorized)
-			return
-		}
+		// Extracting userID and username from claims struct
+		userID := claims.UserID
+		username := claims.Username
 
-		// Extracting username
-		username, ok := claims["username"].(string)
-		if !ok {
-			http.Error(w, "Missing username in token", http.StatusUnauthorized)
-			return
-		}
+		fmt.Println("[handler/userID]", userID, " [handler/username]", username)
 
 		// Upgrading the connection to WS
 		conn, err := upgrader.Upgrade(w, r, nil)

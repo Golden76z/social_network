@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/Golden76z/social-network/utils"
 )
 
 // CSRF protection
@@ -41,7 +43,13 @@ func CSRFMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Verify CSRF token for unsafe methods
+		// JWT Bypass: Check for valid JWT token first
+		if hasValidJWT(r) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Verify CSRF token for unsafe methods (fallback)
 		token := r.Header.Get("X-CSRF-Token")
 		if token == "" {
 			http.Error(w, "CSRF token required", http.StatusForbidden)
@@ -59,4 +67,15 @@ func CSRFMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+// hasValidJWT checks if the request has a valid JWT token
+func hasValidJWT(r *http.Request) bool {
+	cookie, err := r.Cookie("jwt_token")
+	if err != nil {
+		return false
+	}
+
+	_, err = utils.ValidateToken(cookie.Value)
+	return err == nil
 }

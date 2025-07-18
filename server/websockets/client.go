@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/Golden76z/social-network/config"
+	//"github.com/Golden76z/social-network/config"
 	"github.com/Golden76z/social-network/utils"
 	"github.com/gorilla/websocket"
 )
@@ -115,8 +115,8 @@ func (c *Client) handlePing(msg Message) {
 	}
 
 	// Validate JWT token
-	cfg := config.GetConfig()
-	claims, err := utils.ValidateToken(tokenString, cfg.JWTKey)
+	//cfg := config.GetConfig()
+	claims, err := utils.ValidateToken(tokenString)
 	if err != nil {
 		c.sendError("Invalid JWT token")
 		log.Printf("JWT validation failed for client %s: %v", c.ID, err)
@@ -128,23 +128,19 @@ func (c *Client) handlePing(msg Message) {
 	}
 
 	// Extract user ID from claims
-	userID, ok := claims["user_id"].(float64)
-	if !ok {
-		c.sendError("Invalid JWT claims")
-		return
-	}
+	userID := claims.UserID
 
 	// Check if the user ID matches the client's user ID
-	if int(userID) != c.UserID {
+	if userID != c.UserID {
 		c.sendError("JWT user mismatch")
-		log.Printf("JWT user mismatch for client %s: expected %d, got %d", c.ID, c.UserID, int(userID))
+		log.Printf("JWT user mismatch for client %s: expected %d, got %d", c.ID, c.UserID, userID)
 		go func() {
 			c.Hub.unregister <- c
 		}()
 		return
 	}
 
-	_, errToken := utils.ValidateToken(tokenString, config.GetConfig().JWTKey)
+	_, errToken := utils.ValidateToken(tokenString)
 	if errToken != nil {
 		c.sendError("Invalid session")
 		log.Printf("Session validation failed for client %s, user %d", c.ID, int(userID))
