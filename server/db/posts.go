@@ -20,9 +20,9 @@ func (s *Service) CreatePost(userID int64, req models.CreatePostRequest) error {
 		}
 	}()
 	_, err = tx.Exec(`
-        INSERT INTO posts (user_id, title, body, image, visibility)
-        VALUES (?, ?, ?, ?, ?)`,
-		userID, req.Title, req.Body, req.Image, req.Visibility)
+        INSERT INTO posts (user_id, title, body, visibility)
+        VALUES (?, ?, ?, ?)`,
+		userID, req.Title, req.Body, req.Visibility)
 	return err
 }
 
@@ -35,7 +35,7 @@ func (s *Service) InsertPostImage(postID int, isGroupPost bool, imageURL string)
 
 func (s *Service) GetPostByID(postID int64) (*models.Post, error) {
 	row := s.DB.QueryRow(`
-        SELECT id, user_id, title, body, image, visibility, created_at, updated_at
+        SELECT id, user_id, title, body, visibility, created_at, updated_at
         FROM posts WHERE id = ?`, postID)
 	var post models.Post
 	err := row.Scan(
@@ -43,7 +43,6 @@ func (s *Service) GetPostByID(postID int64) (*models.Post, error) {
 		&post.UserID,
 		&post.Title,
 		&post.Body,
-		&post.Image,
 		&post.Visibility,
 		&post.CreatedAt,
 		&post.UpdatedAt,
@@ -77,10 +76,6 @@ func (s *Service) UpdatePost(postID int64, req models.UpdatePostRequest) error {
 	if req.Body != nil {
 		setParts = append(setParts, "body = ?")
 		args = append(args, *req.Body)
-	}
-	if req.Image != nil {
-		setParts = append(setParts, "image = ?")
-		args = append(args, *req.Image)
 	}
 	if req.Visibility != nil {
 		setParts = append(setParts, "visibility = ?")

@@ -1,8 +1,6 @@
 package db
 
 import (
-	"database/sql"
-
 	"github.com/Golden76z/social-network/models"
 )
 
@@ -18,8 +16,8 @@ type LikeDislike struct {
 	CreatedAt      string `json:"created_at"`
 }
 
-func CreateLikeDislike(db *sql.DB, request models.CreateReactionRequest) error {
-	tx, err := db.Begin()
+func (s *Service) CreateLikeDislike(request models.CreateReactionRequest) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -36,8 +34,8 @@ func CreateLikeDislike(db *sql.DB, request models.CreateReactionRequest) error {
 	return err
 }
 
-func GetLikeDislikeByID(db *sql.DB, id int64) (*models.ReactionResponse, error) {
-	row := db.QueryRow(`
+func (s *Service) GetLikeDislikeByID(id int64) (*models.ReactionResponse, error) {
+	row := s.DB.QueryRow(`
         SELECT id, user_id, post_id, comment_id, group_post_id, group_comment_id, type, created_at
         FROM likes_dislikes WHERE id = ?`, id)
 	var ld models.ReactionResponse
@@ -48,8 +46,8 @@ func GetLikeDislikeByID(db *sql.DB, id int64) (*models.ReactionResponse, error) 
 	return &ld, nil
 }
 
-func UpdateLikeDislike(db *sql.DB, id int64, request models.UpdateReactionRequest) error {
-	tx, err := db.Begin()
+func (s *Service) UpdateLikeDislike(id int64, request models.UpdateReactionRequest) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -64,8 +62,8 @@ func UpdateLikeDislike(db *sql.DB, id int64, request models.UpdateReactionReques
 	return err
 }
 
-func DeleteLikeDislike(db *sql.DB, id int64) error {
-	tx, err := db.Begin()
+func (s *Service) DeleteLikeDislike(id int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}

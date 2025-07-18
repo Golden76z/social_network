@@ -13,8 +13,8 @@ type GroupMessage struct {
 	CreatedAt string `json:"created_at"`
 }
 
-func CreateGroupMessage(db *sql.DB, groupID, senderID int64, body string) error {
-	tx, err := db.Begin()
+func (s *Service) CreateGroupMessage(groupID, senderID int64, body string) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -31,8 +31,8 @@ func CreateGroupMessage(db *sql.DB, groupID, senderID int64, body string) error 
 	return err
 }
 
-func GetGroupMessageByID(db *sql.DB, id int64) (*GroupMessage, error) {
-	row := db.QueryRow(`
+func (s *Service) GetGroupMessageByID(id int64) (*GroupMessage, error) {
+	row := s.DB.QueryRow(`
         SELECT id, group_id, sender_id, body, created_at
         FROM group_messages WHERE id = ?`, id)
 	var gm GroupMessage

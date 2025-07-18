@@ -17,8 +17,8 @@ func (s *Service) CreateGroupPost(request models.CreateGroupPostRequest, userID 
 		}
 	}()
 	_, err = tx.Exec(`
-        INSERT INTO group_posts (group_id, user_id, title, body, image)
-        VALUES (?, ?, ?, ?, ?)`, request.GroupID, userID, request.Title, request.Body, request.Image)
+        INSERT INTO group_posts (group_id, user_id, title, body)
+        VALUES (?, ?, ?, ?)`, request.GroupID, userID, request.Title, request.Body)
 	return err
 }
 
@@ -27,7 +27,7 @@ func (s *Service) GetGroupPostByID(id int64) (*models.Post, error) {
         SELECT id, user_id, title, body, image, created_at, updated_at
         FROM group_posts WHERE id = ?`, id)
 	var gp models.Post
-	err := row.Scan(&gp.ID, &gp.UserID, &gp.Title, &gp.Body, &gp.Image, &gp.CreatedAt, &gp.UpdatedAt)
+	err := row.Scan(&gp.ID, &gp.UserID, &gp.Title, &gp.Body, &gp.CreatedAt, &gp.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -61,11 +61,6 @@ func (s *Service) UpdateGroupPost(id int64, request models.UpdateGroupPostReques
 	if request.Body != nil {
 		query += ", body = ?"
 		args = append(args, *request.Body)
-	}
-
-	if request.Image != nil {
-		query += ", image = ?"
-		args = append(args, *request.Image)
 	}
 
 	query += " WHERE id = ?"

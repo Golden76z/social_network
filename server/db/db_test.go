@@ -231,7 +231,6 @@ func TestPostCRUD(t *testing.T) {
 	postReq := models.CreatePostRequest{
 		Title:      "Title",
 		Body:       "Body",
-		Image:      "image.png",
 		Visibility: "public",
 	}
 
@@ -247,12 +246,10 @@ func TestPostCRUD(t *testing.T) {
 
 	newTitle := "New Title"
 	newBody := "New Body"
-	newImage := "newimage.png"
 	newVisibility := "private"
 	updateReq := models.UpdatePostRequest{
 		Title:      &newTitle,
 		Body:       &newBody,
-		Image:      &newImage,
 		Visibility: &newVisibility,
 	}
 
@@ -276,22 +273,21 @@ func TestPostVisibilityCRUD(t *testing.T) {
 	postReq := models.CreatePostRequest{
 		Title:      "Title",
 		Body:       "Body",
-		Image:      "image.png",
 		Visibility: "public",
 	}
 	_ = DBService.CreatePost(user.ID, postReq)
 
-	err := CreatePostVisibility(db, 1, user.ID)
+	err := DBService.CreatePostVisibility(1, user.ID)
 	if err != nil {
 		t.Fatalf("CreatePostVisibility failed: %v", err)
 	}
 
-	pv, err := GetPostVisibilityByID(db, 1)
+	pv, err := DBService.GetPostVisibilityByID(1)
 	if err != nil || pv.PostID != 1 {
 		t.Fatalf("GetPostVisibilityByID failed: %v", err)
 	}
 
-	err = DeletePostVisibility(db, pv.ID)
+	err = DBService.DeletePostVisibility(pv.ID)
 	if err != nil {
 		t.Fatalf("DeletePostVisibility failed: %v", err)
 	}
@@ -310,22 +306,22 @@ func TestNotificationCRUD(t *testing.T) {
 		Data:    "data",
 	}
 
-	err := CreateNotification(db, notifReq)
+	err := DBService.CreateNotification(notifReq)
 	if err != nil {
 		t.Fatalf("CreateNotification failed: %v", err)
 	}
 
-	n, err := GetNotificationByID(db, 1)
+	n, err := DBService.GetNotificationByID(1)
 	if err != nil || n.Type != "test" {
 		t.Fatalf("GetNotificationByID failed: %v", err)
 	}
 
-	err = MarkNotificationRead(db, n.ID)
+	err = DBService.MarkNotificationRead(n.ID)
 	if err != nil {
 		t.Fatalf("MarkNotificationRead failed: %v", err)
 	}
 
-	err = DeleteNotification(db, n.ID)
+	err = DBService.DeleteNotification(n.ID)
 	if err != nil {
 		t.Fatalf("DeleteNotification failed: %v", err)
 	}
@@ -340,7 +336,6 @@ func TestLikeDislikeCRUD(t *testing.T) {
 	postReq := models.CreatePostRequest{
 		Title:      "Title",
 		Body:       "Body",
-		Image:      "image.png",
 		Visibility: "public",
 	}
 	_ = DBService.CreatePost(user.ID, postReq)
@@ -352,17 +347,17 @@ func TestLikeDislikeCRUD(t *testing.T) {
 		Type:   "like",
 	}
 
-	err := CreateLikeDislike(db, reactionReq)
+	err := DBService.CreateLikeDislike(reactionReq)
 	if err != nil {
 		t.Fatalf("CreateLikeDislike failed: %v", err)
 	}
 
-	ld, err := GetLikeDislikeByID(db, 1)
+	ld, err := DBService.GetLikeDislikeByID(1)
 	if err != nil || *ld.PostID != 1 {
 		t.Fatalf("GetLikeDislikeByID failed: %v", err)
 	}
 
-	err = DeleteLikeDislike(db, ld.ID)
+	err = DBService.DeleteLikeDislike(ld.ID)
 	if err != nil {
 		t.Fatalf("DeleteLikeDislike failed: %v", err)
 	}
@@ -422,22 +417,22 @@ func TestGroupMemberCRUD(t *testing.T) {
 	}
 	_ = DBService.CreateGroup(groupReq, user.ID)
 
-	err := CreateGroupMember(db, 1, user.ID, "member", "pending", nil)
+	err := DBService.CreateGroupMember(1, user.ID, "member", "pending", nil)
 	if err != nil {
 		t.Fatalf("CreateGroupMember failed: %v", err)
 	}
 
-	gm, err := GetGroupMemberByID(db, 1)
+	gm, err := DBService.GetGroupMemberByID(1)
 	if err != nil || gm.UserID != user.ID {
 		t.Fatalf("GetGroupMemberByID failed: %v", err)
 	}
 
-	err = UpdateGroupMemberStatus(db, gm.ID, "accepted")
+	err = DBService.UpdateGroupMemberStatus(gm.ID, "accepted")
 	if err != nil {
 		t.Fatalf("UpdateGroupMemberStatus failed: %v", err)
 	}
 
-	err = DeleteGroupMember(db, gm.ID)
+	err = DBService.DeleteGroupMember(gm.ID)
 	if err != nil {
 		t.Fatalf("DeleteGroupMember failed: %v", err)
 	}
@@ -459,7 +454,6 @@ func TestGroupPostCRUD(t *testing.T) {
 		GroupID: 1,
 		Title:   "Title",
 		Body:    "Body",
-		Image:   "image.png",
 	}
 
 	err := DBService.CreateGroupPost(postReq, user.ID)
@@ -474,11 +468,9 @@ func TestGroupPostCRUD(t *testing.T) {
 
 	newTitle := "NewTitle"
 	newBody := "NewBody"
-	newImage := "newimage.png"
 	updateReq := models.UpdateGroupPostRequest{
 		Title: &newTitle,
 		Body:  &newBody,
-		Image: &newImage,
 	}
 
 	err = DBService.UpdateGroupPost(gp.ID, updateReq)
@@ -504,22 +496,22 @@ func TestGroupRequestCRUD(t *testing.T) {
 	}
 	_ = DBService.CreateGroup(groupReq, user.ID)
 
-	err := CreateGroupRequest(db, 1, user.ID, "pending")
+	err := DBService.CreateGroupRequest(1, user.ID, "pending")
 	if err != nil {
 		t.Fatalf("CreateGroupRequest failed: %v", err)
 	}
 
-	gr, err := GetGroupRequestByID(db, 1)
+	gr, err := DBService.GetGroupRequestByID(1)
 	if err != nil || gr.UserID != user.ID {
 		t.Fatalf("GetGroupRequestByID failed: %v", err)
 	}
 
-	err = UpdateGroupRequestStatus(db, gr.ID, "accepted")
+	err = DBService.UpdateGroupRequestStatus(gr.ID, "accepted")
 	if err != nil {
 		t.Fatalf("UpdateGroupRequestStatus failed: %v", err)
 	}
 
-	err = DeleteGroupRequest(db, gr.ID)
+	err = DBService.DeleteGroupRequest(gr.ID)
 	if err != nil {
 		t.Fatalf("DeleteGroupRequest failed: %v", err)
 	}
@@ -537,12 +529,12 @@ func TestGroupMessageCRUD(t *testing.T) {
 	}
 	_ = DBService.CreateGroup(groupReq, user.ID)
 
-	err := CreateGroupMessage(db, 1, user.ID, "Hello group!")
+	err := DBService.CreateGroupMessage(1, user.ID, "Hello group!")
 	if err != nil {
 		t.Fatalf("CreateGroupMessage failed: %v", err)
 	}
 
-	gm, err := GetGroupMessageByID(db, 1)
+	gm, err := DBService.GetGroupMessageByID(1)
 	if err != nil || gm.Body != "Hello group!" {
 		t.Fatalf("GetGroupMessageByID failed: %v", err)
 	}
@@ -560,17 +552,17 @@ func TestPrivateMessageCRUD(t *testing.T) {
 	sender := createTestUser(db, t, "nick", "John", "Doe", "john@doe.com")
 	receiver := createTestUser(db, t, "nick2", "Jane", "Smith", "jane@smith.com")
 
-	err := CreatePrivateMessage(db, sender.ID, receiver.ID, "Hello Jane!")
+	err := DBService.CreatePrivateMessage(sender.ID, receiver.ID, "Hello Jane!")
 	if err != nil {
 		t.Fatalf("CreatePrivateMessage failed: %v", err)
 	}
 
-	pm, err := GetPrivateMessageByID(db, 1)
+	pm, err := DBService.GetPrivateMessageByID(1)
 	if err != nil || pm.Body != "Hello Jane!" {
 		t.Fatalf("GetPrivateMessageByID failed: %v", err)
 	}
 
-	err = DeletePrivateMessage(db, pm.ID)
+	err = DBService.DeletePrivateMessage(pm.ID)
 	if err != nil {
 		t.Fatalf("DeletePrivateMessage failed: %v", err)
 	}
@@ -634,22 +626,22 @@ func TestEventRSVPCRUD(t *testing.T) {
 		Status:  "come",
 	}
 
-	err = CreateEventRSVP(db, rsvpReq)
+	err = DBService.CreateEventRSVP(rsvpReq)
 	if err != nil {
 		t.Fatalf("CreateEventRSVP failed: %v", err)
 	}
 
-	rsvp, err := GetEventRSVPByID(db, 1)
+	rsvp, err := DBService.GetEventRSVPByID(1)
 	if err != nil || rsvp.UserID != user.ID {
 		t.Fatalf("GetEventRSVPByID failed: %v", err)
 	}
 
-	err = UpdateEventRSVPStatus(db, rsvp.ID, "not_come")
+	err = DBService.UpdateEventRSVPStatus(rsvp.ID, "not_come")
 	if err != nil {
 		t.Fatalf("UpdateEventRSVPStatus failed: %v", err)
 	}
 
-	err = DeleteEventRSVP(db, rsvp.ID)
+	err = DBService.DeleteEventRSVP(rsvp.ID)
 	if err != nil {
 		t.Fatalf("DeleteEventRSVP failed: %v", err)
 	}
@@ -671,39 +663,35 @@ func TestGroupCommentCRUD(t *testing.T) {
 		GroupID: 1,
 		Title:   "Title",
 		Body:    "Body",
-		Image:   "image.png",
 	}
 	_ = DBService.CreateGroupPost(postReq, user.ID)
 
 	commentReq := models.CreateGroupCommentRequest{
 		GroupPostID: 1,
 		Body:        "Comment body",
-		Image:       "img.png",
 	}
 
-	err := CreateGroupComment(db, commentReq, user.ID)
+	err := DBService.CreateGroupComment(commentReq, user.ID)
 	if err != nil {
 		t.Fatalf("CreateGroupComment failed: %v", err)
 	}
 
-	gc, err := GetGroupCommentByID(db, 1)
+	gc, err := DBService.GetGroupCommentByID(1)
 	if err != nil || gc.Body != "Comment body" {
 		t.Fatalf("GetGroupCommentByID failed: %v", err)
 	}
 
 	newBody := "Updated comment"
-	newImage := "img2.png"
 	updateReq := models.UpdateGroupCommentRequest{
-		Body:  &newBody,
-		Image: &newImage,
+		Body: &newBody,
 	}
 
-	err = UpdateGroupComment(db, gc.ID, updateReq)
+	err = DBService.UpdateGroupComment(gc.ID, updateReq)
 	if err != nil {
 		t.Fatalf("UpdateGroupComment failed: %v", err)
 	}
 
-	err = DeleteGroupComment(db, gc.ID)
+	err = DBService.DeleteGroupComment(gc.ID)
 	if err != nil {
 		t.Fatalf("DeleteGroupComment failed: %v", err)
 	}
