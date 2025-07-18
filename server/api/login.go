@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/models"
@@ -30,6 +31,21 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Sanitize username input (not password as it might need special characters)
+	req.Username = utils.SanitizeString(req.Username)
+
+	// Validate username format - it can be either email or nickname
+	if !isValidUsername(req.Username) {
+		http.Error(w, "Invalid username format. Please use a valid email or nickname (3-20 characters, letters, numbers, underscores, hyphens)", http.StatusBadRequest)
+		return
+	}
+
+	// Basic password validation (just check it's not empty after potential sanitization issues)
+	if strings.TrimSpace(req.Password) == "" {
+		http.Error(w, "Password cannot be empty", http.StatusBadRequest)
+		return
+	}
+
 	err := db.DBService.LoginDB(req.Username, req.Password, w)
 	if err != nil {
 		// fmt.Println("Error checking credentials with the database", err)
@@ -44,6 +60,17 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send back a response to the client-side in case of success
-	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(`{"message": "Registration successful"}`))
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"message": "Login successful"}`))
+}
+
+// Helper function to validate username (can be email or nickname)
+func isValidUsername(username string) bool {
+	// Check if it's a valid email format
+	if strings.Contains(username, "@") {
+		return utils.ValidateEmail(username)
+	}
+
+	// Otherwise, validate as nickname
+	return utils.ValidateNickname(username)
 }
