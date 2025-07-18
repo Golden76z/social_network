@@ -24,6 +24,8 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 	// Get current user ID from context (injected by AuthMiddleware)
 	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
 
+	fmt.Printf("[INFO] Current user ID: %d\n", currentUserID)
+
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
