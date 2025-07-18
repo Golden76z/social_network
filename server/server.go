@@ -12,6 +12,7 @@ import (
 	"github.com/Golden76z/social-network/config"
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/db/migrations"
+	"github.com/Golden76z/social-network/demo"
 	"github.com/Golden76z/social-network/middleware"
 	"github.com/Golden76z/social-network/routes"
 	"github.com/Golden76z/social-network/utils"
@@ -39,6 +40,9 @@ func main() {
 		log.Fatal("Failed to initialize database:", err)
 	}
 	defer dbService.DB.Close()
+
+	// Generating the seed data
+	demo.GenerateSeed()
 
 	// Start session cleanup - Goroutine that clean expired sessions in db every hour
 	go utils.StartSessionCleanup(dbService.DB, 1*time.Hour)

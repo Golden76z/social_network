@@ -1,8 +1,6 @@
 package db
 
 import (
-	"database/sql"
-
 	"github.com/Golden76z/social-network/models"
 )
 
@@ -18,8 +16,8 @@ type GroupEvent struct {
 }
 
 // CreateGroupEvent inserts a new group event into the database.
-func CreateGroupEvent(db *sql.DB, request models.CreateGroupEventRequest, creatorID int64) error {
-	tx, err := db.Begin()
+func (s *Service) CreateGroupEvent(request models.CreateGroupEventRequest, creatorID int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -38,8 +36,8 @@ func CreateGroupEvent(db *sql.DB, request models.CreateGroupEventRequest, creato
 }
 
 // GetGroupEventByID retrieves a group event by its ID.
-func GetGroupEventByID(db *sql.DB, id int64) (*GroupEvent, error) {
-	row := db.QueryRow(`
+func (s *Service) GetGroupEventByID(id int64) (*GroupEvent, error) {
+	row := s.DB.QueryRow(`
         SELECT id, group_id, creator_id, title, description, event_datetime, created_at
         FROM group_events WHERE id = ?`, id)
 
@@ -60,8 +58,8 @@ func GetGroupEventByID(db *sql.DB, id int64) (*GroupEvent, error) {
 }
 
 // UpdateGroupEvent updates a group event
-func UpdateGroupEvent(db *sql.DB, id int64, request models.UpdateGroupEventRequest) error {
-	tx, err := db.Begin()
+func (s *Service) UpdateGroupEvent(id int64, request models.UpdateGroupEventRequest) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -110,8 +108,8 @@ func UpdateGroupEvent(db *sql.DB, id int64, request models.UpdateGroupEventReque
 }
 
 // DeleteGroupEvent removes a group event from the database by its ID.
-func DeleteGroupEvent(db *sql.DB, id int64) error {
-	tx, err := db.Begin()
+func (s *Service) DeleteGroupEvent(id int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}

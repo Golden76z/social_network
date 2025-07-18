@@ -1,8 +1,6 @@
 package db
 
 import (
-	"database/sql"
-
 	"github.com/Golden76z/social-network/models"
 )
 
@@ -17,8 +15,8 @@ type GroupMember struct {
 	CreatedAt string `json:"created_at"`
 }
 
-func CreateGroupMember(db *sql.DB, groupID, userID int64, role, status string, invitedBy *int64) error {
-	tx, err := db.Begin()
+func (s *Service) CreateGroupMember(groupID, userID int64, role, status string, invitedBy *int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -61,8 +59,8 @@ func (s *Service) GetUserGroups(userID int) ([]string, error) {
 	return groups, nil
 }
 
-func GetGroupMemberByID(db *sql.DB, memberID int64) (*GroupMember, error) {
-	row := db.QueryRow(`
+func (s *Service) GetGroupMemberByID(memberID int64) (*GroupMember, error) {
+	row := s.DB.QueryRow(`
         SELECT id, group_id, user_id, role, status, invited_by, created_at
         FROM group_members WHERE id = ?`, memberID)
 	var gm GroupMember
@@ -73,8 +71,8 @@ func GetGroupMemberByID(db *sql.DB, memberID int64) (*GroupMember, error) {
 	return &gm, nil
 }
 
-func UpdateGroupMemberStatus(db *sql.DB, memberID int64, status string) error {
-	tx, err := db.Begin()
+func (s *Service) UpdateGroupMemberStatus(memberID int64, status string) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -90,8 +88,8 @@ func UpdateGroupMemberStatus(db *sql.DB, memberID int64, status string) error {
 	return err
 }
 
-func DeleteGroupMember(db *sql.DB, memberID int64) error {
-	tx, err := db.Begin()
+func (s *Service) DeleteGroupMember(memberID int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -107,8 +105,8 @@ func DeleteGroupMember(db *sql.DB, memberID int64) error {
 }
 
 // LeaveGroup removes a user from a group
-func LeaveGroup(db *sql.DB, request models.LeaveGroupRequest) error {
-	tx, err := db.Begin()
+func (s *Service) LeaveGroup(request models.LeaveGroupRequest) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
