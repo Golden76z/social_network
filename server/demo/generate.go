@@ -16,7 +16,7 @@ import (
 )
 
 func GenerateSeed() {
-	lockFilePath := "demo/seed/seed.lock"
+	lockFilePath := "demo/seed.lock"
 
 	// Check if seed has already been run
 	if _, err := os.Stat(lockFilePath); err == nil {
