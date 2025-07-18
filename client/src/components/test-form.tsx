@@ -8,7 +8,7 @@ export function TestForm({
     }: React.ComponentProps<"div">) {
     return (
         <div className={className} {...props}>
-            <ButtonAccept>
+            <ButtonAccept >
                 Accept
             </ButtonAccept>
         </div>

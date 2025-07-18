@@ -10,25 +10,23 @@ const buttonAcceptVariants = cva(
         variants: {
             variant: {
                 PrimaryRest:
-                    "bg-green-500 text-white shadow-xs hover:bg-green-600",
+                    "bg-chart-1 text-white shadow-xs hover:bg-chart-2",
                 PrimaryDisabled:
-                    "bg-red-500 text-white shadow-xs hover:bg-red-600 focus-visible:ring-red-400 dark:focus-visible:ring-red-600 dark:bg-red-700",
+                    "bg-chart-2 text-white shadow-xs",
                 SecondaryRest:
-                    "bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80",
-                SecondaryDisable:
-                    "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
-                link: "text-primary underline-offset-4 hover:underline",
+                    "rounded-[5px] border border-chart-1 text-chart-1 shadow-xs hover:border-chart-2 hover:text-chart-2",
+                SecondaryDisabled:
+                    "rounded-[5px] border border-chart-2 text-chart-2 shadow-xs",
             },
             size: {
-                default: "h-9 px-4 py-2 has-[>svg]:px-3",
-                sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
-                lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-                icon: "size-9",
+                size1: "h-[40px] w-[75px]",
+                size2: "h-[40px] w-[105px]",
+                size3: "h-[40px] w-[190px]",
             },
         },
         defaultVariants: {
             variant: "PrimaryRest",
-            size: "default",
+            size: "size1",
         },
     }
 )
