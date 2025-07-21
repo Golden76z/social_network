@@ -17,6 +17,7 @@ group_id,user_id,role,status,invited_by
 2,26,member,accepted,2
 2,36,member,accepted,2
 2,1,member,accepted,2
+2,10,member,pending,2
 3,3,admin,accepted,
 3,11,member,accepted,3
 3,12,member,accepted,3
@@ -90,3 +91,4 @@ group_id,user_id,role,status,invited_by
 10,21,member,accepted,10
 10,45,member,accepted,10
 10,13,member,accepted,10
+10,1,member,accepted,10
