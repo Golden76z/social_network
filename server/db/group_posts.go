@@ -3,7 +3,6 @@ package db
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 
 	"github.com/Golden76z/social-network/models"
 )
@@ -68,27 +67,25 @@ func (s *Service) CreateGroupPost(request models.CreateGroupPostRequest, userID 
 }
 
 func (s *Service) GetGroupPostsWithImagesByGroupID(groupID int64, offset int, userID int64) ([]*models.GroupPost, error) {
-	fmt.Println("test1")
+	// Checking if the group id is valid
 	exists, err := s.GroupExists(groupID)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("test2")
 	if !exists {
 		return nil, errors.New("group does not exist")
 	}
-	fmt.Println("test3")
 
+	// Checking if the user making the request is part of the group
 	isMember, err := s.IsUserInGroup(userID, groupID)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("test4")
 	if !isMember {
 		return nil, errors.New("user is not a member of the group")
 	}
-	fmt.Println("test5")
 
+	// Beginning of the transaction
 	tx, err := s.DB.Begin()
 	if err != nil {
 		return nil, err
@@ -100,20 +97,27 @@ func (s *Service) GetGroupPostsWithImagesByGroupID(groupID int64, offset int, us
 			tx.Commit()
 		}
 	}()
-	fmt.Println("test6")
 
 	rows, err := tx.Query(`
-        SELECT id, user_id, title, body, created_at, updated_at
-        FROM group_posts
-        WHERE group_id = ?
-        ORDER BY created_at DESC
-        LIMIT 20 OFFSET ?`, groupID, offset)
+		SELECT id, user_id, title, body, created_at, updated_at
+		FROM group_posts
+		WHERE group_id = ?
+		ORDER BY created_at DESC
+		LIMIT -1 OFFSET (
+			SELECT CASE 
+				WHEN COUNT(*) <= ? THEN 0 
+				ELSE ? 
+			END
+			FROM group_posts
+			WHERE group_id = ?
+		)
+	`, groupID, offset, offset, groupID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	fmt.Println("test7")
 
+	// Ranging over the group post
 	var posts []*models.GroupPost
 	for rows.Next() {
 		var gp models.GroupPost
@@ -122,13 +126,14 @@ func (s *Service) GetGroupPostsWithImagesByGroupID(groupID int64, offset int, us
 			return nil, err
 		}
 		gp.Visibility = "public"
-
 		imageRows, err := tx.Query(`
-            SELECT image_url FROM post_images
-            WHERE post_id = ? AND is_group_post = 1`, gp.ID)
+			SELECT image_url FROM post_images
+			WHERE post_id = ? AND is_group_post = 1`, gp.ID)
 		if err != nil {
 			return nil, err
 		}
+
+		// Ranging over the images of the post
 		var images []string
 		for imageRows.Next() {
 			var url string
@@ -195,22 +200,22 @@ func (s *Service) GetGroupPostWithImagesByID(postID, userID int64) (*models.Grou
 }
 
 func (s *Service) UpdateGroupPost(request models.UpdateGroupPostRequest, userID int64) error {
-	fmt.Println("request: ", request, userID)
-	groupID, err := s.GetGroupIDFromPost(request.ID)
-	if err != nil {
-		return errors.New("post not found")
-	}
+	// groupID, err := s.GetGroupIDFromPost(request.ID)
+	// if err != nil {
+	// 	return errors.New("post not found")
+	// }
 
+	// Checking if the user is the owner of the Post
 	isOwner, err := s.IsPostOwner(userID, request.ID)
 	if err != nil {
 		return err
 	}
 
-	isAdmin, err := s.IsUserGroupAdmin(userID, groupID)
-	if err != nil {
-		return err
-	}
-	if !isOwner && !isAdmin {
+	// isAdmin, err := s.IsUserGroupAdmin(userID, groupID)
+	// if err != nil {
+	// 	return err
+	// }
+	if !isOwner {
 		return errors.New("not authorized")
 	}
 
@@ -247,21 +252,22 @@ func (s *Service) UpdateGroupPost(request models.UpdateGroupPostRequest, userID 
 }
 
 func (s *Service) DeleteGroupPost(id int64, userID int64) error {
-	groupID, err := s.GetGroupIDFromPost(id)
-	if err != nil {
-		return errors.New("post not found")
-	}
+	// groupID, err := s.GetGroupIDFromPost(id)
+	// if err != nil {
+	// 	return errors.New("post not found")
+	// }
 
+	// Checking if the user is the owner of the Post
 	isOwner, err := s.IsPostOwner(userID, id)
 	if err != nil {
 		return err
 	}
 
-	isAdmin, err := s.IsUserGroupAdmin(userID, groupID)
-	if err != nil {
-		return err
-	}
-	if !isOwner && !isAdmin {
+	// isAdmin, err := s.IsUserGroupAdmin(userID, groupID)
+	// if err != nil {
+	// 	return err
+	// }
+	if !isOwner {
 		return errors.New("not authorized")
 	}
 
