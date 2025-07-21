@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -33,10 +34,6 @@ func CreateGroupPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Checking if the group id is valid
-
-	// Checking if the user can make a post in this group
-
 	// Calling the Database to create the new Group's Post
 	errDB := db.DBService.CreateGroupPost(req, int64(userID))
 	if errDB != nil {
@@ -60,50 +57,31 @@ func GetGroupPostHandler(w http.ResponseWriter, r *http.Request) {
 	// Getting the information on the URL
 	query := r.URL.Query()
 
-	// Getting either the id or offlimit
-	idStr := query.Get("id")
+	// Getting the offlimit from the url
 	offsetStr := query.Get("offlimit")
+	groupidStr := query.Get("groupID")
 
 	w.Header().Set("Content-Type", "application/json")
 
-	// Case 1: ID is present — get a single post as array
-	if idStr != "" {
-		id, err := strconv.ParseInt(idStr, 10, 64)
-		if err != nil {
-			http.Error(w, "Invalid id parameter", http.StatusBadRequest)
-			return
-		}
-
-		post, err := db.DBService.GetGroupPostsWithImagesByGroupID(id)
-		if err != nil {
-			http.Error(w, "Post not found", http.StatusNotFound)
-			return
-		}
-
-		json.NewEncoder(w).Encode([]*models.GroupPost{post})
+	// Converting offSet and groupID to int's
+	offSet, errOffSet := strconv.ParseInt(offsetStr, 10, 64)
+	groupID, errGroupID := strconv.ParseInt(groupidStr, 10, 64)
+	if errOffSet != nil || errGroupID != nil {
+		http.Error(w, "Missing id or offlimit query parameter", http.StatusBadRequest)
 		return
 	}
 
-	// Case 2: offlimit is present — get paginated posts
-	if offsetStr != "" {
-		offset, err := strconv.Atoi(offsetStr)
-		if err != nil {
-			http.Error(w, "Invalid offlimit parameter", http.StatusBadRequest)
-			return
-		}
+	fmt.Println("Sending paramaeters: ", offSet, groupID)
 
-		posts, err := db.DBService.GetGroupPostsWithImagesPaginated(offset)
-		if err != nil {
-			http.Error(w, "Failed to fetch posts", http.StatusInternalServerError)
-			return
-		}
-
-		json.NewEncoder(w).Encode(posts)
+	// Get the list of post
+	post, err := db.DBService.GetGroupPostsWithImagesByGroupID(groupID, int(offSet), int64(userID))
+	if err != nil {
+		http.Error(w, "Post not found", http.StatusNotFound)
 		return
 	}
 
-	// Case 3: neither id nor offlimit provided — return error
-	http.Error(w, "Missing id or offlimit query parameter", http.StatusBadRequest)
+	// Sending back an array of post
+	json.NewEncoder(w).Encode(post)
 }
 
 func UpdateGroupPostHandler(w http.ResponseWriter, r *http.Request) {
@@ -138,20 +116,20 @@ func UpdateGroupPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if the post exists and belongs to the user
-	existingPost, err := db.DBService.GetGroupPostWithImagesByID(req.ID)
+	existingPost, err := db.DBService.GetGroupPostWithImagesByID(req.ID, int64(userID))
 	if err != nil {
 		http.Error(w, "Post not found", http.StatusNotFound)
 		return
 	}
 
-	// Check if the user is authorized to update this post
+	// // Check if the user is authorized to update this post
 	if existingPost.UserID != int64(userID) {
 		http.Error(w, "Forbidden: You can only update your own posts", http.StatusForbidden)
 		return
 	}
 
 	// Update the group post in database
-	if err := db.DBService.UpdateGroupPost(req.ID, req); err != nil {
+	if err := db.DBService.UpdateGroupPost(req, int64(userID)); err != nil {
 		http.Error(w, "Error updating the group post", http.StatusInternalServerError)
 		return
 	}
@@ -183,20 +161,20 @@ func DeleteGroupPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if the post exists and belongs to the user
-	existingPost, err := db.DBService.GetGroupPostWithImagesByID(req.ID)
+	existingPost, err := db.DBService.GetGroupPostWithImagesByID(req.ID, int64(userID))
 	if err != nil {
 		http.Error(w, "Post not found", http.StatusNotFound)
 		return
 	}
 
-	// Check if the user is authorized to delete this post
+	// // Check if the user is authorized to delete this post
 	if existingPost.UserID != int64(userID) {
 		http.Error(w, "Forbidden: You can only delete your own posts", http.StatusForbidden)
 		return
 	}
 
 	// Delete the group post from database
-	if err := db.DBService.DeleteGroupPost(req.ID); err != nil {
+	if err := db.DBService.DeleteGroupPost(req.ID, int64(userID)); err != nil {
 		http.Error(w, "Error deleting the group post", http.StatusInternalServerError)
 		return
 	}

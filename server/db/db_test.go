@@ -461,7 +461,7 @@ func TestGroupPostCRUD(t *testing.T) {
 		t.Fatalf("CreateGroupPost failed: %v", err)
 	}
 
-	gp, err := DBService.GetGroupPostWithImagesByID(1)
+	gp, err := DBService.GetGroupPostWithImagesByID(1, user.ID)
 	if err != nil || gp.Title != "Title" {
 		t.Fatalf("GetGroupPostByID failed: %v", err)
 	}
@@ -473,12 +473,12 @@ func TestGroupPostCRUD(t *testing.T) {
 		Body:  &newBody,
 	}
 
-	err = DBService.UpdateGroupPost(gp.ID, updateReq)
+	err = DBService.UpdateGroupPost(updateReq, gp.UserID)
 	if err != nil {
 		t.Fatalf("UpdateGroupPost failed: %v", err)
 	}
 
-	err = DBService.DeleteGroupPost(gp.ID)
+	err = DBService.DeleteGroupPost(gp.ID, gp.UserID)
 	if err != nil {
 		t.Fatalf("DeleteGroupPost failed: %v", err)
 	}
