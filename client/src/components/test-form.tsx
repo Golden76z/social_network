@@ -13,7 +13,7 @@ export function TestForm({
                 Accept
             </ButtonAccept>
             <br></br>
-            <AppBar variant={"Heading1"} size="size1">
+            <AppBar variant={"Heading2"} size="size1">
                 heading
             </AppBar>
         </div>
