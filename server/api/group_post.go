@@ -33,6 +33,10 @@ func CreateGroupPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Checking if the group id is valid
+
+	// Checking if the user can make a post in this group
+
 	// Calling the Database to create the new Group's Post
 	errDB := db.DBService.CreateGroupPost(req, int64(userID))
 	if errDB != nil {
@@ -46,8 +50,17 @@ func CreateGroupPostHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetGroupPostHandler(w http.ResponseWriter, r *http.Request) {
+	// Get current user ID from context (injected by AuthMiddleware)
+	userID, ok := r.Context().Value(middleware.UserIDKey).(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Getting the information on the URL
 	query := r.URL.Query()
 
+	// Getting either the id or offlimit
 	idStr := query.Get("id")
 	offsetStr := query.Get("offlimit")
 
@@ -61,7 +74,7 @@ func GetGroupPostHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		post, err := db.DBService.GetGroupPostWithImagesByID(id)
+		post, err := db.DBService.GetGroupPostsWithImagesByGroupID(id)
 		if err != nil {
 			http.Error(w, "Post not found", http.StatusNotFound)
 			return
