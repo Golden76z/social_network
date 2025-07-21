@@ -1,8 +1,6 @@
 package db
 
 import (
-	"database/sql"
-
 	"github.com/Golden76z/social-network/models"
 )
 
@@ -19,17 +17,17 @@ func (s *Service) CreateGroupPost(request models.CreateGroupPostRequest, userID 
 		}
 	}()
 	_, err = tx.Exec(`
-        INSERT INTO group_posts (group_id, user_id, title, body, image)
-        VALUES (?, ?, ?, ?, ?)`, request.GroupID, userID, request.Title, request.Body, request.Image)
+        INSERT INTO group_posts (group_id, user_id, title, body)
+        VALUES (?, ?, ?, ?)`, request.GroupID, userID, request.Title, request.Body)
 	return err
 }
 
-func GetGroupPostByID(db *sql.DB, id int64) (*models.Post, error) {
-	row := db.QueryRow(`
+func (s *Service) GetGroupPostByID(id int64) (*models.Post, error) {
+	row := s.DB.QueryRow(`
         SELECT id, user_id, title, body, image, created_at, updated_at
         FROM group_posts WHERE id = ?`, id)
 	var gp models.Post
-	err := row.Scan(&gp.ID, &gp.UserID, &gp.Title, &gp.Body, &gp.Image, &gp.CreatedAt, &gp.UpdatedAt)
+	err := row.Scan(&gp.ID, &gp.UserID, &gp.Title, &gp.Body, &gp.CreatedAt, &gp.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -38,8 +36,8 @@ func GetGroupPostByID(db *sql.DB, id int64) (*models.Post, error) {
 	return &gp, nil
 }
 
-func UpdateGroupPost(db *sql.DB, id int64, request models.UpdateGroupPostRequest) error {
-	tx, err := db.Begin()
+func (s *Service) UpdateGroupPost(id int64, request models.UpdateGroupPostRequest) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -65,11 +63,6 @@ func UpdateGroupPost(db *sql.DB, id int64, request models.UpdateGroupPostRequest
 		args = append(args, *request.Body)
 	}
 
-	if request.Image != nil {
-		query += ", image = ?"
-		args = append(args, *request.Image)
-	}
-
 	query += " WHERE id = ?"
 	args = append(args, id)
 
@@ -77,8 +70,8 @@ func UpdateGroupPost(db *sql.DB, id int64, request models.UpdateGroupPostRequest
 	return err
 }
 
-func DeleteGroupPost(db *sql.DB, id int64) error {
-	tx, err := db.Begin()
+func (s *Service) DeleteGroupPost(id int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}

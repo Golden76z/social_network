@@ -35,14 +35,12 @@ type CreateGroupPostRequest struct {
 	GroupID int64  `json:"group_id"`
 	Title   string `json:"title"`
 	Body    string `json:"body"`
-	Image   string `json:"image,omitempty"`
 }
 
 type UpdateGroupPostRequest struct {
 	ID    int64   `json:"id"`
 	Title *string `json:"title,omitempty"`
 	Body  *string `json:"body,omitempty"`
-	Image *string `json:"image,omitempty"`
 }
 
 type DeleteGroupPostRequest struct {
@@ -54,13 +52,11 @@ type DeleteGroupPostRequest struct {
 type CreateGroupCommentRequest struct {
 	GroupPostID int64  `json:"group_post_id"`
 	Body        string `json:"body"`
-	Image       string `json:"image,omitempty"`
 }
 
 type UpdateGroupCommentRequest struct {
-	ID    int64   `json:"id"`
-	Body  *string `json:"body,omitempty"`
-	Image *string `json:"image,omitempty"`
+	ID   int64   `json:"id"`
+	Body *string `json:"body,omitempty"`
 }
 
 type DeleteGroupCommentRequest struct {

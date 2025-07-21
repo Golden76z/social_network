@@ -1,8 +1,6 @@
 package db
 
 import (
-	"database/sql"
-
 	"github.com/Golden76z/social-network/models"
 )
 
@@ -15,8 +13,8 @@ type EventRSVP struct {
 	CreatedAt string `json:"created_at"`
 }
 
-func CreateEventRSVP(db *sql.DB, request models.RSVPToEventRequest) error {
-	tx, err := db.Begin()
+func (s *Service) CreateEventRSVP(request models.RSVPToEventRequest) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -33,8 +31,8 @@ func CreateEventRSVP(db *sql.DB, request models.RSVPToEventRequest) error {
 	return err
 }
 
-func GetEventRSVPByID(db *sql.DB, id int64) (*EventRSVP, error) {
-	row := db.QueryRow(`
+func (s *Service) GetEventRSVPByID(id int64) (*EventRSVP, error) {
+	row := s.DB.QueryRow(`
         SELECT id, event_id, user_id, status, created_at
         FROM event_rsvps WHERE id = ?`, id)
 	var rsvp EventRSVP
@@ -45,8 +43,8 @@ func GetEventRSVPByID(db *sql.DB, id int64) (*EventRSVP, error) {
 	return &rsvp, nil
 }
 
-func UpdateEventRSVPStatus(db *sql.DB, id int64, status string) error {
-	tx, err := db.Begin()
+func (s *Service) UpdateEventRSVPStatus(id int64, status string) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -61,8 +59,8 @@ func UpdateEventRSVPStatus(db *sql.DB, id int64, status string) error {
 	return err
 }
 
-func DeleteEventRSVP(db *sql.DB, id int64) error {
-	tx, err := db.Begin()
+func (s *Service) DeleteEventRSVP(id int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
