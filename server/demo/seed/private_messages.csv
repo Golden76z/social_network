@@ -1,0 +1,101 @@
+sender_id,receiver_id,is_read,content,created_at
+1,2,true,"Did you get the intel on Lex's new weapon?",2024-01-01 10:00:00
+2,1,true,"Yes, it's powered by kryptonite fragments.",2024-01-01 10:05:00
+1,2,true,"We need to neutralize it ASAP.",2024-01-01 10:10:00
+2,1,true,"Already crafting a countermeasure.",2024-01-01 10:15:00
+3,4,true,"Can you hack into Oscorp's mainframe?",2024-01-02 10:00:00
+4,3,true,"On it now. Give me five minutes.",2024-01-02 10:05:00
+3,4,true,"Watch out for their firewalls.",2024-01-02 10:10:00
+4,3,false,"Nothing I can't handle.",2024-01-02 10:15:00
+5,6,true,"HYDRA's on the move again.",2024-01-03 10:00:00
+6,5,true,"Location?",2024-01-03 10:05:00
+5,6,true,"Berlin. Same rendezvous point.",2024-01-03 10:10:00
+6,5,true,"I'll bring the EMPs.",2024-01-03 10:15:00
+7,8,true,"Reality is warping in sector 9.",2024-01-04 10:00:00
+8,7,true,"Feels like Chaos Magic.",2024-01-04 10:05:00
+7,8,true,"Too strong to contain alone.",2024-01-04 10:10:00
+8,7,true,"Calling in backup.",2024-01-04 10:15:00
+9,10,true,"Metahuman detected in Star City.",2024-01-05 10:00:00
+10,9,true,"Engage or observe?",2024-01-05 10:05:00
+9,10,false,"Observe for now.",2024-01-05 10:10:00
+10,9,true,"Got it. Staying in stealth.",2024-01-05 10:15:00
+11,12,true,"Alien signal intercepted above Earth.",2024-01-06 10:00:00
+12,11,true,"Could be Zod again.",2024-01-06 10:05:00
+11,12,true,"Preparing planetary defenses.",2024-01-06 10:10:00
+12,11,true,"I'm activating the Watchtower.",2024-01-06 10:15:00
+13,14,true,"Phoenix energy spike downtown.",2024-01-07 10:00:00
+14,13,true,"We need psychic shields.",2024-01-07 10:05:00
+13,14,false,"Danger Room is prepped.",2024-01-07 10:10:00
+14,13,false,"Let’s deploy the team.",2024-01-07 10:15:00
+15,16,true,"Red Room agents spotted.",2024-01-08 10:00:00
+16,15,true,"Old ghosts never die.",2024-01-08 10:05:00
+15,16,true,"Want me to go silent?",2024-01-08 10:10:00
+16,15,true,"Only if it gets messy.",2024-01-08 10:15:00
+17,18,true,"Boom tube opened in Gotham.",2024-01-09 10:00:00
+18,17,true,"Darkseid’s minions?",2024-01-09 10:05:00
+17,18,false,"Most likely. Prepare for war.",2024-01-09 10:10:00
+18,17,true,"Calling the League now.",2024-01-09 10:15:00
+19,20,true,"Speed Force anomaly growing.",2024-01-10 10:00:00
+20,19,true,"I’ll recalibrate the tachyon enhancers.",2024-01-10 10:05:00
+19,20,false,"Hurry. Time is breaking apart.",2024-01-10 10:10:00
+20,19,false,"Already on it.",2024-01-10 10:15:00
+1,2,true,"Did you get the intel on Lex's new weapon?",2024-01-01 10:00:00
+2,1,true,"Yes, it's powered by kryptonite fragments.",2024-01-01 10:05:00
+1,2,true,"We need to neutralize it ASAP.",2024-01-01 10:10:00
+2,1,true,"Already crafting a countermeasure.",2024-01-01 10:15:00
+3,4,true,"Can you hack into Oscorp's mainframe?",2024-01-02 10:00:00
+4,3,true,"On it now. Give me five minutes.",2024-01-02 10:05:00
+3,4,true,"Watch out for their firewalls.",2024-01-02 10:10:00
+4,3,false,"Nothing I can't handle.",2024-01-02 10:15:00
+5,6,true,"HYDRA's on the move again.",2024-01-03 10:00:00
+6,5,true,"Location?",2024-01-03 10:05:00
+5,6,true,"Berlin. Same rendezvous point.",2024-01-03 10:10:00
+6,5,true,"I'll bring the EMPs.",2024-01-03 10:15:00
+7,8,true,"Reality is warping in sector 9.",2024-01-04 10:00:00
+8,7,true,"Feels like Chaos Magic.",2024-01-04 10:05:00
+7,8,true,"Too strong to contain alone.",2024-01-04 10:10:00
+8,7,true,"Calling in backup.",2024-01-04 10:15:00
+9,10,true,"Metahuman detected in Star City.",2024-01-05 10:00:00
+10,9,true,"Engage or observe?",2024-01-05 10:05:00
+9,10,false,"Observe for now.",2024-01-05 10:10:00
+10,9,true,"Got it. Staying in stealth.",2024-01-05 10:15:00
+11,12,true,"Alien signal intercepted above Earth.",2024-01-06 10:00:00
+12,11,true,"Could be Zod again.",2024-01-06 10:05:00
+11,12,true,"Preparing planetary defenses.",2024-01-06 10:10:00
+12,11,true,"I'm activating the Watchtower.",2024-01-06 10:15:00
+13,14,true,"Phoenix energy spike downtown.",2024-01-07 10:00:00
+14,13,true,"We need psychic shields.",2024-01-07 10:05:00
+13,14,false,"Danger Room is prepped.",2024-01-07 10:10:00
+14,13,false,"Let’s deploy the team.",2024-01-07 10:15:00
+15,16,true,"Red Room agents spotted.",2024-01-08 10:00:00
+16,15,true,"Old ghosts never die.",2024-01-08 10:05:00
+15,16,true,"Want me to go silent?",2024-01-08 10:10:00
+16,15,true,"Only if it gets messy.",2024-01-08 10:15:00
+17,18,true,"Boom tube opened in Gotham.",2024-01-09 10:00:00
+18,17,true,"Darkseid’s minions?",2024-01-09 10:05:00
+17,18,false,"Most likely. Prepare for war.",2024-01-09 10:10:00
+18,17,true,"Calling the League now.",2024-01-09 10:15:00
+19,20,true,"Speed Force anomaly growing.",2024-01-10 10:00:00
+20,19,true,"I’ll recalibrate the tachyon enhancers.",2024-01-10 10:05:00
+19,20,false,"Hurry. Time is breaking apart.",2024-01-10 10:10:00
+20,19,false,"Already on it.",2024-01-10 10:15:00
+1,2,true,"Did you get the intel on Lex's new weapon?",2024-01-01 10:00:00
+2,1,true,"Yes, it's powered by kryptonite fragments.",2024-01-01 10:05:00
+1,2,true,"We need to neutralize it ASAP.",2024-01-01 10:10:00
+2,1,true,"Already crafting a countermeasure.",2024-01-01 10:15:00
+3,4,true,"Can you hack into Oscorp's mainframe?",2024-01-02 10:00:00
+4,3,true,"On it now. Give me five minutes.",2024-01-02 10:05:00
+3,4,true,"Watch out for their firewalls.",2024-01-02 10:10:00
+4,3,false,"Nothing I can't handle.",2024-01-02 10:15:00
+5,6,true,"HYDRA's on the move again.",2024-01-03 10:00:00
+6,5,true,"Location?",2024-01-03 10:05:00
+5,6,true,"Berlin. Same rendezvous point.",2024-01-03 10:10:00
+6,5,true,"I'll bring the EMPs.",2024-01-03 10:15:00
+7,8,true,"Reality is warping in sector 9.",2024-01-04 10:00:00
+8,7,true,"Feels like Chaos Magic.",2024-01-04 10:05:00
+7,8,true,"Too strong to contain alone.",2024-01-04 10:10:00
+8,7,true,"Calling in backup.",2024-01-04 10:15:00
+9,10,true,"Metahuman detected in Star City.",2024-01-05 10:00:00
+10,9,true,"Engage or observe?",2024-01-05 10:05:00
+9,10,false,"Observe for now.",2024-01-05 10:10:00
+10,9,true,"Got it. Staying in stealth.",2024-01-05 10:15:00

@@ -29,11 +29,6 @@ go.work.sum
 social_network.db
 app.db
 
-# Temporary seeder files
-temp_seeder
-temp_seeder.go
-seed
-
 /tmp
 .air*
 .gitignore
