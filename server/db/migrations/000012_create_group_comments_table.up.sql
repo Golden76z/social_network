@@ -3,7 +3,6 @@ CREATE TABLE IF NOT EXISTS group_comments (
   group_post_id INTEGER NOT NULL,
   user_id INTEGER NOT NULL,
   body TEXT,
-  image VARCHAR(255),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (group_post_id) REFERENCES group_posts(id) ON DELETE CASCADE,

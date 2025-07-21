@@ -1,13 +1,11 @@
 package db
 
 import (
-	"database/sql"
-
 	"github.com/Golden76z/social-network/models"
 )
 
-func CreateGroupComment(db *sql.DB, request models.CreateGroupCommentRequest, userID int64) error {
-	tx, err := db.Begin()
+func (s *Service) CreateGroupComment(request models.CreateGroupCommentRequest, userID int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -19,13 +17,13 @@ func CreateGroupComment(db *sql.DB, request models.CreateGroupCommentRequest, us
 		}
 	}()
 	_, err = tx.Exec(`
-        INSERT INTO group_comments (group_post_id, user_id, body, image)
-        VALUES (?, ?, ?, ?)`, request.GroupPostID, userID, request.Body, request.Image)
+        INSERT INTO group_comments (group_post_id, user_id, body)
+        VALUES (?, ?, ?)`, request.GroupPostID, userID, request.Body)
 	return err
 }
 
-func GetGroupCommentByID(db *sql.DB, id int64) (*models.Comment, error) {
-	row := db.QueryRow(`
+func (s *Service) GetGroupCommentByID(id int64) (*models.Comment, error) {
+	row := s.DB.QueryRow(`
         SELECT id, group_post_id, user_id, body, created_at, updated_at
         FROM group_comments WHERE id = ?`, id)
 	var gc models.Comment
@@ -36,8 +34,8 @@ func GetGroupCommentByID(db *sql.DB, id int64) (*models.Comment, error) {
 	return &gc, nil
 }
 
-func UpdateGroupComment(db *sql.DB, id int64, request models.UpdateGroupCommentRequest) error {
-	tx, err := db.Begin()
+func (s *Service) UpdateGroupComment(id int64, request models.UpdateGroupCommentRequest) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -58,11 +56,6 @@ func UpdateGroupComment(db *sql.DB, id int64, request models.UpdateGroupCommentR
 		args = append(args, *request.Body)
 	}
 
-	if request.Image != nil {
-		query += ", image = ?"
-		args = append(args, *request.Image)
-	}
-
 	query += " WHERE id = ?"
 	args = append(args, id)
 
@@ -70,8 +63,8 @@ func UpdateGroupComment(db *sql.DB, id int64, request models.UpdateGroupCommentR
 	return err
 }
 
-func DeleteGroupComment(db *sql.DB, id int64) error {
-	tx, err := db.Begin()
+func (s *Service) DeleteGroupComment(id int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}

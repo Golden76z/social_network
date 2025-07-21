@@ -12,6 +12,7 @@ import (
 	"github.com/Golden76z/social-network/config"
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/db/migrations"
+	"github.com/Golden76z/social-network/demo"
 	"github.com/Golden76z/social-network/middleware"
 	"github.com/Golden76z/social-network/routes"
 	"github.com/Golden76z/social-network/utils"
@@ -50,6 +51,9 @@ func main() {
 		log.Fatal("Failed to initialize database:", err)
 	}
 	defer dbService.DB.Close()
+
+	// Generating the seed data
+	demo.GenerateSeed()
 
 	// Start session cleanup with configurable interval
 	go utils.StartSessionCleanup(dbService.DB, cfg.SessionCleanupInterval)

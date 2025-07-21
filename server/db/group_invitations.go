@@ -1,8 +1,6 @@
 package db
 
 import (
-	"database/sql"
-
 	"github.com/Golden76z/social-network/models"
 )
 
@@ -17,8 +15,8 @@ type GroupInvitation struct {
 }
 
 // CreateGroupInvitation inserts a new group invitation into the database.
-func CreateGroupInvitation(db *sql.DB, request models.InviteToGroupRequest) error {
-	tx, err := db.Begin()
+func (s *Service) CreateGroupInvitation(request models.InviteToGroupRequest) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -37,8 +35,8 @@ func CreateGroupInvitation(db *sql.DB, request models.InviteToGroupRequest) erro
 }
 
 // GetGroupInvitationByID retrieves a group invitation by its ID.
-func GetGroupInvitationByID(db *sql.DB, id int64) (*GroupInvitation, error) {
-	row := db.QueryRow(`
+func (s *Service) GetGroupInvitationByID(id int64) (*GroupInvitation, error) {
+	row := s.DB.QueryRow(`
         SELECT id, group_id, invited_user_id, invited_by, status, created_at
         FROM group_invitations WHERE id = ?`, id)
 
@@ -58,8 +56,8 @@ func GetGroupInvitationByID(db *sql.DB, id int64) (*GroupInvitation, error) {
 }
 
 // UpdateGroupInvitationStatus updates the status of a group invitation.
-func UpdateGroupInvitationStatus(db *sql.DB, id int64, status string) error {
-	tx, err := db.Begin()
+func (s *Service) UpdateGroupInvitationStatus(id int64, status string) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -75,8 +73,8 @@ func UpdateGroupInvitationStatus(db *sql.DB, id int64, status string) error {
 }
 
 // DeleteGroupInvitation removes a group invitation from the database by its ID.
-func DeleteGroupInvitation(db *sql.DB, id int64) error {
-	tx, err := db.Begin()
+func (s *Service) DeleteGroupInvitation(id int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}

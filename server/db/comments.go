@@ -1,14 +1,13 @@
 package db
 
 import (
-	"database/sql"
 	"fmt"
 
 	"github.com/Golden76z/social-network/models"
 )
 
-func CreateComment(db *sql.DB, req models.CreateCommentRequest) error {
-	tx, err := db.Begin()
+func (s *Service) CreateComment(req models.CreateCommentRequest) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -26,8 +25,8 @@ func CreateComment(db *sql.DB, req models.CreateCommentRequest) error {
 	return err
 }
 
-func GetCommentByID(db *sql.DB, commentID int64) (*models.Comment, error) {
-	row := db.QueryRow(`
+func (s *Service) GetCommentByID(commentID int64) (*models.Comment, error) {
+	row := s.DB.QueryRow(`
         SELECT id, post_id, user_id, body, created_at, updated_at
         FROM comments WHERE id = ?`, commentID)
 	var comment models.Comment
@@ -38,8 +37,8 @@ func GetCommentByID(db *sql.DB, commentID int64) (*models.Comment, error) {
 	return &comment, nil
 }
 
-func UpdateComment(db *sql.DB, commentID int64, req models.UpdateCommentRequest) error {
-	tx, err := db.Begin()
+func (s *Service) UpdateComment(commentID int64, req models.UpdateCommentRequest) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -62,8 +61,8 @@ func UpdateComment(db *sql.DB, commentID int64, req models.UpdateCommentRequest)
 	return err
 }
 
-func DeleteComment(db *sql.DB, commentID int64) error {
-	tx, err := db.Begin()
+func (s *Service) DeleteComment(commentID int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
