@@ -42,9 +42,9 @@ func CreateUserReactionHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if req.GroupPostID != nil {
-		_, err := db.DBService.GetGroupPostByID(*req.GroupPostID)
+		_, err := db.DBService.GetGroupPostWithImagesByID(*req.GroupPostID, userID)
 		if err != nil {
-			http.Error(w, "Group post not found", http.StatusBadRequest)
+			http.Error(w, "Group post not found or not accessible", http.StatusBadRequest)
 			return
 		}
 	}
