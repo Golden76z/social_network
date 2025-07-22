@@ -61,8 +61,8 @@ func (s *Service) CreateGroupPost(request models.CreateGroupPostRequest, userID 
 	}()
 
 	_, err = tx.Exec(`
-        INSERT INTO group_posts (group_id, user_id, title, body)
-        VALUES (?, ?, ?, ?)`, request.GroupID, userID, request.Title, request.Body)
+		INSERT INTO group_posts (group_id, user_id, title, body)
+		VALUES (?, ?, ?, ?)`, request.GroupID, userID, request.Title, request.Body)
 	return err
 }
 
