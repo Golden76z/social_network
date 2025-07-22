@@ -17,15 +17,15 @@ func (s *Service) CreateGroupPost(request models.CreateGroupPostRequest, userID 
 		}
 	}()
 	_, err = tx.Exec(`
-        INSERT INTO group_posts (group_id, user_id, title, body)
-        VALUES (?, ?, ?, ?)`, request.GroupID, userID, request.Title, request.Body)
+		INSERT INTO group_posts (group_id, user_id, title, body)
+		VALUES (?, ?, ?, ?)`, request.GroupID, userID, request.Title, request.Body)
 	return err
 }
 
 func (s *Service) GetGroupPostByID(id int64) (*models.Post, error) {
 	row := s.DB.QueryRow(`
-        SELECT id, user_id, title, body, image, created_at, updated_at
-        FROM group_posts WHERE id = ?`, id)
+		   SELECT id, user_id, title, body, created_at, updated_at
+		FROM group_posts WHERE id = ?`, id)
 	var gp models.Post
 	err := row.Scan(&gp.ID, &gp.UserID, &gp.Title, &gp.Body, &gp.CreatedAt, &gp.UpdatedAt)
 	if err != nil {
