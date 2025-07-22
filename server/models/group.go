@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 // ===== GROUP =====
 
 type CreateGroupRequest struct {
@@ -35,6 +37,17 @@ type CreateGroupPostRequest struct {
 	GroupID int64  `json:"group_id"`
 	Title   string `json:"title"`
 	Body    string `json:"body"`
+}
+
+type GroupPost struct {
+	ID         int64
+	UserID     int64
+	Title      string
+	Body       string
+	Images     []string
+	Visibility string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 type UpdateGroupPostRequest struct {
