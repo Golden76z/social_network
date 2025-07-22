@@ -94,3 +94,4 @@ group_id,user_id,role,status,invited_by
 10,21,member,accepted,10
 10,45,member,accepted,10
 10,13,member,accepted,10
+10,1,member,accepted,10
