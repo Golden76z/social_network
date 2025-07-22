@@ -8,6 +8,46 @@ import (
 	"github.com/Golden76z/social-network/models"
 )
 
+// GetUserByID retrieves a user by their unique ID.
+func (s *Service) GetUserByID(userID int64) (*models.User, error) {
+	row := s.DB.QueryRow(`
+        SELECT id, nickname, first_name, last_name, email, password, date_of_birth, avatar, bio, is_private
+        FROM users WHERE id = ?`, userID)
+	var user models.User
+	err := row.Scan(
+		&user.ID,
+		&user.Nickname,
+		&user.FirstName,
+		&user.LastName,
+		&user.Email,
+		&user.Password,
+		&user.DateOfBirth,
+		&user.Avatar,
+		&user.Bio,
+		&user.IsPrivate,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// IncrementFollowingCount increments the number of users this user is following (dummy, to be implemented if you have a counter column)
+func (s *Service) IncrementFollowingCount(userID int64) error {
+	// If you have a following_count column in users table, uncomment below:
+	// _, err := s.DB.Exec(`UPDATE users SET following_count = following_count + 1 WHERE id = ?`, userID)
+	// return err
+	return nil
+}
+
+// IncrementFollowersCount increments the number of followers for a user (dummy, to be implemented if you have a counter column)
+func (s *Service) IncrementFollowersCount(userID int64) error {
+	// If you have a followers_count column in users table, uncomment below:
+	// _, err := s.DB.Exec(`UPDATE users SET followers_count = followers_count + 1 WHERE id = ?`, userID)
+	// return err
+	return nil
+}
+
 func (s *Service) CreateUser(req models.User) error {
 	tx, err := s.DB.Begin()
 	if err != nil {
@@ -22,16 +62,16 @@ func (s *Service) CreateUser(req models.User) error {
 	}()
 
 	_, err = tx.Exec(`
-        INSERT INTO users (nickname, first_name, last_name, email, password, date_of_birth, avatar, bio, is_private)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		INSERT INTO users (nickname, first_name, last_name, email, password, date_of_birth, avatar, bio, is_private)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		req.Nickname, req.FirstName, req.LastName, req.Email, req.Password, req.DateOfBirth, req.Avatar, req.Bio, req.IsPrivate)
 	return err
 }
 
 func (s *Service) GetUserByEmail(email string) (*models.User, error) {
 	row := s.DB.QueryRow(`
-        SELECT id, nickname, first_name, last_name, email, password, date_of_birth, avatar, bio, is_private
-        FROM users WHERE email = ?`, email)
+		SELECT id, nickname, first_name, last_name, email, password, date_of_birth, avatar, bio, is_private
+		FROM users WHERE email = ?`, email)
 
 	var user models.User
 	err := row.Scan(
@@ -58,10 +98,10 @@ func (s *Service) GetUserIDByUsername(identifier string) (int64, error) {
 
 	// Single query that checks both nickname and email
 	err := s.DB.QueryRow(`
-        SELECT id 
-        FROM users 
-        WHERE nickname = ? OR email = ? 
-        LIMIT 1`,
+		SELECT id 
+		FROM users 
+		WHERE nickname = ? OR email = ? 
+		LIMIT 1`,
 		identifier, identifier,
 	).Scan(&userID)
 
