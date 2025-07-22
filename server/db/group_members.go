@@ -1,19 +1,10 @@
 package db
 
 import (
+	"errors"
+
 	"github.com/Golden76z/social-network/models"
 )
-
-// GroupMember represents a group member in the database
-type GroupMember struct {
-	ID        int64  `json:"id"`
-	GroupID   int64  `json:"group_id"`
-	UserID    int64  `json:"user_id"`
-	Role      string `json:"role"`
-	Status    string `json:"status"`
-	InvitedBy *int64 `json:"invited_by,omitempty"`
-	CreatedAt string `json:"created_at"`
-}
 
 func (s *Service) CreateGroupMember(groupID, userID int64, role, status string, invitedBy *int64) error {
 	tx, err := s.DB.Begin()
@@ -59,11 +50,11 @@ func (s *Service) GetUserGroups(userID int) ([]string, error) {
 	return groups, nil
 }
 
-func (s *Service) GetGroupMemberByID(memberID int64) (*GroupMember, error) {
+func (s *Service) GetGroupMemberByID(memberID int64) (*models.GroupMember, error) {
 	row := s.DB.QueryRow(`
         SELECT id, group_id, user_id, role, status, invited_by, created_at
         FROM group_members WHERE id = ?`, memberID)
-	var gm GroupMember
+	var gm models.GroupMember
 	err := row.Scan(&gm.ID, &gm.GroupID, &gm.UserID, &gm.Role, &gm.Status, &gm.InvitedBy, &gm.CreatedAt)
 	if err != nil {
 		return nil, err
@@ -71,7 +62,57 @@ func (s *Service) GetGroupMemberByID(memberID int64) (*GroupMember, error) {
 	return &gm, nil
 }
 
-func (s *Service) UpdateGroupMemberStatus(memberID int64, status string) error {
+func (s *Service) GetGroupMembers(groupID int64, offset int, userID int64) ([]*models.GroupMember, error) {
+	// Check if group exists
+	exists, err := s.GroupExists(groupID)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errors.New("group does not exist")
+	}
+
+	// Check if user is authorized to view members
+	isMember, err := s.IsUserInGroup(userID, groupID)
+	if err != nil {
+		return nil, err
+	}
+	if !isMember {
+		return nil, errors.New("user is not a member of the group")
+	}
+
+	// Always initialize slice so it's never nil
+	members := make([]*models.GroupMember, 0)
+
+	rows, err := s.DB.Query(`
+		SELECT id, group_id, user_id, role, status, invited_by, created_at
+		FROM group_members
+		WHERE group_id = ?
+		ORDER BY created_at ASC
+		LIMIT 20 OFFSET ?
+	`, groupID, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var gm models.GroupMember
+		if err := rows.Scan(&gm.ID, &gm.GroupID, &gm.UserID, &gm.Role, &gm.Status, &gm.InvitedBy, &gm.CreatedAt); err != nil {
+			return nil, err
+		}
+		members = append(members, &gm)
+	}
+
+	// Still return empty slice if no rows were returned
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return members, nil
+}
+
+func (s *Service) UpdateGroupMemberStatus(req models.UpdateGroupMemberRequest, userID int) error {
 	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
@@ -84,7 +125,7 @@ func (s *Service) UpdateGroupMemberStatus(memberID int64, status string) error {
 		}
 	}()
 	_, err = tx.Exec(`
-        UPDATE group_members SET status = ? WHERE id = ?`, status, memberID)
+        UPDATE group_members SET status = ? WHERE id = ?`, req.Status, userID)
 	return err
 }
 
@@ -105,7 +146,7 @@ func (s *Service) DeleteGroupMember(memberID int64) error {
 }
 
 // LeaveGroup removes a user from a group
-func (s *Service) LeaveGroup(request models.LeaveGroupRequest) error {
+func (s *Service) LeaveGroup(request models.LeaveGroupRequest, userID int) error {
 	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
@@ -117,6 +158,6 @@ func (s *Service) LeaveGroup(request models.LeaveGroupRequest) error {
 			_ = tx.Commit()
 		}
 	}()
-	_, err = tx.Exec(`DELETE FROM group_members WHERE group_id = ? AND user_id = ?`, request.GroupID, request.UserID)
+	_, err = tx.Exec(`DELETE FROM group_members WHERE group_id = ? AND user_id = ?`, request.GroupID, userID)
 	return err
 }
