@@ -2,9 +2,9 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/middleware"
@@ -54,23 +54,25 @@ func GetGroupCommentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract group_post_id from URL path or query parameters
-	// Assuming URL structure like: /api/group-comments?group_post_id=123
-	groupPostIDStr := r.URL.Query().Get("group_post_id")
-	if groupPostIDStr == "" {
-		http.Error(w, "group_post_id parameter is required", http.StatusBadRequest)
-		return
-	}
+	// Getting the information on the URL
+	query := r.URL.Query()
 
-	groupPostID, err := strconv.ParseInt(groupPostIDStr, 10, 64)
-	if err != nil {
-		http.Error(w, "Invalid group_post_id parameter", http.StatusBadRequest)
+	// Getting the offlimit from the url
+	offsetStr := query.Get("offset")
+	groupPostIDStr := query.Get("id")
+
+	// Converting offSet and groupID to int's
+	offSet, errOffSet := strconv.ParseInt(offsetStr, 10, 64)
+	groupPostID, errGroupID := strconv.ParseInt(groupPostIDStr, 10, 64)
+	if errOffSet != nil || errGroupID != nil {
+		http.Error(w, "Missing id or offlimit query parameter", http.StatusBadRequest)
 		return
 	}
 
 	// Get comments from database
-	comments, errDB := db.DBService.GetGroupComments(groupPostID, int64(userID))
+	comments, errDB := db.DBService.GetGroupComments(groupPostID, int64(userID), int(offSet))
 	if errDB != nil {
+		fmt.Println("Error db: ", errDB)
 		http.Error(w, "Error retrieving group comments", http.StatusInternalServerError)
 		return
 	}
@@ -89,20 +91,6 @@ func UpdateGroupCommentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract comment ID from URL path
-	// Assuming URL structure like: /api/group-comments/123
-	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(pathParts) < 2 {
-		http.Error(w, "Comment ID is required in URL path", http.StatusBadRequest)
-		return
-	}
-
-	commentID, err := strconv.ParseInt(pathParts[len(pathParts)-1], 10, 64)
-	if err != nil {
-		http.Error(w, "Invalid comment ID", http.StatusBadRequest)
-		return
-	}
-
 	// Parse request body
 	var req models.UpdateGroupCommentRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -118,7 +106,7 @@ func UpdateGroupCommentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update comment in database
-	errDB := db.DBService.UpdateGroupComment(commentID, int64(userID), req)
+	errDB := db.DBService.UpdateGroupComment(req.ID, int64(userID), req)
 	if errDB != nil {
 		if errDB.Error() == "comment not found" || errDB.Error() == "unauthorized" {
 			http.Error(w, "Comment not found or unauthorized", http.StatusNotFound)
