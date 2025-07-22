@@ -31,8 +31,9 @@ func setupGroupRoutes(r *Router) {
 
 	// Group membership
 	r.POST("/api/group/member", api.InviteToGroupHandler)
-	r.DELETE("/api/group/member", api.LeaveGroupHandler)
 	r.GET("/api/group/members", api.GetGroupMembersHandler)
+	r.PUT("/api/group/member", api.UpdateGroupMemberHandler)
+	r.DELETE("/api/group/member", api.LeaveGroupHandler)
 
 	// Event RSVP
 	r.POST("/api/group/event/rsvp", api.RSVPToEventHandler)
