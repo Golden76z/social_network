@@ -7,6 +7,7 @@ import (
 	"github.com/Golden76z/social-network/models"
 )
 
+// Method to insert a comment on a group post
 func (s *Service) CreateGroupComment(request models.CreateGroupCommentRequest, userID int64) error {
 	tx, err := s.DB.Begin()
 	if err != nil {
@@ -20,43 +21,69 @@ func (s *Service) CreateGroupComment(request models.CreateGroupCommentRequest, u
 		}
 	}()
 
-	_, err = tx.Exec(`
+	// Insert comment only if user is an accepted member of the group
+	res, err := tx.Exec(`
 		INSERT INTO group_comments (group_post_id, user_id, body)
-		VALUES (?, ?, ?)`, request.GroupPostID, userID, request.Body)
-	return err
+		SELECT ?, ?, ?
+		FROM group_posts gp
+		JOIN group_members gm ON gp.group_id = gm.group_id
+		WHERE gp.id = ? AND gm.user_id = ? AND gm.status = 'accepted'
+	`, request.GroupPostID, userID, request.Body, request.GroupPostID, userID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return errors.New("unauthorized: user is not an accepted member of the group or post does not exist")
+	}
+
+	return nil
 }
 
-func (s *Service) GetGroupCommentByID(id int64) (*models.Comment, error) {
+// Method to retrieve a single comment with its ID (access check included)
+func (s *Service) GetGroupCommentByID(id, userID int64) (*models.Comment, error) {
 	row := s.DB.QueryRow(`
-		SELECT id, group_post_id, user_id, body, created_at, updated_at
-		FROM group_comments WHERE id = ?`, id)
+		SELECT gc.id, gc.group_post_id, gc.user_id, gc.body, gc.created_at, gc.updated_at
+		FROM group_comments gc
+		JOIN group_posts gp ON gc.group_post_id = gp.id
+		JOIN group_members gm ON gp.group_id = gm.group_id
+		WHERE gc.id = ? AND gm.user_id = ? AND gm.status = 'accepted'
+	`, id, userID)
 
 	var gc models.Comment
 	err := row.Scan(&gc.ID, &gc.PostID, &gc.UserID, &gc.Body, &gc.CreatedAt, &gc.UpdatedAt)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errors.New("comment not found or access denied")
+		}
 		return nil, err
 	}
 	return &gc, nil
 }
 
-// GetGroupComments retrieves all comments for a specific group post
-func (s *Service) GetGroupComments(groupPostID, userID int64) ([]models.Comment, error) {
-	// First verify if user has access to this group post
-	hasAccess, err := s.CanUserAccessGroupPost(groupPostID, userID)
-	if err != nil {
-		return nil, err
-	}
-	if !hasAccess {
-		return nil, errors.New("unauthorized: user cannot access this group post")
-	}
-
+func (s *Service) GetGroupComments(groupPostID, userID int64, offset int) ([]models.Comment, error) {
 	rows, err := s.DB.Query(`
 		SELECT gc.id, gc.group_post_id, gc.user_id, gc.body, gc.created_at, gc.updated_at,
-			   u.username, u.first_name, u.last_name, u.avatar
+			   u.nickname, u.first_name, u.last_name, u.avatar
 		FROM group_comments gc
 		JOIN users u ON gc.user_id = u.id
-		WHERE gc.group_post_id = ?
-		ORDER BY gc.created_at ASC`, groupPostID)
+		JOIN group_posts gp ON gc.group_post_id = gp.id
+		JOIN group_members gm ON gp.group_id = gm.group_id
+		WHERE gc.group_post_id = ? AND gm.user_id = ? AND gm.status = 'accepted'
+		ORDER BY gc.created_at ASC
+		LIMIT -1 OFFSET (
+			SELECT CASE
+				WHEN COUNT(*) <= ? THEN 0
+				ELSE ?
+			END
+			FROM group_comments
+			WHERE group_post_id = ?
+		)
+	`, groupPostID, userID, offset, offset, groupPostID)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +101,6 @@ func (s *Service) GetGroupComments(groupPostID, userID int64) ([]models.Comment,
 			return nil, err
 		}
 
-		// Add user info to comment
 		if username.Valid {
 			comment.Username = username.String
 		}
@@ -97,8 +123,7 @@ func (s *Service) GetGroupComments(groupPostID, userID int64) ([]models.Comment,
 // IsGroupCommentOwner checks if the user is the owner of the comment
 func (s *Service) IsGroupCommentOwner(commentID, userID int64) (bool, error) {
 	var ownerID int64
-	row := s.DB.QueryRow(`
-		SELECT user_id FROM group_comments WHERE id = ?`, commentID)
+	row := s.DB.QueryRow(`SELECT user_id FROM group_comments WHERE id = ?`, commentID)
 
 	err := row.Scan(&ownerID)
 	if err != nil {
@@ -107,27 +132,10 @@ func (s *Service) IsGroupCommentOwner(commentID, userID int64) (bool, error) {
 		}
 		return false, err
 	}
-
 	return ownerID == userID, nil
 }
 
-// CanUserAccessGroupPost checks if user can access a group post (member of the group)
-func (s *Service) CanUserAccessGroupPost(groupPostID, userID int64) (bool, error) {
-	var count int
-	row := s.DB.QueryRow(`
-		SELECT COUNT(*) FROM group_posts gp
-		JOIN group_members gm ON gp.group_id = gm.group_id
-		WHERE gp.id = ? AND gm.user_id = ? AND gm.status = 'accepted'`, groupPostID, userID)
-
-	err := row.Scan(&count)
-	if err != nil {
-		return false, err
-	}
-
-	return count > 0, nil
-}
-
-// UpdateGroupComment updates a comment with authorization check
+// UpdateGroupComment updates a comment with authorization and access check
 func (s *Service) UpdateGroupComment(commentID, userID int64, request models.UpdateGroupCommentRequest) error {
 	// First check if user owns the comment
 	isOwner, err := s.IsGroupCommentOwner(commentID, userID)
@@ -136,6 +144,21 @@ func (s *Service) UpdateGroupComment(commentID, userID int64, request models.Upd
 	}
 	if !isOwner {
 		return errors.New("unauthorized: user is not the owner of this comment")
+	}
+
+	// Check if user still has access to the group
+	var count int
+	err = s.DB.QueryRow(`
+		SELECT COUNT(*) FROM group_comments gc
+		JOIN group_posts gp ON gc.group_post_id = gp.id
+		JOIN group_members gm ON gp.group_id = gm.group_id
+		WHERE gc.id = ? AND gm.user_id = ? AND gm.status = 'accepted'
+	`, commentID, userID).Scan(&count)
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return errors.New("unauthorized: access to the group has been revoked")
 	}
 
 	tx, err := s.DB.Begin()
@@ -150,7 +173,6 @@ func (s *Service) UpdateGroupComment(commentID, userID int64, request models.Upd
 		}
 	}()
 
-	// Build dynamic update query
 	query := "UPDATE group_comments SET updated_at = CURRENT_TIMESTAMP"
 	args := []any{}
 
@@ -178,7 +200,7 @@ func (s *Service) UpdateGroupComment(commentID, userID int64, request models.Upd
 	return nil
 }
 
-// DeleteGroupComment deletes a comment with authorization check
+// DeleteGroupComment deletes a comment with authorization and access check
 func (s *Service) DeleteGroupComment(commentID, userID int64) error {
 	// First check if user owns the comment
 	isOwner, err := s.IsGroupCommentOwner(commentID, userID)
@@ -187,6 +209,21 @@ func (s *Service) DeleteGroupComment(commentID, userID int64) error {
 	}
 	if !isOwner {
 		return errors.New("unauthorized: user is not the owner of this comment")
+	}
+
+	// Check if user still has access to the group
+	var count int
+	err = s.DB.QueryRow(`
+		SELECT COUNT(*) FROM group_comments gc
+		JOIN group_posts gp ON gc.group_post_id = gp.id
+		JOIN group_members gm ON gp.group_id = gm.group_id
+		WHERE gc.id = ? AND gm.user_id = ? AND gm.status = 'accepted'
+	`, commentID, userID).Scan(&count)
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return errors.New("unauthorized: access to the group has been revoked")
 	}
 
 	tx, err := s.DB.Begin()
@@ -217,14 +254,17 @@ func (s *Service) DeleteGroupComment(commentID, userID int64) error {
 	return nil
 }
 
-// GetGroupCommentWithUserDetails gets a single comment with user details
-func (s *Service) GetGroupCommentWithUserDetails(commentID, requestingUserID int64) (*models.Comment, error) {
+// GetGroupCommentWithUserDetails retrieves a comment and user info with access control
+func (s *Service) GetGroupCommentWithUserDetails(commentID, userID int64) (*models.Comment, error) {
 	row := s.DB.QueryRow(`
 		SELECT gc.id, gc.group_post_id, gc.user_id, gc.body, gc.created_at, gc.updated_at,
 			   u.username, u.first_name, u.last_name, u.avatar
 		FROM group_comments gc
 		JOIN users u ON gc.user_id = u.id
-		WHERE gc.id = ?`, commentID)
+		JOIN group_posts gp ON gc.group_post_id = gp.id
+		JOIN group_members gm ON gp.group_id = gm.group_id
+		WHERE gc.id = ? AND gm.user_id = ? AND gm.status = 'accepted'
+	`, commentID, userID)
 
 	var comment models.Comment
 	var username, firstName, lastName sql.NullString
@@ -234,21 +274,11 @@ func (s *Service) GetGroupCommentWithUserDetails(commentID, requestingUserID int
 		&comment.CreatedAt, &comment.UpdatedAt, &username, &firstName, &lastName, &avatar)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, errors.New("comment not found")
+			return nil, errors.New("comment not found or access denied")
 		}
 		return nil, err
 	}
 
-	// Verify user can access this comment (member of the group)
-	hasAccess, err := s.CanUserAccessGroupPost(comment.PostID, requestingUserID)
-	if err != nil {
-		return nil, err
-	}
-	if !hasAccess {
-		return nil, errors.New("unauthorized: user cannot access this comment")
-	}
-
-	// Add user info to comment
 	if username.Valid {
 		comment.Username = username.String
 	}

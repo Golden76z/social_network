@@ -676,7 +676,7 @@ func TestGroupCommentCRUD(t *testing.T) {
 		t.Fatalf("CreateGroupComment failed: %v", err)
 	}
 
-	gc, err := DBService.GetGroupCommentByID(1)
+	gc, err := DBService.GetGroupCommentByID(1, user.ID)
 	if err != nil || gc.Body != "Comment body" {
 		t.Fatalf("GetGroupCommentByID failed: %v", err)
 	}
