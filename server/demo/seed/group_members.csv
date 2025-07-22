@@ -5,6 +5,7 @@ group_id,user_id,role,status,invited_by
 1,4,member,pending,1
 1,5,admin,accepted,1
 1,22,member,accepted,1
+1,48,member,accepted,1
 2,2,admin,accepted,
 2,6,member,accepted,2
 2,7,member,accepted,2
@@ -17,7 +18,8 @@ group_id,user_id,role,status,invited_by
 2,26,member,accepted,2
 2,36,member,accepted,2
 2,1,member,accepted,2
-2,10,member,pending,2
+2,22,member,accepted,2
+2,35,member,accepted,2
 3,3,admin,accepted,
 3,11,member,accepted,3
 3,12,member,accepted,3
@@ -26,6 +28,7 @@ group_id,user_id,role,status,invited_by
 3,15,admin,accepted,3
 3,33,member,accepted,3
 3,27,member,accepted,3
+3,41,member,accepted,3
 4,4,admin,accepted,
 4,16,member,accepted,4
 4,17,member,accepted,4
