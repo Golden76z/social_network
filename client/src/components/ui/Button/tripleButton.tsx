@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 type TripleButtonProps = {
   buttons: {
@@ -8,27 +8,35 @@ type TripleButtonProps = {
 };
 
 const TripleButton: React.FC<TripleButtonProps> = ({ buttons }) => {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+
   if (buttons.length !== 3) {
-    console.error("Le composant TripleButton attend exactement 3 boutons.");
+    console.error('Le composant TripleButton attend exactement 3 boutons.');
     return null;
   }
 
   return (
-    <div style={{ display: 'flex' }}>
-      {buttons.map((btn, index) => (
-        <button
-          key={index}
-          onClick={btn.onClick}
-          className={`px-4 py-2 border border-[5px] transition-colors
-            ${index === 0
-              ? 'bg-chart-1 text-white border-chart-1'
-              : 'bg-chart-3 text-chart-1 border-chart-1 hover:bg-chart-1 hover:text-white'}
-          `}
+    <div className="flex">
+      {buttons.map((btn, index) => {
+        const isActive = index === activeIndex;
 
-        >
-          {btn.label}
-        </button>
-      ))}
+        return (
+          <button
+            key={index}
+            onClick={() => {
+              setActiveIndex(index);
+              btn.onClick();
+            }}
+            className={`px-4 py-2 border border-[5px] transition-colors 
+              ${isActive
+                ? 'bg-chart-1 text-white border-chart-1'
+                : 'bg-chart-3 text-chart-1 border-chart-1 hover:bg-chart-1 hover:text-white'}
+            `}
+          >
+            {btn.label}
+          </button>
+        );
+      })}
     </div>
   );
 };
