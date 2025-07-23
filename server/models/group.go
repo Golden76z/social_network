@@ -106,12 +106,13 @@ type InviteToGroupRequest struct {
 
 type LeaveGroupRequest struct {
 	GroupID int64 `json:"group_id"`
-	// UserID  int64 `json:"user_id"`
+	UserID  int64 `json:"user_id"`
 }
 
 type UpdateGroupMemberRequest struct {
-	GroupID int64  `json:"groupID"`
-	Status  string `json:"status"`
+	GroupID  int64  `json:"groupID"`
+	MemberID int64  `json:"memberID"`
+	Role     string `json:"role"`
 }
 
 // GroupMember represents a group member in the database
@@ -120,7 +121,6 @@ type GroupMember struct {
 	GroupID   int64  `json:"group_id"`
 	UserID    int64  `json:"user_id"`
 	Role      string `json:"role"`
-	Status    string `json:"status"`
 	InvitedBy *int64 `json:"invited_by,omitempty"`
 	CreatedAt string `json:"created_at"`
 }
