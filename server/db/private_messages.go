@@ -1,13 +1,11 @@
 package db
 
 import (
-	"database/sql"
-
 	"github.com/Golden76z/social-network/models"
 )
 
-func CreatePrivateMessage(db *sql.DB, senderID, receiverID int64, body string) error {
-	tx, err := db.Begin()
+func (s *Service) CreatePrivateMessage(senderID, receiverID int64, body string) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -24,8 +22,8 @@ func CreatePrivateMessage(db *sql.DB, senderID, receiverID int64, body string) e
 	return err
 }
 
-func GetPrivateMessageByID(db *sql.DB, id int64) (*models.PrivateMessage, error) {
-	row := db.QueryRow(`
+func (s *Service) GetPrivateMessageByID(id int64) (*models.PrivateMessage, error) {
+	row := s.DB.QueryRow(`
         SELECT id, sender_id, receiver_id, body, created_at
         FROM private_messages WHERE id = ?`, id)
 	var pm models.PrivateMessage
@@ -36,8 +34,8 @@ func GetPrivateMessageByID(db *sql.DB, id int64) (*models.PrivateMessage, error)
 	return &pm, nil
 }
 
-func DeletePrivateMessage(db *sql.DB, id int64) error {
-	tx, err := db.Begin()
+func (s *Service) DeletePrivateMessage(id int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}

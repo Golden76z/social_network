@@ -8,32 +8,45 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+} from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { useState } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/context/AuthProvider"
+import { Eye, EyeOff, Loader2 } from "lucide-react"
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  const router = useRouter();
+  const router = useRouter()
+  const { login, isLoading } = useAuth()
   const [form, setForm] = useState({
     email: "",
     password: "",
-  });
+  })
+  const [showPassword, setShowPassword] = useState(false)
+  const [error, setError] = useState("")
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
+    setForm({ ...form, [e.target.name]: e.target.value })
+    // Clear error when user starts typing
+    if (error) setError("")
+  }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // TODO: Ajouter la logique d'envoi au backend ici
-    router.push("/");
-  };
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    
+    try {
+      await login(form.email, form.password)
+      router.push("/") // Redirect to home page on success
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed")
+    }
+  }
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
@@ -67,6 +80,12 @@ export function LoginForm({
 
           <form onSubmit={handleSubmit}>
             <div className="flex flex-col gap-6">
+              {error && (
+                <div className="rounded-md bg-red-50 p-4 text-red-700 text-sm">
+                  {error}
+                </div>
+              )}
+              
               <div className="grid gap-3">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -77,33 +96,58 @@ export function LoginForm({
                   required
                   value={form.email}
                   onChange={handleChange}
+                  disabled={isLoading}
                 />
               </div>
+              
               <div className="grid gap-3">
                 <div className="flex items-center">
                   <Label htmlFor="password">Password</Label>
-                  <a
-                    href="#"
+                  <Link
+                    href="/forgot-password"
                     className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
                   >
                     Forgot your password?
-                  </a>
+                  </Link>
                 </div>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  value={form.password}
-                  onChange={handleChange}
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={form.password}
+                    onChange={handleChange}
+                    disabled={isLoading}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
               </div>
+              
               <div className="flex flex-col gap-3">
-                <Button type="submit" className="w-full">
-                  Login
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Logging in...
+                    </>
+                  ) : (
+                    "Login"
+                  )}
+                </Button>
+                <Button variant="outline" className="w-full" type="button" disabled={isLoading}>
+                  Login with Google
                 </Button>
               </div>
             </div>
+            
             <div className="mt-4 text-center text-sm">
               Don&apos;t have an account?{" "}
               <Link href="/register" className="underline underline-offset-4">
@@ -114,5 +158,5 @@ export function LoginForm({
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }

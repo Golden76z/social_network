@@ -5,9 +5,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"slices"
 	"time"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/Golden76z/social-network/config"
+	"github.com/Golden76z/social-network/db"
+	"github.com/Golden76z/social-network/utils"
 	"github.com/gorilla/websocket"
 )
 
@@ -30,78 +33,72 @@ var upgrader = websocket.Upgrader{
 		}
 
 		// Check against allowed origins in production
-		for _, allowed := range allowedOrigins {
-			if origin == allowed {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(allowedOrigins, origin)
 	},
 	// Enable compression for better performance
 	EnableCompression: true,
 }
 
-func Handler(hub *Hub) http.HandlerFunc {
+func WebSocketHandler(hub *Hub, cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// 1. Extract JWT token from cookie (or header)
+		// Extracting JWT from cookie
 		cookie, err := r.Cookie("jwt_token")
 		if err != nil {
 			http.Error(w, "Missing token", http.StatusUnauthorized)
 			return
 		}
+
+		// Get current user ID from context (injected by AuthMiddleware)
 		tokenString := cookie.Value
 
-		// 2. Parse and validate the token
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			// Validate signing method and return secret key
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-			}
-			return []byte(os.Getenv("JWT_SECRET")), nil // Replace with your secret
-		})
-
-		if err != nil || !token.Valid {
-			http.Error(w, "Invalid token", http.StatusUnauthorized)
+		// Decoding the token and getting the User's informations
+		claims, errTokenValidate := utils.ValidateToken(tokenString)
+		if errTokenValidate != nil {
+			http.Error(w, "Error decoding JWT", http.StatusUnauthorized)
 			return
 		}
 
-		// 3. Extract claims (user ID and username)
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			http.Error(w, "Invalid token claims", http.StatusUnauthorized)
-			return
-		}
+		// Extracting userID and username from claims struct
+		userID := claims.UserID
+		username := claims.Username
 
-		userID, ok := claims["user_id"].(float64) // JSON numbers decode as float64
-		if !ok {
-			http.Error(w, "Missing user_id in token", http.StatusUnauthorized)
-			return
-		}
+		fmt.Println("[handler/userID]", userID, " [handler/username]", username)
 
-		username, ok := claims["username"].(string)
-		if !ok {
-			http.Error(w, "Missing username in token", http.StatusUnauthorized)
-			return
-		}
-
-		// Proceed with WebSocket upgrade...
+		// Upgrading the connection to WS
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			log.Printf("WebSocket upgrade error: %v", err)
 			return
 		}
 
+		// Instantiating a new Client with the User's informations
+		userGroups, err := db.DBService.GetUserGroups(int(userID))
+		if err != nil {
+			http.Error(w, "Error fetching user groups", http.StatusInternalServerError)
+			return
+		}
+
+		// Instantiating a new Client struct with the User's information
 		client := &Client{
 			ID:       generateClientID(),
-			UserID:   int(userID), // Convert float64 to int
+			UserID:   int(userID),
 			Username: username,
 			Conn:     conn,
 			Hub:      hub,
 			Send:     make(chan Message, 256),
-			Rooms:    make(map[string]bool),
+			Groups:   make(map[string]*Group),
 		}
 
+		// Register client first
 		hub.register <- client
+
+		// Join user to their groups
+		for _, groupID := range userGroups {
+			if err := hub.JoinGroup(client, groupID); err != nil {
+				log.Printf("Error joining group %s: %v", groupID, err)
+			}
+		}
+
 		go client.WritePump()
 		go client.ReadPump()
 	}

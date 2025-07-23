@@ -1,9 +1,25 @@
 package models
 
 type FollowRequest struct {
-    ID          int64
-    RequesterID int64
-    TargetID    int64
-    Status      string
-    CreatedAt   string // ou time.Time si tu préfères
+	ID          int64  `json:"id"`
+	RequesterID int64  `json:"requester_id"`
+	TargetID    int64  `json:"target_id"`
+	Status      string `json:"status"` // e.g., "pending", "accepted", "rejected"
+	CreatedAt   string `json:"created_at"`
+}
+
+type CreateFollowRequest struct {
+	RequesterID int64 `json:"requester_id"`
+	TargetID    int64 `json:"target_id"`
+}
+
+type UpdateFollowStatusRequest struct {
+	RequesterID int64  `json:"requester_id"`
+	TargetID    int64  `json:"target_id"`
+	Status      string `json:"status"` // "accepted" or "rejected"
+}
+
+type DeleteFollowRequest struct {
+	RequesterID int64 `json:"requester_id"`
+	TargetID    int64 `json:"target_id"`
 }

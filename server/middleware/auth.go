@@ -14,12 +14,13 @@ import (
 type contextKey string
 
 const (
-	userIDKey   contextKey = "user_id"
-	usernameKey contextKey = "username"
+	UserIDKey   contextKey = "user_id"
+	UsernameKey contextKey = "username"
 )
 
 // AuthMiddleware validates the session and attaches userID + username to the context.
 func AuthMiddleware() func(http.Handler) http.Handler {
+	//fmt.Println("[AuthMiddleware]")
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// 1. Check session cookie
@@ -28,8 +29,9 @@ func AuthMiddleware() func(http.Handler) http.Handler {
 				http.Error(w, "Unauthorized: Missing token", http.StatusUnauthorized)
 				return
 			}
+
 			// 2. Verify JWT validity
-			utils.ValidateToken(token.Value, utils.Settings.JwtKey)
+			utils.ValidateToken(token.Value)
 
 			// 3. Verify session in database
 			var userID int
@@ -39,6 +41,9 @@ func AuthMiddleware() func(http.Handler) http.Handler {
 				token.Value,
 				time.Now(),
 			).Scan(&userID)
+
+			// Add this line to see what the DB actually returns
+			//fmt.Println("[AUTH] Database returned userID:", userID)
 
 			if err != nil {
 				if err == sql.ErrNoRows {
@@ -51,8 +56,8 @@ func AuthMiddleware() func(http.Handler) http.Handler {
 
 			// 4. Attach user data to context using custom keys
 			ctx := r.Context()
-			ctx = context.WithValue(ctx, userIDKey, userID)
-			// ctx = context.WithValue(ctx, usernameKey, username)
+			ctx = context.WithValue(ctx, UserIDKey, userID)
+			//ctx = context.WithValue(ctx, UsernameKey, username)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

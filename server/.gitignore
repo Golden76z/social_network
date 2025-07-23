@@ -24,5 +24,11 @@ go.work.sum
 # env file
 .env
 
-# Db
-.social_network.db
+# Database files
+*.db
+social_network.db
+app.db
+
+/tmp
+.air*
+.gitignore
