@@ -9,7 +9,7 @@ import (
 	"github.com/Golden76z/social-network/models"
 )
 
-// Handler to get all pending follow requests for the current user
+// GetFollowRequestHandler returns all pending follow requests for the current user (where the user is the target)
 func GetFollowRequestHandler(w http.ResponseWriter, r *http.Request) {
 	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
 	if !ok {
@@ -27,7 +27,7 @@ func GetFollowRequestHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(requests)
 }
 
-// CreateFollowHandler handles follow requests (public: auto-accept, private: pending request)
+// CreateFollowHandler handles follow requests. If the target user is public, the request is auto-accepted. If private, a pending request is created (can be resent if last was declined).
 func CreateFollowHandler(w http.ResponseWriter, r *http.Request) {
 	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
 	if !ok {
@@ -77,7 +77,7 @@ func CreateFollowHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If private profile, create a pending request (allow resending if last was rejected)
+	// If private profile, create a pending request (allow resending if last was declined)
 	err = db.DBService.CreateFollowRequest(userID, req.TargetID, "pending")
 	if err != nil {
 		http.Error(w, "Error creating follow request", http.StatusInternalServerError)
@@ -87,7 +87,7 @@ func CreateFollowHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"message": "Follow request sent"}`))
 }
 
-// Handler to get the list of the follower
+// GetFollowerHandler returns the list of users who follow the current user (followers)
 func GetFollowerHandler(w http.ResponseWriter, r *http.Request) {
 	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
 	if !ok {
@@ -105,7 +105,7 @@ func GetFollowerHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(followers)
 }
 
-// Handler to get the list of user's you are following
+// GetFollowingHandler returns the list of users the current user is following
 func GetFollowingHandler(w http.ResponseWriter, r *http.Request) {
 	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
 	if !ok {
@@ -123,7 +123,7 @@ func GetFollowingHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(following)
 }
 
-// Handler to Accept/Decline a follow request
+// UpdateFollowHandler allows the target user to accept or decline a follow request. Only 'accepted' or 'declined' are valid statuses. If already in the requested status, returns an error.
 func UpdateFollowHandler(w http.ResponseWriter, r *http.Request) {
 	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
 	if !ok {
@@ -141,7 +141,7 @@ func UpdateFollowHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Vérifier que la demande existe et que l'utilisateur courant est bien la cible
+	// Check that the request exists and the current user is the target
 	followReq, err := db.DBService.GetFollowRequestByID(req.RequestID)
 	if err != nil {
 		http.Error(w, "Follow request not found", http.StatusNotFound)
@@ -152,26 +152,32 @@ func UpdateFollowHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Seuls les statuts accepted ou rejected sont valides
-	if req.Status != "accepted" && req.Status != "rejected" {
+	// Only 'accepted' or 'declined' are valid statuses for the DB
+	if req.Status != "accepted" && req.Status != "rejected" && req.Status != "declined" {
 		http.Error(w, "Invalid status", http.StatusBadRequest)
 		return
 	}
 
-	// Ne pas permettre de mettre à jour si le statut est déjà celui demandé
-	if followReq.Status == req.Status {
+	// Normalize the declined status to 'declined' for the DB
+	dbStatus := req.Status
+	if req.Status == "rejected" {
+		dbStatus = "declined"
+	}
+
+	// Do not allow update if the status is already the requested one
+	if followReq.Status == dbStatus {
 		http.Error(w, "Request already has this status", http.StatusBadRequest)
 		return
 	}
 
-	err = db.DBService.UpdateFollowRequestStatus(req.RequestID, req.Status)
+	err = db.DBService.UpdateFollowRequestStatus(req.RequestID, dbStatus)
 	if err != nil {
 		http.Error(w, "Error updating follow request", http.StatusInternalServerError)
 		return
 	}
 
-	// Si accepté, incrémenter les compteurs
-	if req.Status == "accepted" {
+	// If accepted, increment counters
+	if dbStatus == "accepted" {
 		_ = db.DBService.IncrementFollowingCount(followReq.RequesterID)
 		_ = db.DBService.IncrementFollowersCount(followReq.TargetID)
 	}
@@ -180,7 +186,46 @@ func UpdateFollowHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"message": "Follow request updated"}`))
 }
 
-// Handler to get rid of a follow / delete a follow request
+// DeleteFollowHandler allows the requester or the target to delete a follow relationship or a follow request (unfollow or cancel request)
 func DeleteFollowHandler(w http.ResponseWriter, r *http.Request) {
+	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := int64(currentUserID)
 
+	var req struct {
+		TargetID int64 `json:"target_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Search for the follow request in both directions (unfollow or cancel request)
+	followReq, err := db.DBService.GetFollowRequestBetween(userID, req.TargetID)
+	if err != nil {
+		// Peut-être que c'est l'autre qui nous suit
+		followReq, err = db.DBService.GetFollowRequestBetween(req.TargetID, userID)
+		if err != nil {
+			http.Error(w, "Follow request not found", http.StatusNotFound)
+			return
+		}
+	}
+
+	// Only the requester or the target can delete the relationship
+	if followReq.RequesterID != userID && followReq.TargetID != userID {
+		http.Error(w, "Not authorized to delete this follow request", http.StatusForbidden)
+		return
+	}
+
+	err = db.DBService.DeleteFollowRequest(followReq.ID)
+	if err != nil {
+		http.Error(w, "Error deleting follow request", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"message": "Follow request deleted"}`))
 }
