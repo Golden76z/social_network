@@ -1,7 +1,8 @@
 "use client"
 
-import { AppBar } from "./ui/Button/appBar";
+import { AppBar } from "./ui/appBar";
 import { ButtonAccept } from "./ui/Button/buttonAccept";
+import { CardProfile } from "./ui/cardProfile";
 
 export function TestForm({
     className,
@@ -9,12 +10,7 @@ export function TestForm({
     }: React.ComponentProps<"div">) {
     return (
         <div className={className} {...props}>
-            <ButtonAccept variant={"SecondaryRest"} size="size3">
-                Accept
-            </ButtonAccept>
-            <br></br>
-            <AppBar variant={"Heading1"} size="size1">
-            </AppBar>
+            <CardProfile variant={"CardProfileUser"}></CardProfile>
         </div>
     );
     }

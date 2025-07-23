@@ -3,8 +3,8 @@ import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
-import { ButtonPP } from "./buttonPP"
-import { ButtonNavBar } from "./buttonNavBar"
+import { ButtonPP } from "./Button/buttonPP"
+import { ButtonNavBar } from "./Button/buttonNavBar"
 
 const appBarVariants = cva(
     "inline-flex items-center  gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
@@ -15,9 +15,9 @@ const appBarVariants = cva(
                     "border border-chart-1",
                 Heading2:
                     "border border-chart-1",
-                Bar1:
+                NavBar1:
                     "border border-chart-1",
-                Bar2:
+                NavBar2:
                     "border border-chart-1",
             },
             size: {
@@ -51,17 +51,17 @@ function AppBar({
         >
             <span>{children}</span>
             {variant === "Heading1" && (
-                <><text className="text-chart-1 text-left pl-[5px]">Heading</text>
+                <><text className="text-chart-1 text-left pl-[5px]">Deustagram</text>
                 <ButtonPP variant={"PP"} size={"size1"} className="ml-auto pl-[5px]">
                 </ButtonPP></>
             )}
 
             {variant === "Heading2" && (
-                <><text className="text-chart-1 text-left pl-[5px]">Heading</text>
+                <><text className="text-chart-1 text-left pl-[5px]">Deustagram</text>
                 <ButtonPP variant={"Login"} size="size2">
                 </ButtonPP></>
             )}
-            {variant === "Bar1" && (
+            {variant === "NavBar1" && (
             <div className="flex justify-evenly w-full">
                 <ButtonNavBar variant={"Home"} size="size1">
                 </ButtonNavBar>
@@ -73,7 +73,7 @@ function AppBar({
                 </ButtonNavBar>
             </div>
             )}
-            {variant === "Bar2" && (
+            {variant === "NavBar2" && (
             <div className="flex justify-evenly w-full">
                 <ButtonNavBar variant={"Home"} size="size1">
                 </ButtonNavBar>
