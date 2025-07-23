@@ -16,17 +16,6 @@ import (
 	"time"
 )
 
-//type Config struct {
-//	Port          string
-//	DBPath        string
-//	MigrationsDir string
-//	Environment   string
-//	JWTKey        string
-//	JwtPrivateKey *ecdsa.PrivateKey
-//	JwtPublicKey  *ecdsa.PublicKey
-//	JwtExpiration time.Duration
-//}
-
 type Config struct {
 	// Server
 	Port        string
@@ -44,6 +33,9 @@ type Config struct {
 
 	// Application Settings
 	PostMaxLength          int
+	PostTitleMaxLength     int
+	PostContentMaxLength   int
+	MaxImagesPerPost       int
 	MaxFileSizeMB          int
 	SessionCleanupInterval time.Duration
 
@@ -132,6 +124,9 @@ func Load() error {
 
 			// Application Settings
 			PostMaxLength:          getEnvAsInt("POST_MAX_LENGTH", 280),
+			PostTitleMaxLength:     getEnvAsInt("POST_TITLE_MAX_LENGTH", 125),
+			PostContentMaxLength:   getEnvAsInt("POST_CONTENT_MAX_LENGTH", 2200),
+			MaxImagesPerPost:       getEnvAsInt("MAX_IMAGES_PER_POST", 4),
 			MaxFileSizeMB:          getEnvAsInt("MAX_FILE_SIZE_MB", 10),
 			SessionCleanupInterval: time.Duration(getEnvAsInt("SESSION_CLEANUP_INTERVAL_HOURS", 1)) * time.Hour,
 

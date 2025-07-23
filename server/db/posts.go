@@ -7,23 +7,39 @@ import (
 	"github.com/Golden76z/social-network/models"
 )
 
-func (s *Service) CreatePost(userID int64, req models.CreatePostRequest) error {
+func (s *Service) CreatePost(userID int64, req models.CreatePostRequest) (int64, error) {
 	tx, err := s.DB.Begin()
 	if err != nil {
-		return err
+		return 0, err
 	}
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		} else {
-			_ = tx.Commit()
-		}
-	}()
-	_, err = tx.Exec(`
+
+	result, err := tx.Exec(`
         INSERT INTO posts (user_id, title, body, visibility)
         VALUES (?, ?, ?, ?)`,
 		userID, req.Title, req.Body, req.Visibility)
-	return err
+	if err != nil {
+		tx.Rollback()
+		return 0, err
+	}
+
+	postID, err := result.LastInsertId()
+	if err != nil {
+		tx.Rollback()
+		return 0, err
+	}
+
+	for _, imageURL := range req.Images {
+		_, err := tx.Exec(`
+            INSERT INTO post_images (post_id, image_url)
+            VALUES (?, ?)`,
+			postID, imageURL)
+		if err != nil {
+			tx.Rollback()
+			return 0, err
+		}
+	}
+
+	return postID, tx.Commit()
 }
 
 func (s *Service) InsertPostImage(postID int, isGroupPost bool, imageURL string) error {
