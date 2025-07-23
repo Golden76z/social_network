@@ -1,6 +1,7 @@
 package db
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -45,28 +46,199 @@ func (s *Service) CreatePost(userID int64, req models.CreatePostRequest) (int64,
 func (s *Service) InsertPostImage(postID int, isGroupPost bool, imageURL string) error {
 	_, err := s.DB.Exec(`
 		INSERT INTO post_images (post_id, is_group_post, image_url)
-		VALUES (?, ?, ?)`, postID, isGroupPost, imageURL)
+		VALUES (?, ?, ?)`,
+		postID, isGroupPost, imageURL)
 	return err
 }
 
-func (s *Service) GetPostByID(postID int64) (*models.Post, error) {
-	row := s.DB.QueryRow(`
-        SELECT id, user_id, title, body, visibility, created_at, updated_at
-        FROM posts WHERE id = ?`, postID)
-	var post models.Post
+func (s *Service) GetPostByID(postID int64, currentUserID int64) (*models.PostResponse, error) {
+	query := `
+        SELECT
+            p.id,
+            'user_post' AS post_type,
+            p.user_id AS author_id,
+            u.nickname AS author_nickname,
+            u.avatar AS author_avatar,
+            p.title,
+            p.body,
+            p.created_at,
+            p.updated_at,
+            GROUP_CONCAT(pi.image_url) AS images,
+            p.visibility
+        FROM
+            posts p
+        JOIN
+            users u ON p.user_id = u.id
+        LEFT JOIN
+            post_images pi ON p.id = pi.post_id AND pi.is_group_post = 0
+        WHERE
+            p.id = ?
+        GROUP BY
+            p.id`
+
+	row := s.DB.QueryRow(query, postID)
+
+	var post models.PostResponse
+	var images sql.NullString
+	var visibility string
+
 	err := row.Scan(
 		&post.ID,
-		&post.UserID,
+		&post.PostType,
+		&post.AuthorID,
+		&post.AuthorNickname,
+		&post.AuthorAvatar,
 		&post.Title,
 		&post.Body,
-		&post.Visibility,
 		&post.CreatedAt,
 		&post.UpdatedAt,
+		&images,
+		&visibility,
 	)
+
 	if err != nil {
 		return nil, err
 	}
+
+	if images.Valid {
+		post.Images = strings.Split(images.String, ",")
+	}
+
+	if visibility == "private" && post.AuthorID != currentUserID {
+		isFollowing, err := s.IsFollowing(currentUserID, post.AuthorID)
+		if err != nil {
+			return nil, err
+		}
+		if !isFollowing {
+			return nil, fmt.Errorf("unauthorized")
+		}
+	}
+
 	return &post, nil
+}
+
+func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostResponse, error) {
+	query := `
+        SELECT * FROM (
+            SELECT
+                p.id,
+                'user_post' AS post_type,
+                p.user_id AS author_id,
+                u.nickname AS author_nickname,
+                u.avatar AS author_avatar,
+                p.title,
+                p.body,
+                p.created_at,
+                p.updated_at,
+                GROUP_CONCAT(pi.image_url) AS images,
+                NULL AS group_id,
+                NULL AS group_name
+            FROM
+                posts p
+            JOIN
+                users u ON p.user_id = u.id
+            LEFT JOIN
+                post_images pi ON p.id = pi.post_id AND pi.is_group_post = 0
+            WHERE
+                p.visibility = 'public'
+                OR p.user_id = ?
+                OR (p.visibility = 'private' AND EXISTS (
+                    SELECT 1 FROM follow_requests
+                    WHERE requester_id = ? AND target_id = p.user_id AND status = 'accepted'
+                ))
+            GROUP BY p.id
+
+            UNION ALL
+
+            SELECT
+                gp.id,
+                'group_post' AS post_type,
+                gp.user_id AS author_id,
+                u.nickname AS author_nickname,
+                u.avatar AS author_avatar,
+                gp.title,
+                gp.body,
+                gp.created_at,
+                gp.updated_at,
+                GROUP_CONCAT(pi.image_url) AS images,
+                g.id AS group_id,
+                g.title AS group_name
+            FROM
+                group_posts gp
+            JOIN
+                users u ON gp.user_id = u.id
+            JOIN
+                groups g ON gp.group_id = g.id
+            LEFT JOIN
+                post_images pi ON gp.id = pi.post_id AND pi.is_group_post = 1
+            WHERE
+                EXISTS (
+                    SELECT 1 FROM group_members
+                    WHERE group_id = gp.group_id AND user_id = ? AND status = 'accepted'
+                )
+            GROUP BY gp.id
+        ) AS feed
+        ORDER BY
+            feed.created_at DESC
+        LIMIT ?
+        OFFSET ?`
+
+	rows, err := s.DB.Query(query, currentUserID, currentUserID, currentUserID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []models.PostResponse
+
+	for rows.Next() {
+		var post models.PostResponse
+		var images sql.NullString
+
+		err := rows.Scan(
+			&post.ID,
+			&post.PostType,
+			&post.AuthorID,
+			&post.AuthorNickname,
+			&post.AuthorAvatar,
+			&post.Title,
+			&post.Body,
+			&post.CreatedAt,
+			&post.UpdatedAt,
+			&images,
+			&post.GroupID,
+			&post.GroupName,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if images.Valid {
+			post.Images = strings.Split(images.String, ",")
+		}
+
+		posts = append(posts, post)
+	}
+
+	return posts, nil
+}
+
+func (s *Service) IsFollowing(currentUserID, targetUserID int64) (bool, error) {
+	query := `
+        SELECT EXISTS (
+            SELECT 1
+            FROM follow_requests
+            WHERE requester_id = ? AND target_id = ? AND status = 'accepted'
+        )`
+
+	var isFollowing bool
+	err := s.DB.QueryRow(query, currentUserID, targetUserID).Scan(&isFollowing)
+	if err != nil {
+		return false, err
+	}
+
+	return isFollowing, nil
 }
 
 func (s *Service) UpdatePost(postID int64, req models.UpdatePostRequest) error {
