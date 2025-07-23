@@ -1,13 +1,11 @@
 package db
 
 import (
-	"database/sql"
-
 	"github.com/Golden76z/social-network/models"
 )
 
-func CreateGroup(db *sql.DB, title, avatar, bio string, creatorID int64) error {
-	tx, err := db.Begin()
+func (s *Service) CreateGroup(request models.CreateGroupRequest, creatorID int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -20,15 +18,15 @@ func CreateGroup(db *sql.DB, title, avatar, bio string, creatorID int64) error {
 	}()
 	_, err = tx.Exec(`
         INSERT INTO groups (title, avatar, bio, creator_id)
-        VALUES (?, ?, ?, ?)`, title, avatar, bio, creatorID)
+        VALUES (?, ?, ?, ?)`, request.Title, request.Avatar, request.Bio, creatorID)
 	return err
 }
 
-func GetGroupByID(db *sql.DB, groupID int64) (*models.Group, error) {
-	row := db.QueryRow(`
+func (s *Service) GetGroupByID(groupID int64) (*models.GroupResponse, error) {
+	row := s.DB.QueryRow(`
         SELECT id, title, avatar, bio, creator_id, created_at, updated_at
         FROM groups WHERE id = ?`, groupID)
-	var g models.Group
+	var g models.GroupResponse
 	err := row.Scan(&g.ID, &g.Title, &g.Avatar, &g.Bio, &g.CreatorID, &g.CreatedAt, &g.UpdatedAt)
 	if err != nil {
 		return nil, err
@@ -36,8 +34,21 @@ func GetGroupByID(db *sql.DB, groupID int64) (*models.Group, error) {
 	return &g, nil
 }
 
-func UpdateGroup(db *sql.DB, groupID int64, title, avatar, bio string) error {
-	tx, err := db.Begin()
+// getGroupName retrieves the group name from the database
+func (s *Service) GetGroupName(groupID string) error {
+	query := `SELECT name FROM groups WHERE id = ?`
+
+	var name string
+	err := s.DB.QueryRow(query, groupID).Scan(&name)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Service) UpdateGroup(groupID int64, request models.UpdateGroupRequest) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -48,14 +59,35 @@ func UpdateGroup(db *sql.DB, groupID int64, title, avatar, bio string) error {
 			_ = tx.Commit()
 		}
 	}()
-	_, err = tx.Exec(`
-        UPDATE groups SET title = ?, avatar = ?, bio = ?, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?`, title, avatar, bio, groupID)
+
+	// Build dynamic update query
+	query := "UPDATE groups SET updated_at = CURRENT_TIMESTAMP"
+	args := []interface{}{}
+
+	if request.Title != nil {
+		query += ", title = ?"
+		args = append(args, *request.Title)
+	}
+
+	if request.Avatar != nil {
+		query += ", avatar = ?"
+		args = append(args, *request.Avatar)
+	}
+
+	if request.Bio != nil {
+		query += ", bio = ?"
+		args = append(args, *request.Bio)
+	}
+
+	query += " WHERE id = ?"
+	args = append(args, groupID)
+
+	_, err = tx.Exec(query, args...)
 	return err
 }
 
-func DeleteGroup(db *sql.DB, groupID int64) error {
-	tx, err := db.Begin()
+func (s *Service) DeleteGroup(groupID int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}

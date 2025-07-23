@@ -17,6 +17,11 @@ func GetFollowingHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// Handler to Accept/Decline a follow request
+func UpdateFollowHandler(w http.ResponseWriter, r *http.Request) {
+
+}
+
 // Handler to get rid of a follow / delete a follow request
 func DeleteFollowHandler(w http.ResponseWriter, r *http.Request) {
 

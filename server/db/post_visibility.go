@@ -1,13 +1,14 @@
 package db
 
-import (
-	"database/sql"
+// PostVisibility represents a post visibility setting in the database
+type PostVisibility struct {
+	ID     int64 `json:"id"`
+	PostID int64 `json:"post_id"`
+	UserID int64 `json:"user_id"`
+}
 
-	"github.com/Golden76z/social-network/models"
-)
-
-func CreatePostVisibility(db *sql.DB, postID, userID int64) error {
-	tx, err := db.Begin()
+func (s *Service) CreatePostVisibility(postID, userID int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -24,11 +25,11 @@ func CreatePostVisibility(db *sql.DB, postID, userID int64) error {
 	return err
 }
 
-func GetPostVisibilityByID(db *sql.DB, id int64) (*models.PostVisibility, error) {
-	row := db.QueryRow(`
+func (s *Service) GetPostVisibilityByID(id int64) (*PostVisibility, error) {
+	row := s.DB.QueryRow(`
         SELECT id, post_id, user_id
         FROM post_visibility WHERE id = ?`, id)
-	var pv models.PostVisibility
+	var pv PostVisibility
 	err := row.Scan(&pv.ID, &pv.PostID, &pv.UserID)
 	if err != nil {
 		return nil, err
@@ -36,8 +37,8 @@ func GetPostVisibilityByID(db *sql.DB, id int64) (*models.PostVisibility, error)
 	return &pv, nil
 }
 
-func DeletePostVisibility(db *sql.DB, id int64) error {
-	tx, err := db.Begin()
+func (s *Service) DeletePostVisibility(id int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}

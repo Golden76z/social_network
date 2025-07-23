@@ -1,13 +1,20 @@
 package db
 
 import (
-	"database/sql"
-
 	"github.com/Golden76z/social-network/models"
 )
 
-func CreateEventRSVP(db *sql.DB, eventID, userID int64, status string) error {
-	tx, err := db.Begin()
+// EventRSVP represents an event RSVP in the database
+type EventRSVP struct {
+	ID        int64  `json:"id"`
+	EventID   int64  `json:"event_id"`
+	UserID    int64  `json:"user_id"`
+	Status    string `json:"status"`
+	CreatedAt string `json:"created_at"`
+}
+
+func (s *Service) CreateEventRSVP(request models.RSVPToEventRequest) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -20,15 +27,15 @@ func CreateEventRSVP(db *sql.DB, eventID, userID int64, status string) error {
 	}()
 	_, err = tx.Exec(`
         INSERT INTO event_rsvps (event_id, user_id, status)
-        VALUES (?, ?, ?)`, eventID, userID, status)
+        VALUES (?, ?, ?)`, request.EventID, request.UserID, request.Status)
 	return err
 }
 
-func GetEventRSVPByID(db *sql.DB, id int64) (*models.EventRSVP, error) {
-	row := db.QueryRow(`
+func (s *Service) GetEventRSVPByID(id int64) (*EventRSVP, error) {
+	row := s.DB.QueryRow(`
         SELECT id, event_id, user_id, status, created_at
         FROM event_rsvps WHERE id = ?`, id)
-	var rsvp models.EventRSVP
+	var rsvp EventRSVP
 	err := row.Scan(&rsvp.ID, &rsvp.EventID, &rsvp.UserID, &rsvp.Status, &rsvp.CreatedAt)
 	if err != nil {
 		return nil, err
@@ -36,8 +43,8 @@ func GetEventRSVPByID(db *sql.DB, id int64) (*models.EventRSVP, error) {
 	return &rsvp, nil
 }
 
-func UpdateEventRSVPStatus(db *sql.DB, id int64, status string) error {
-	tx, err := db.Begin()
+func (s *Service) UpdateEventRSVPStatus(id int64, status string) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -52,8 +59,8 @@ func UpdateEventRSVPStatus(db *sql.DB, id int64, status string) error {
 	return err
 }
 
-func DeleteEventRSVP(db *sql.DB, id int64) error {
-	tx, err := db.Begin()
+func (s *Service) DeleteEventRSVP(id int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}

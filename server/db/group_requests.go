@@ -1,13 +1,16 @@
 package db
 
-import (
-	"database/sql"
+// GroupRequest represents a group join request in the database
+type GroupRequest struct {
+	ID        int64  `json:"id"`
+	GroupID   int64  `json:"group_id"`
+	UserID    int64  `json:"user_id"`
+	Status    string `json:"status"`
+	CreatedAt string `json:"created_at"`
+}
 
-	"github.com/Golden76z/social-network/models"
-)
-
-func CreateGroupRequest(db *sql.DB, groupID, userID int64, status string) error {
-	tx, err := db.Begin()
+func (s *Service) CreateGroupRequest(groupID, userID int64, status string) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -24,11 +27,11 @@ func CreateGroupRequest(db *sql.DB, groupID, userID int64, status string) error 
 	return err
 }
 
-func GetGroupRequestByID(db *sql.DB, id int64) (*models.GroupRequest, error) {
-	row := db.QueryRow(`
+func (s *Service) GetGroupRequestByID(id int64) (*GroupRequest, error) {
+	row := s.DB.QueryRow(`
         SELECT id, group_id, user_id, status, created_at
         FROM group_requests WHERE id = ?`, id)
-	var gr models.GroupRequest
+	var gr GroupRequest
 	err := row.Scan(&gr.ID, &gr.GroupID, &gr.UserID, &gr.Status, &gr.CreatedAt)
 	if err != nil {
 		return nil, err
@@ -36,8 +39,8 @@ func GetGroupRequestByID(db *sql.DB, id int64) (*models.GroupRequest, error) {
 	return &gr, nil
 }
 
-func UpdateGroupRequestStatus(db *sql.DB, id int64, status string) error {
-	tx, err := db.Begin()
+func (s *Service) UpdateGroupRequestStatus(id int64, status string) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}
@@ -52,8 +55,8 @@ func UpdateGroupRequestStatus(db *sql.DB, id int64, status string) error {
 	return err
 }
 
-func DeleteGroupRequest(db *sql.DB, id int64) error {
-	tx, err := db.Begin()
+func (s *Service) DeleteGroupRequest(id int64) error {
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
 	}

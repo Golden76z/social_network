@@ -12,6 +12,7 @@ import (
 	"github.com/Golden76z/social-network/config"
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/db/migrations"
+	"github.com/Golden76z/social-network/demo"
 	"github.com/Golden76z/social-network/middleware"
 	"github.com/Golden76z/social-network/routes"
 	"github.com/Golden76z/social-network/utils"
@@ -22,10 +23,22 @@ import (
 
 func main() {
 	// Load configuration
-	cfg, err := config.Load()
-	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+	if err := config.Load(); err != nil {
+		log.Fatal("Failed to load config:", err)
 	}
+
+	// Get config instance
+	cfg := config.GetConfig()
+
+	// Set up utils package with config
+	utils.SetConfig(
+		cfg.JwtExpiration,
+		cfg.JwtPrivateKey,
+		cfg.JwtPublicKey,
+		cfg.Environment,
+		cfg.PostMaxLength,
+		cfg.MaxFileSizeMB,
+	)
 
 	// Run DB migrations
 	if err := migrations.RunMigrations(cfg.DBPath, cfg.MigrationsDir); err != nil {
@@ -39,22 +52,25 @@ func main() {
 	}
 	defer dbService.DB.Close()
 
-	// Start session cleanup - Goroutine that clean expired sessions in db every hour
-	go utils.StartSessionCleanup(dbService.DB, 1*time.Hour)
+	// Generating the seed data
+	demo.GenerateSeed()
+
+	// Start session cleanup with configurable interval
+	go utils.StartSessionCleanup(dbService.DB, cfg.SessionCleanupInterval)
 
 	// Initialize WebSocket hub
-	wsHub := websockets.NewHub(dbService.DB)
-	go wsHub.Run()
+	websockets.InitHub(dbService.DB)
+	wsHub := websockets.GetHub()
 
 	// Setup router and middleware
 	r := routes.New()
-	r.Use(middleware.Logger)
+	// r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.SecurityHeaders)
 	r.Use(middleware.SetupCORS())
 
 	// Setup routes
-	routes.SetupRoutes(r, dbService.DB, wsHub)
+	routes.SetupRoutes(r, dbService.DB, wsHub, cfg)
 
 	// Start server
 	startServer(r, cfg)
@@ -84,6 +100,9 @@ func startServer(handler http.Handler, cfg *config.Config) {
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  120 * time.Second,
 	}
+
+	//fmt.Println("[SERVER] Starting server...")
+	//fmt.Println("[SERVER] CFG", cfg)
 
 	// Start server
 	go func() {
