@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/Golden76z/social-network/config"
 	"github.com/Golden76z/social-network/db"
@@ -78,11 +79,70 @@ func CreatePostHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetPostHandler(w http.ResponseWriter, r *http.Request) {
-	// Implementation for getting a post
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET method allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	idParam := r.URL.Query().Get("id")
+
+	if idParam != "" {
+		postID, err := strconv.ParseInt(idParam, 10, 64)
+		if err != nil {
+			http.Error(w, "Invalid post ID format", http.StatusBadRequest)
+			return
+		}
+
+		post, err := db.DBService.GetPostByID(postID, int64(currentUserID))
+		if err != nil {
+			if err.Error() == "unauthorized" {
+				http.Error(w, "You are not authorized to view this post", http.StatusForbidden)
+				return
+			}
+			http.Error(w, "Post not found", http.StatusNotFound)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(post)
+		return
+	}
+
+	limitParam := r.URL.Query().Get("limit")
+	limit, err := strconv.Atoi(limitParam)
+	cfg := config.GetConfig()
+	if err != nil || limit <= 0 {
+		limit = cfg.FeedPostLimit
+	}
+
+	offsetParam := r.URL.Query().Get("offset")
+	offset, err := strconv.Atoi(offsetParam)
+	if err != nil || offset < 0 {
+		offset = 0
+	}
+
+	posts, err := db.DBService.GetUserFeed(currentUserID, limit, offset)
+	if err != nil {
+		fmt.Printf("[ERROR] Get user feed failed: %v\n", err)
+		http.Error(w, "Failed to get user feed", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(posts)
 }
 
 func UpdatePostHandler(w http.ResponseWriter, r *http.Request) {
 	// Implementation for updating a post
+
 }
 
 func DeletePostHandler(w http.ResponseWriter, r *http.Request) {

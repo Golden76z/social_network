@@ -1,6 +1,7 @@
 package models
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 )
@@ -64,4 +65,20 @@ type UpdatePostRequest struct {
 
 type DeletePostRequest struct {
 	ID int64 `json:"id"`
+}
+
+// PostResponse is the structure for a post returned by the API, including author and group details.
+type PostResponse struct {
+	ID             int64          `json:"id"`
+	PostType       string         `json:"post_type"` // "user_post" or "group_post"
+	AuthorID       int64          `json:"author_id"`
+	AuthorNickname string         `json:"author_nickname"`
+	AuthorAvatar   sql.NullString `json:"author_avatar"`
+	Title          string         `json:"title"`
+	Body           string         `json:"body"`
+	CreatedAt      string         `json:"created_at"`
+	UpdatedAt      sql.NullString `json:"updated_at"`
+	Images         []string       `json:"images"`
+	GroupID        *int64         `json:"group_id,omitempty"`
+	GroupName      *string        `json:"group_name,omitempty"`
 }

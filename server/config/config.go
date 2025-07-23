@@ -36,6 +36,7 @@ type Config struct {
 	PostTitleMaxLength     int
 	PostContentMaxLength   int
 	MaxImagesPerPost       int
+	FeedPostLimit          int
 	MaxFileSizeMB          int
 	SessionCleanupInterval time.Duration
 
@@ -127,6 +128,7 @@ func Load() error {
 			PostTitleMaxLength:     getEnvAsInt("POST_TITLE_MAX_LENGTH", 125),
 			PostContentMaxLength:   getEnvAsInt("POST_CONTENT_MAX_LENGTH", 2200),
 			MaxImagesPerPost:       getEnvAsInt("MAX_IMAGES_PER_POST", 4),
+			FeedPostLimit:          getEnvAsInt("FEED_POST_LIMIT", 20),
 			MaxFileSizeMB:          getEnvAsInt("MAX_FILE_SIZE_MB", 10),
 			SessionCleanupInterval: time.Duration(getEnvAsInt("SESSION_CLEANUP_INTERVAL_HOURS", 1)) * time.Hour,
 
