@@ -299,13 +299,29 @@ func (s *Service) DeletePost(postID int64) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		} else {
-			_ = tx.Commit()
-		}
-	}()
-	_, err = tx.Exec(`DELETE FROM posts WHERE id = ?`, postID)
-	return err
+	defer tx.Rollback() // Rollback on any error
+
+	// Manually delete notifications related to the post, as there's no direct CASCADE.
+	// This is a simple approach; a more robust solution might involve parsing the 'data' field.
+	_, err = tx.Exec(`DELETE FROM notifications WHERE data LIKE ?`, fmt.Sprintf(`%%"post_id":%d%%`, postID))
+	if err != nil {
+		return fmt.Errorf("failed to delete notifications: %w", err)
+	}
+
+	// Delete the post. Associated data in tables with ON DELETE CASCADE will be removed automatically.
+	// This includes: comments, likes_dislikes, post_images.
+	result, err := tx.Exec(`DELETE FROM posts WHERE id = ?`, postID)
+	if err != nil {
+		return fmt.Errorf("failed to delete post: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get affected rows: %w", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("post with ID %d not found", postID)
+	}
+
+	return tx.Commit()
 }
