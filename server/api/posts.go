@@ -193,5 +193,43 @@ func UpdatePostHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeletePostHandler(w http.ResponseWriter, r *http.Request) {
-	// Implementation for deleting a post
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Only DELETE method allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	postIDStr := utils.GetPathParam(r, "id")
+	postID, err := strconv.ParseInt(postIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify ownership before deleting
+	post, err := db.DBService.GetPostByID(postID, int64(currentUserID))
+	if err != nil {
+		http.Error(w, "Post not found", http.StatusNotFound)
+		return
+	}
+	if post.AuthorID != int64(currentUserID) {
+		http.Error(w, "You are not authorized to delete this post", http.StatusForbidden)
+		return
+	}
+
+	// Delete the post and all associated data
+	if err := db.DBService.DeletePost(postID); err != nil {
+		fmt.Printf("[ERROR] Delete post failed: %v\n", err)
+		http.Error(w, "Failed to delete post", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Post deleted successfully"})
 }
