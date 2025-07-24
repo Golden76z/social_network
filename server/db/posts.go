@@ -109,3 +109,9 @@ func (s *Service) DeletePost(postID int64) error {
 	_, err = tx.Exec(`DELETE FROM posts WHERE id = ?`, postID)
 	return err
 }
+
+func (s *Service) PostExists(postID int64) (bool, error) {
+	var exists bool
+	err := s.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM posts WHERE id = ?)", postID).Scan(&exists)
+	return exists, err
+}
