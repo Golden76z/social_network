@@ -246,13 +246,7 @@ func (s *Service) UpdatePost(postID int64, req models.UpdatePostRequest) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		} else {
-			_ = tx.Commit()
-		}
-	}()
+	defer tx.Rollback() // Rollback on any error
 
 	var setParts []string
 	var args []interface{}
@@ -270,16 +264,34 @@ func (s *Service) UpdatePost(postID int64, req models.UpdatePostRequest) error {
 		args = append(args, *req.Visibility)
 	}
 
-	if len(setParts) == 0 {
-		return fmt.Errorf("no fields to update")
+	if len(setParts) > 0 {
+		setParts = append(setParts, "updated_at = CURRENT_TIMESTAMP")
+		query := fmt.Sprintf("UPDATE posts SET %s WHERE id = ?", strings.Join(setParts, ", "))
+		args = append(args, postID)
+
+		_, err = tx.Exec(query, args...)
+		if err != nil {
+			return err
+		}
 	}
 
-	setParts = append(setParts, "updated_at = CURRENT_TIMESTAMP")
-	query := fmt.Sprintf("UPDATE posts SET %s WHERE id = ?", strings.Join(setParts, ", "))
-	args = append(args, postID)
+	if req.Images != nil {
+		// Delete old images
+		_, err := tx.Exec("DELETE FROM post_images WHERE post_id = ? AND is_group_post = 0", postID)
+		if err != nil {
+			return err
+		}
 
-	_, err = tx.Exec(query, args...)
-	return err
+		// Insert new images
+		for _, imageURL := range *req.Images {
+			_, err := tx.Exec("INSERT INTO post_images (post_id, is_group_post, image_url) VALUES (?, 0, ?)", postID, imageURL)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return tx.Commit()
 }
 
 func (s *Service) DeletePost(postID int64) error {

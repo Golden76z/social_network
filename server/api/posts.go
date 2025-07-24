@@ -141,8 +141,55 @@ func GetPostHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdatePostHandler(w http.ResponseWriter, r *http.Request) {
-	// Implementation for updating a post
+	if r.Method != http.MethodPut {
+		http.Error(w, "Only PUT method allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
+	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	postIDStr := utils.GetPathParam(r, "id")
+	postID, err := strconv.ParseInt(postIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	var req models.UpdatePostRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Verify ownership
+	post, err := db.DBService.GetPostByID(postID, int64(currentUserID))
+	if err != nil {
+		http.Error(w, "Post not found", http.StatusNotFound)
+		return
+	}
+	if post.AuthorID != int64(currentUserID) {
+		http.Error(w, "You are not authorized to edit this post", http.StatusForbidden)
+		return
+	}
+
+	if err := db.DBService.UpdatePost(postID, req); err != nil {
+		fmt.Printf("[ERROR] Update post failed: %v\n", err)
+		http.Error(w, "Failed to update post", http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]interface{}{
+		"message": "Post updated successfully",
+		"postID":  postID,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 }
 
 func DeletePostHandler(w http.ResponseWriter, r *http.Request) {
