@@ -130,10 +130,11 @@ type GroupMember struct {
 type RSVPToEventRequest struct {
 	EventID int64  `json:"event_id"`
 	UserID  int64  `json:"user_id"`
-	Status  string `json:"status"` // "going", "interested", "not_going"
+	Status  string `json:"status"` // "come", "interested", "not_come"
 }
 
 type CancelRSVPRequest struct {
-	EventID int64 `json:"event_id"`
-	UserID  int64 `json:"user_id"`
+	EventID int64  `json:"event_id"`
+	UserID  int64  `json:"user_id"`
+	Status  string `json:"status"`
 }

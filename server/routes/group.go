@@ -44,4 +44,6 @@ func setupGroupRoutes(r *Router) {
 	// Event RSVP
 	r.POST("/api/group/event/rsvp", api.RSVPToEventHandler)
 	r.GET("/api/group/event/rsvp", api.GetEventRSVPsHandler)
+	r.PUT("/api/group/event/rsvp", api.UpdateEventRSVPHandler)
+	r.DELETE("/api/group/event/rsvp", api.DeleteEventRSVPHandler)
 }
