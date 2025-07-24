@@ -205,11 +205,3 @@ func DeleteGroupEventHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"message": "Event deleted"}`))
 }
-
-func RSVPToEventHandler(w http.ResponseWriter, r *http.Request) {
-
-}
-
-func GetEventRSVPsHandler(w http.ResponseWriter, r *http.Request) {
-
-}
