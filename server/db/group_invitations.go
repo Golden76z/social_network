@@ -15,7 +15,7 @@ type GroupInvitation struct {
 }
 
 // CreateGroupInvitation inserts a new group invitation into the database.
-func (s *Service) CreateGroupInvitation(request models.InviteToGroupRequest) error {
+func (s *Service) CreateGroupInvitation(request models.InviteToGroupRequest, userID int) error {
 	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
@@ -30,7 +30,7 @@ func (s *Service) CreateGroupInvitation(request models.InviteToGroupRequest) err
 	_, err = tx.Exec(`
         INSERT INTO group_invitations (group_id, invited_user_id, invited_by, status)
         VALUES (?, ?, ?, ?)`,
-		request.GroupID, request.UserID, request.InvitedBy, "pending")
+		request.GroupID, request.UserID, userID, "pending")
 	return err
 }
 
