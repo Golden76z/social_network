@@ -4,6 +4,54 @@ import (
 	"github.com/Golden76z/social-network/models"
 )
 
+// GetGroupEvents retrieves group events with optional filters and pagination
+func (s *Service) GetGroupEvents(groupID int64, upcoming bool, limit, offset int, fromDate, toDate string) ([]GroupEvent, error) {
+	query := `SELECT id, group_id, creator_id, title, description, event_datetime, created_at FROM group_events WHERE 1=1`
+	args := []interface{}{}
+
+	if groupID != 0 {
+		query += " AND group_id = ?"
+		args = append(args, groupID)
+	}
+	if upcoming {
+		query += " AND event_datetime > datetime('now')"
+	}
+	if fromDate != "" {
+		query += " AND event_datetime >= ?"
+		args = append(args, fromDate)
+	}
+	if toDate != "" {
+		query += " AND event_datetime <= ?"
+		args = append(args, toDate)
+	}
+	query += " ORDER BY event_datetime ASC"
+	if limit > 0 {
+		query += " LIMIT ?"
+		args = append(args, limit)
+	}
+	if offset > 0 {
+		query += " OFFSET ?"
+		args = append(args, offset)
+	}
+
+	rows, err := s.DB.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var events []GroupEvent
+	for rows.Next() {
+		var ge GroupEvent
+		err := rows.Scan(&ge.ID, &ge.GroupID, &ge.CreatorID, &ge.Title, &ge.Description, &ge.EventDateTime, &ge.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, ge)
+	}
+	return events, nil
+}
+
 // GroupEvent represents a group event in the database
 type GroupEvent struct {
 	ID            int64  `json:"id"`
@@ -29,8 +77,8 @@ func (s *Service) CreateGroupEvent(request models.CreateGroupEventRequest, creat
 		}
 	}()
 	_, err = tx.Exec(`
-        INSERT INTO group_events (group_id, creator_id, title, description, event_datetime)
-        VALUES (?, ?, ?, ?, ?)`,
+		INSERT INTO group_events (group_id, creator_id, title, description, event_datetime)
+		VALUES (?, ?, ?, ?, ?)`,
 		request.GroupID, creatorID, request.Title, request.Description, request.EventDateTime)
 	return err
 }
@@ -38,8 +86,8 @@ func (s *Service) CreateGroupEvent(request models.CreateGroupEventRequest, creat
 // GetGroupEventByID retrieves a group event by its ID.
 func (s *Service) GetGroupEventByID(id int64) (*GroupEvent, error) {
 	row := s.DB.QueryRow(`
-        SELECT id, group_id, creator_id, title, description, event_datetime, created_at
-        FROM group_events WHERE id = ?`, id)
+		SELECT id, group_id, creator_id, title, description, event_datetime, created_at
+		FROM group_events WHERE id = ?`, id)
 
 	var ge GroupEvent
 	err := row.Scan(
