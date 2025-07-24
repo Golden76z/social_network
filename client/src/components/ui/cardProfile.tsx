@@ -7,9 +7,10 @@ import { ButtonAccept } from "./Button/buttonAccept"
 import { PiX } from "react-icons/pi"
 import { Counter } from "./counter"
 import TripleButton from "./Button/tripleButton"
+import PpDefault from "../image/PPDefault"
 
 const cardProfileVariants = cva(
-    "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+    "display-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
     {
         variants: {
             variant: {
@@ -23,7 +24,7 @@ const cardProfileVariants = cva(
                     "bg-chart-3",
             },
             size: {
-                size1: "h-[100px] w-screen",
+                size1: "w-screen",
             },
         },
         defaultVariants: {
@@ -61,7 +62,8 @@ function CardProfile({
         <span>{children}</span>
         {variant === "CardProfileUser" && (
             <>
-            <img src="https://tse2.mm.bing.net/th/id/OIP.vg1KOuYtiZI2V0_ZXB-05gHaGc?r=0&pid=Api" alt="Profile" className="h-[30%]"></img>
+
+            <PpDefault className="!w-[60px] !h-[60px]" />
             <text className="text-chart-1 text-left pl-[5px]">userName</text>
             <ButtonAccept>Private</ButtonAccept>
             <ButtonAccept>Édit</ButtonAccept>

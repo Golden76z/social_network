@@ -8,7 +8,7 @@ type TripleButtonProps = {
 };
 
 const TripleButton: React.FC<TripleButtonProps> = ({ buttons }) => {
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   if (buttons.length !== 3) {
     console.error('Le composant TripleButton attend exactement 3 boutons.');
