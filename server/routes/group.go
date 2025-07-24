@@ -30,11 +30,20 @@ func setupGroupRoutes(r *Router) {
 	r.DELETE("/api/group/event", api.DeleteGroupEventHandler)
 
 	// Group membership
-	r.POST("/api/group/member", api.InviteToGroupHandler)
-	r.DELETE("/api/group/member", api.LeaveGroupHandler)
+	r.POST("/api/group/member", api.CreateGroupMemberHandler)
 	r.GET("/api/group/members", api.GetGroupMembersHandler)
+	r.PUT("/api/group/member", api.UpdateGroupMemberHandler)
+	r.DELETE("/api/group/member", api.DeleteGroupMemberHandler)
+
+	// Group invitations
+	r.POST("/api/group/invitation", api.CreateGroupInvitationHandler)
+	r.GET("/api/group/invitation", api.GetGroupInvitationHandler)
+	r.PUT("/api/group/invitation", api.UpdateGroupInvitationHandler)
+	r.DELETE("/api/group/invitation", api.DeleteGroupInvitationHandler)
 
 	// Event RSVP
 	r.POST("/api/group/event/rsvp", api.RSVPToEventHandler)
 	r.GET("/api/group/event/rsvp", api.GetEventRSVPsHandler)
+	r.PUT("/api/group/event/rsvp", api.UpdateEventRSVPHandler)
+	r.DELETE("/api/group/event/rsvp", api.DeleteEventRSVPHandler)
 }

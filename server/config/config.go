@@ -5,11 +5,12 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"fmt"
-	"github.com/Golden76z/social-network/utils"
-	"github.com/joho/godotenv"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/Golden76z/social-network/utils"
+	"github.com/joho/godotenv"
 
 	//"os"
 	"sync"
@@ -65,6 +66,9 @@ type Config struct {
 	// Logging
 	LogLevel string
 	LogFile  string
+
+	// Content related Settings
+	Limit int
 }
 
 var (
@@ -153,6 +157,9 @@ func Load() error {
 			// Logging
 			LogLevel: getEnv("LOG_LEVEL", "info"),
 			LogFile:  getEnv("LOG_FILE", "app.log"),
+
+			// Content related settings
+			Limit: getEnvAsInt("LIMIT", 20),
 		}
 	})
 

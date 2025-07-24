@@ -49,7 +49,7 @@ func CreateUserReactionHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if req.GroupCommentID != nil {
-		_, err := db.DBService.GetGroupCommentByID(*req.GroupCommentID)
+		_, err := db.DBService.GetGroupCommentByID(*req.GroupCommentID, req.UserID)
 		if err != nil {
 			http.Error(w, "Group comment not found", http.StatusBadRequest)
 			return
