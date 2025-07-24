@@ -76,3 +76,26 @@ func (s *Service) DeleteComment(commentID int64) error {
 	_, err = tx.Exec(`DELETE FROM comments WHERE id = ?`, commentID)
 	return err
 }
+
+// Get multiple comments for a post (20 by 20)
+func (s *Service) GetCommentsByPostID(postID int64, limit, offset int) ([]models.Comment, error) {
+	rows, err := s.DB.Query(`
+        SELECT id, post_id, user_id, body, created_at, updated_at
+        FROM comments
+        WHERE post_id = ?
+        ORDER BY created_at ASC
+        LIMIT ? OFFSET ?`, postID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var comments []models.Comment
+	for rows.Next() {
+		var c models.Comment
+		if err := rows.Scan(&c.ID, &c.PostID, &c.UserID, &c.Body, &c.CreatedAt, &c.UpdatedAt); err != nil {
+			return nil, err
+		}
+		comments = append(comments, c)
+	}
+	return comments, nil
+}
