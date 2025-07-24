@@ -1,7 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import Button from "./ui/button"
 import {
   Card,
   CardContent,
@@ -16,6 +16,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthProvider"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
+import GoogleSignInButton from "./ui/googleButton"
 
 export function LoginForm({
   className,
@@ -122,9 +123,10 @@ export function LoginForm({
                     "Login"
                   )}
                 </Button>
-                <Button variant="outline" className="w-full" type="button" disabled={isLoading}>
+                {/* <Button className="w-full" type="button" disabled={isLoading}>
                   Login with Google
-                </Button>
+                </Button> */}
+                <GoogleSignInButton/>
               </div>
             </div>
             
