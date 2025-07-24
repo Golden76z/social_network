@@ -58,9 +58,10 @@ func (c *CreatePostRequest) UnmarshalJSON(data []byte) error {
 
 // Update request (client → server)
 type UpdatePostRequest struct {
-	Title      *string `json:"title,omitempty"`
-	Body       *string `json:"body,omitempty"`
-	Visibility *string `json:"visibility,omitempty"`
+	Title      *string   `json:"title,omitempty"`
+	Body       *string   `json:"body,omitempty"`
+	Images     *[]string `json:"images,omitempty"`
+	Visibility *string   `json:"visibility,omitempty"`
 }
 
 type DeletePostRequest struct {

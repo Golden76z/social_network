@@ -38,6 +38,7 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
+		Path:     "/",
 		MaxAge:   -1,
 	})
 
