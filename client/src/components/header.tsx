@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthProvider";
-import Link from "next/link";
+import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthProvider';
+import Link from 'next/link';
 
 export default function Header() {
   const router = useRouter();
@@ -15,12 +15,15 @@ export default function Header() {
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
         setDropdownOpen(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   return (
@@ -29,7 +32,7 @@ export default function Header() {
         {/* Logo + Search */}
         <div className="flex items-center gap-4">
           <Link href="/" className="font-semibold text-xl">
-            Destagram
+            Deustagram
           </Link>
 
           {/* Search - hidden on small screens */}
@@ -83,7 +86,7 @@ export default function Header() {
             </>
           ) : (
             <button
-              onClick={() => router.push("/login")}
+              onClick={() => router.push('/login')}
               className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 transition-colors"
             >
               🔐 Sign In
@@ -137,7 +140,7 @@ export default function Header() {
             <button
               onClick={() => {
                 setMobileMenuOpen(false);
-                router.push("/login");
+                router.push('/login');
               }}
               className="block w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 transition-colors text-center"
             >
