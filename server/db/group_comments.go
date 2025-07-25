@@ -27,7 +27,7 @@ func (s *Service) CreateGroupComment(request models.CreateGroupCommentRequest, u
 		SELECT ?, ?, ?
 		FROM group_posts gp
 		JOIN group_members gm ON gp.group_id = gm.group_id
-		WHERE gp.id = ? AND gm.user_id = ?
+		WHERE gp.id = ? AND gm.user_id = ? AND gm.status = 'accepted'
 	`, request.GroupPostID, userID, request.Body, request.GroupPostID, userID)
 	if err != nil {
 		return err
@@ -51,7 +51,7 @@ func (s *Service) GetGroupCommentByID(id, userID int64) (*models.Comment, error)
 		FROM group_comments gc
 		JOIN group_posts gp ON gc.group_post_id = gp.id
 		JOIN group_members gm ON gp.group_id = gm.group_id
-		WHERE gc.id = ? AND gm.user_id = ?
+		WHERE gc.id = ? AND gm.user_id = ? AND gm.status = 'accepted'
 	`, id, userID)
 
 	var gc models.Comment
@@ -73,7 +73,7 @@ func (s *Service) GetGroupComments(groupPostID, userID int64, offset int) ([]mod
 		JOIN users u ON gc.user_id = u.id
 		JOIN group_posts gp ON gc.group_post_id = gp.id
 		JOIN group_members gm ON gp.group_id = gm.group_id
-		WHERE gc.group_post_id = ? AND gm.user_id = ?
+		WHERE gc.group_post_id = ? AND gm.user_id = ? AND gm.status = 'accepted'
 		ORDER BY gc.created_at ASC
 		LIMIT -1 OFFSET (
 			SELECT CASE
@@ -152,7 +152,7 @@ func (s *Service) UpdateGroupComment(commentID, userID int64, request models.Upd
 		SELECT COUNT(*) FROM group_comments gc
 		JOIN group_posts gp ON gc.group_post_id = gp.id
 		JOIN group_members gm ON gp.group_id = gm.group_id
-		WHERE gc.id = ? AND gm.user_id = ?
+		WHERE gc.id = ? AND gm.user_id = ? AND gm.status = 'accepted'
 	`, commentID, userID).Scan(&count)
 	if err != nil {
 		return err
@@ -217,7 +217,7 @@ func (s *Service) DeleteGroupComment(commentID, userID int64) error {
 		SELECT COUNT(*) FROM group_comments gc
 		JOIN group_posts gp ON gc.group_post_id = gp.id
 		JOIN group_members gm ON gp.group_id = gm.group_id
-		WHERE gc.id = ? AND gm.user_id = ?
+		WHERE gc.id = ? AND gm.user_id = ? AND gm.status = 'accepted'
 	`, commentID, userID).Scan(&count)
 	if err != nil {
 		return err
@@ -263,7 +263,7 @@ func (s *Service) GetGroupCommentWithUserDetails(commentID, userID int64) (*mode
 		JOIN users u ON gc.user_id = u.id
 		JOIN group_posts gp ON gc.group_post_id = gp.id
 		JOIN group_members gm ON gp.group_id = gm.group_id
-		WHERE gc.id = ? AND gm.user_id = ?
+		WHERE gc.id = ? AND gm.user_id = ? AND gm.status = 'accepted'
 	`, commentID, userID)
 
 	var comment models.Comment

@@ -7,6 +7,6 @@ import (
 func setupPostRoutes(r *Router) {
 	r.POST("/api/post", api.CreatePostHandler)
 	r.GET("/api/post", api.GetPostHandler)
-	r.PUT("/api/post", api.UpdatePostHandler)
-	r.DELETE("/api/post", api.DeletePostHandler)
+	r.PUT("/api/post/{id}", api.UpdatePostHandler)
+	r.DELETE("/api/post/{id}", api.DeletePostHandler)
 }

@@ -58,8 +58,8 @@ func GetGroupPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Parse query parameters for pagination and group ID
 	query := r.URL.Query()
-	offsetStr := query.Get("offset")
-	groupidStr := query.Get("id")
+	offsetStr := query.Get("offlimit")
+	groupidStr := query.Get("groupID")
 
 	w.Header().Set("Content-Type", "application/json")
 

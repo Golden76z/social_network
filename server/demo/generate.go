@@ -221,7 +221,7 @@ func SeedGroupMembers(s *db.Service, rows [][]string) error {
 		if i == 0 {
 			continue // skip header
 		}
-		if len(row) < 4 {
+		if len(row) < 5 {
 			log.Printf("Skipping malformed group member row %d: %v", i, row)
 			continue
 		}
@@ -239,25 +239,19 @@ func SeedGroupMembers(s *db.Service, rows [][]string) error {
 		}
 
 		role := row[2]
-		// status := row[3]
+		status := row[3]
 
 		var invitedBy *int64
-		if row[3] != "" {
-			invitedByValue, err := strconv.ParseInt(row[3], 10, 64)
+		if row[4] != "" {
+			invitedByValue, err := strconv.ParseInt(row[4], 10, 64)
 			if err != nil {
 				log.Printf("invalid invited_by at row %d: %v", i, err)
 				continue
 			}
 			invitedBy = &invitedByValue
 		}
-		req := models.GroupMember{
-			GroupID:   groupID,
-			UserID:    userID,
-			Role:      role,
-			InvitedBy: invitedBy,
-		}
 
-		if err := s.CreateGroupMember(req); err != nil {
+		if err := s.CreateGroupMember(groupID, userID, role, status, invitedBy); err != nil {
 			log.Printf("failed to create group member (group: %d, user: %d): %v", groupID, userID, err)
 		}
 	}
@@ -284,7 +278,7 @@ func seedPosts(s *db.Service) error {
 			Body:       row[3],
 			Visibility: row[4],
 		}
-		if err := s.CreatePost(userID, post); err != nil {
+		if _, err := s.CreatePost(userID, post); err != nil {
 			log.Printf("Error creating post (line %d): %v", i+1, err)
 		}
 	}
