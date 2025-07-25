@@ -55,12 +55,17 @@ export const useAuth = () => {
 };
 
 // Auth Provider Component
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.API_BASE_URL || 'http://localhost:8080';
+  const API_BASE_URL =
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    process.env.API_BASE_URL ||
+    'http://localhost:8080';
 
   // Generic API call function with better error handling
   const apiCall = async (endpoint: string, options: RequestInit = {}) => {
@@ -76,7 +81,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || errorData.error || `HTTP error! status: ${response.status}`);
+      console.log('Response: ', response);
+      throw new Error(
+        errorData.message ||
+          errorData.error ||
+          `HTTP error! status: ${response.status}`,
+      );
     }
 
     return response.json();
@@ -86,10 +96,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkAuth = async () => {
     try {
       setIsLoading(true);
-      
+
       // Debug: Log cookies
       console.log('Cookies:', document.cookie);
-      
+
       // Use the user profile route to check authentication
       const response = await fetch(`${API_BASE_URL}/api/user/profile`, {
         credentials: 'include',
@@ -125,12 +135,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      
+
       // Basic client-side validation
       if (!email || !password) {
         throw new Error('Email and password are required');
       }
-      
+
       if (!email.includes('@')) {
         throw new Error('Please enter a valid email address');
       }
@@ -154,16 +164,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (userData: RegisterData) => {
     try {
       setIsLoading(true);
-      
+
       // Client-side validation
       if (!userData.email || !userData.password || !userData.nickname) {
         throw new Error('Email, password, and nickname are required');
       }
-      
+
       if (!userData.email.includes('@')) {
         throw new Error('Please enter a valid email address');
       }
-      
+
       if (userData.password.length < 8) {
         throw new Error('Password must be at least 8 characters long');
       }
@@ -214,9 +224,5 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuth,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
