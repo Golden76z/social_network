@@ -10,7 +10,7 @@ import (
 
 // RegisterDB handles inserting a new user into the database using a transaction
 func (s *Service) RegisterDB(
-	nickname, firstName, lastName, email, password, dob string,
+	nickname, firstName, lastName, email, password, dob, bio string,
 	w http.ResponseWriter,
 ) (err error) {
 	tx, err := s.DB.Begin()
@@ -56,9 +56,9 @@ func (s *Service) RegisterDB(
 	// Insert user into the database
 	_, err = tx.Exec(`
 		INSERT INTO users (
-			nickname, first_name, last_name, email, password, date_of_birth
-		) VALUES (?, ?, ?, ?, ?, ?)
-	`, nickname, firstName, lastName, email, string(hashedPassword), dateOfBirth)
+			nickname, first_name, last_name, email, password, date_of_birth, bio
+		) VALUES (?, ?, ?, ?, ?, ?, ?)
+	`, nickname, firstName, lastName, email, string(hashedPassword), dateOfBirth, bio)
 	if err != nil {
 		return err
 	}
