@@ -234,12 +234,12 @@ func TestPostCRUD(t *testing.T) {
 		Visibility: "public",
 	}
 
-	err := DBService.CreatePost(user.ID, postReq)
+	_,err := DBService.CreatePost(user.ID, postReq)
 	if err != nil {
 		t.Fatalf("CreatePost failed: %v", err)
 	}
 
-	post, err := DBService.GetPostByID(1)
+	post, err := DBService.GetPostByID(1, user.ID)
 	if err != nil || post.Title != "Title" {
 		t.Fatalf("GetPostByID failed: %v", err)
 	}
@@ -275,7 +275,7 @@ func TestPostVisibilityCRUD(t *testing.T) {
 		Body:       "Body",
 		Visibility: "public",
 	}
-	_ = DBService.CreatePost(user.ID, postReq)
+	_,_ = DBService.CreatePost(user.ID, postReq)
 
 	err := DBService.CreatePostVisibility(1, user.ID)
 	if err != nil {
@@ -338,7 +338,7 @@ func TestLikeDislikeCRUD(t *testing.T) {
 		Body:       "Body",
 		Visibility: "public",
 	}
-	_ = DBService.CreatePost(user.ID, postReq)
+	_,_ = DBService.CreatePost(user.ID, postReq)
 
 	postID := int64(1)
 	reactionReq := models.CreateReactionRequest{
