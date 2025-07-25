@@ -28,7 +28,7 @@ func CreateUserReactionHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Vérifier que la cible existe
 	if req.PostID != nil {
-		_, err := db.DBService.GetPostByID(*req.PostID)
+		_, err := db.DBService.GetPostByID(*req.PostID, userID)
 		if err != nil {
 			http.Error(w, "Post not found", http.StatusBadRequest)
 			return
@@ -49,7 +49,7 @@ func CreateUserReactionHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if req.GroupCommentID != nil {
-		_, err := db.DBService.GetGroupCommentByID(*req.GroupCommentID, req.UserID)
+		_, err := db.DBService.GetGroupCommentByID(*req.GroupCommentID, userID)
 		if err != nil {
 			http.Error(w, "Group comment not found", http.StatusBadRequest)
 			return

@@ -87,18 +87,19 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Validate bio if present (assuming bio is an optional field in RegisterRequest)
 	// If bio field doesn't exist in RegisterRequest, remove this validation
-	//if req.Bio != "" {
-	//	req.Bio = utils.SanitizeString(req.Bio)
-	//	if !utils.ValidateBio(req.Bio) {
-	//		http.Error(w, "Bio must be 500 characters or less", http.StatusBadRequest)
-	//		return
-	//	}
-	//}
+	if req.Bio != "" {
+		req.Bio = utils.SanitizeString(req.Bio)
+		if !utils.ValidateBio(req.Bio) {
+			http.Error(w, "Bio must be 500 characters or less", http.StatusBadRequest)
+			return
+		}
+	}
 
 	// Registering the user into the database
 	err := db.DBService.RegisterDB(
 		req.Nickname, req.FirstName, req.LastName,
 		req.Email, req.Password, req.DateOfBirth,
+		req.Bio,
 		w,
 	)
 	// Checking if the insertion was successful or not

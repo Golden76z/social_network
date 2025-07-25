@@ -417,14 +417,7 @@ func TestGroupMemberCRUD(t *testing.T) {
 	}
 	_ = DBService.CreateGroup(groupReq, user.ID)
 
-	req := models.GroupMember{
-		GroupID:   1,
-		UserID:    user.ID,
-		Role:      "member",
-		InvitedBy: nil,
-	}
-
-	err := DBService.CreateGroupMember(req)
+	err := DBService.CreateGroupMember(1, user.ID, "member", "pending", nil)
 	if err != nil {
 		t.Fatalf("CreateGroupMember failed: %v", err)
 	}
@@ -434,17 +427,12 @@ func TestGroupMemberCRUD(t *testing.T) {
 		t.Fatalf("GetGroupMemberByID failed: %v", err)
 	}
 
-	// err = DBService.UpdateGroupMemberStatus(gm, int(gm.UserID))
-	// if err != nil {
-	// 	t.Fatalf("UpdateGroupMemberStatus failed: %v", err)
-	// }
-
-	leaveReq := models.LeaveGroupRequest{
-		GroupID: 1,
-		UserID:  gm.ID,
+	err = DBService.UpdateGroupMemberStatus(gm.ID, "accepted")
+	if err != nil {
+		t.Fatalf("UpdateGroupMemberStatus failed: %v", err)
 	}
 
-	err = DBService.DeleteGroupMember(leaveReq, int(gm.ID))
+	err = DBService.DeleteGroupMember(gm.ID)
 	if err != nil {
 		t.Fatalf("DeleteGroupMember failed: %v", err)
 	}
