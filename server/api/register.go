@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/Golden76z/social-network/db"
@@ -11,6 +12,7 @@ import (
 
 // Handler that will communicate with the database to create a new user
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Request made")
 	// Checking the type of request - Only POST requests allowed
 	if r.Method != http.MethodPost {
 		http.Error(w, "Only POST allowed", http.StatusMethodNotAllowed)
@@ -24,6 +26,7 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fmt.Println("Request body: ", req)
 	// Basic empty field check
 	if req.Nickname == "" || req.FirstName == "" || req.LastName == "" ||
 		req.Email == "" || req.Password == "" || req.DateOfBirth == "" {
@@ -31,6 +34,7 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fmt.Println("Request body after empty field check: ", req)
 	// Sanitize all input fields
 	req.Nickname = utils.SanitizeString(req.Nickname)
 	req.FirstName = utils.SanitizeString(req.FirstName)
@@ -45,35 +49,41 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fmt.Println("Email check")
 	// Validate nickname
 	if !utils.ValidateNickname(req.Nickname) {
 		http.Error(w, "Nickname must be 3-20 characters long and contain only letters, numbers, underscores, and hyphens", http.StatusBadRequest)
 		return
 	}
 
+	fmt.Println("test1")
 	// Validate first name
 	if !utils.ValidateName(req.FirstName) {
 		http.Error(w, "First name must be 1-50 characters long and contain only letters, spaces, hyphens, and apostrophes", http.StatusBadRequest)
 		return
 	}
 
+	fmt.Println("test2")
 	// Validate last name
 	if !utils.ValidateName(req.LastName) {
 		http.Error(w, "Last name must be 1-50 characters long and contain only letters, spaces, hyphens, and apostrophes", http.StatusBadRequest)
 		return
 	}
 
+	fmt.Println("test3")
 	// Validate date of birth
 	if !utils.ValidateDateOfBirth(req.DateOfBirth) {
 		http.Error(w, "Invalid date of birth format (YYYY-MM-DD) or unrealistic date", http.StatusBadRequest)
 		return
 	}
 
+	fmt.Println("test4")
 	// Validate password (handles both plaintext and hashed passwords)
 	if !utils.ValidatePassword(req.Password) {
 		http.Error(w, utils.GetPasswordValidationMessage(), http.StatusBadRequest)
 		return
 	}
+	fmt.Println("All test done")
 
 	// Validate bio if present (assuming bio is an optional field in RegisterRequest)
 	// If bio field doesn't exist in RegisterRequest, remove this validation
@@ -93,6 +103,7 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	)
 	// Checking if the insertion was successful or not
 	if err != nil {
+		fmt.Println("Error: ", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
