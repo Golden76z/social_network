@@ -4,13 +4,15 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strconv"
+
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/models"
 	"github.com/Golden76z/social-network/utils"
-	"strconv"
+
+	"net/http"
 
 	"github.com/Golden76z/social-network/middleware"
-	"net/http"
 )
 
 // Handler to access User's Profile data
@@ -20,6 +22,7 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Only GET method allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	fmt.Println("Request made")
 
 	// Get current user ID from context (injected by AuthMiddleware)
 	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
@@ -103,6 +106,7 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 			IsPrivate: profile.IsPrivate,
 		}
 	}
+	fmt.Println("Response to the front: ", response)
 
 	// Set response headers and send a JSON response
 	w.Header().Set("Content-Type", "application/json")

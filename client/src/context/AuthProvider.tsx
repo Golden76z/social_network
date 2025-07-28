@@ -4,8 +4,9 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { authRoutes } from '@/constants/routes';
 import { AuthResponse, RegisterRequest, LoginRequest } from '@/lib/types/auth';
 import { User } from '@/lib/types/user';
+import { apiClient } from '@/lib/api';
 
-// Auth Context Type - using your existing interfaces
+// Auth Context Type
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
@@ -14,7 +15,6 @@ interface AuthContextType {
   register: (userData: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
-  // Optional: Add password reset functions if needed
   forgotPassword?: (email: string) => Promise<void>;
   resetPassword?: (token: string, newPassword: string, confirmPassword: string) => Promise<void>;
 }
@@ -36,69 +36,90 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.API_BASE_URL || 'http://localhost:8080';
-
-  // Generic API call function with better error handling
-  const apiCall = async (endpoint: string, options: RequestInit = {}) => {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      credentials: 'include', // Important: this sends cookies
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest', // CSRF protection
-        ...options.headers,
-      },
-      ...options,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || errorData.error || `HTTP error! status: ${response.status}`);
-    }
-
-    return response.json();
-  };
+  const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
 
   // Check if user is authenticated
   const checkAuth = async () => {
     try {
       setIsLoading(true);
       
-      // Debug: Log cookies
-      console.log('Cookies:', document.cookie);
+      console.log('🔍 Starting auth check...');
+      console.log('📋 Current cookies:', document.cookie);
       
-      // Use the user profile route to check authentication
-      const response = await fetch(`${API_BASE_URL}/api/user/profile`, {
-        credentials: 'include',
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest',
-        },
-      });
-
-      console.log('Auth check response status:', response.status);
-
-      if (response.ok) {
-        const userData = await response.json();
-        console.log('Auth check successful:', userData);
-        setUser(userData.user || userData);
-        setIsAuthenticated(true);
-      } else {
-        console.log('Auth check failed - response not ok');
-        const errorText = await response.text();
-        console.log('Error response:', errorText);
+      // Quick check using cookie presence
+      if (!apiClient.isAuthenticated()) {
+        console.log('❌ No jwt_token cookie found');
         setUser(null);
         setIsAuthenticated(false);
+        return;
       }
+
+      console.log('✅ JWT token cookie found, verifying with server...');
+
+      // Use the user profile route to check authentication
+      const userData = await apiClient.get<{ user: User } | User>('/api/user/profile');
+      
+      console.log('✅ Auth check successful:', userData);
+      
+      // Check if the response actually contains user data
+      if (userData && typeof userData === 'object' && 'message' in userData) {
+        console.log('⚠️ Profile endpoint returned message only:', userData.message);
+        throw new Error('Profile endpoint did not return user data');
+      }
+      
+      // Handle different response formats for actual user data
+      const userInfo = 'user' in userData ? userData.user : userData;
+      
+      if (!userInfo || !userInfo.id) {
+        console.log('❌ No valid user data received:', userInfo);
+        
+        // Try to get user data from token as fallback
+        const userFromToken = apiClient.getUserFromToken();
+        if (userFromToken && userFromToken.userid) {
+          const basicUser: User = {
+            id: parseInt(userFromToken.userid),
+            nickname: userFromToken.username || '',
+            email: '',
+            first_name: '',
+            last_name: '',
+            date_of_birth: '',
+            is_private: false,
+            created_at: '',
+            followers: 0,
+            followed: 0
+          };
+          setUser(basicUser);
+          setIsAuthenticated(true);
+          console.log('✅ User set from token fallback:', basicUser);
+        } else {
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+        return;
+      }
+      
+      setUser(userInfo);
+      setIsAuthenticated(true);
+      console.log('✅ User set in context:', userInfo);
+      
     } catch (error) {
-      console.error('Auth check failed with error:', error);
+      console.error('❌ Auth check failed:', error);
+      
+      // Check if it's a 401/403 error (token expired/invalid)
+      if (error instanceof Error && error.message.includes('401')) {
+        console.log('🔄 Token seems expired, clearing auth state');
+      }
+      
       setUser(null);
       setIsAuthenticated(false);
     } finally {
       setIsLoading(false);
+      setHasCheckedAuth(true);
+      console.log('🏁 Auth check completed');
     }
   };
 
-  // Login function - using LoginRequest interface
+  // Login function
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
@@ -112,16 +133,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Please enter a valid email address');
       }
 
-      // Create login request object matching your interface
+      // Create login request object
       const loginRequest: LoginRequest = { email, password };
 
-      const data: AuthResponse = await apiCall(authRoutes.login, {
-        method: 'POST',
-        body: JSON.stringify(loginRequest),
-      });
+      const data = await apiClient.post<AuthResponse>(authRoutes.login, loginRequest);
+      
+      console.log('✅ Login response:', data);
 
-      setUser(data.user);
-      setIsAuthenticated(true);
+      // If login response contains user data, use it
+      if (data.user) {
+        setUser(data.user);
+        setIsAuthenticated(true);
+        console.log('✅ User set from login response:', data.user);
+      } else {
+        // If login response doesn't contain user data, fetch it from profile
+        console.log('🔄 Login successful, fetching user profile...');
+        
+        try {
+          const profileData = await apiClient.get<{ user: User } | User>('/api/user/profile');
+          console.log('✅ Profile data fetched:', profileData);
+          
+          const userInfo = 'user' in profileData ? profileData.user : profileData;
+          
+          if (userInfo && userInfo.id) {
+            setUser(userInfo);
+            setIsAuthenticated(true);
+            console.log('✅ User set from profile:', userInfo);
+          } else {
+            throw new Error('No user data received from profile endpoint');
+          }
+        } catch (profileError) {
+          console.error('❌ Failed to fetch profile after login:', profileError);
+          // Try to get basic user info from token as fallback
+          const userFromToken = apiClient.getUserFromToken();
+          if (userFromToken && userFromToken.userid) {
+            const basicUser: User = {
+              id: parseInt(userFromToken.userid),
+              nickname: userFromToken.username || '',
+              email: email, // We know the email from login
+              first_name: '',
+              last_name: '',
+              date_of_birth: '',
+              is_private: false,
+              created_at: '',
+              followers: 0,
+              followed: 0
+            };
+            setUser(basicUser);
+            setIsAuthenticated(true);
+            console.log('✅ User set from token fallback:', basicUser);
+          } else {
+            throw new Error('Could not get user data after login');
+          }
+        }
+      }
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
@@ -130,12 +195,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Register function - already using RegisterRequest interface
+  // Register function
   const register = async (userData: RegisterRequest) => {
     try {
       setIsLoading(true);
       
-      // Enhanced client-side validation matching your RegisterRequest interface
+      // Enhanced client-side validation
       if (!userData.email || !userData.password || !userData.nickname) {
         throw new Error('Email, password, and nickname are required');
       }
@@ -156,15 +221,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Password must be at least 8 characters long');
       }
 
-      // Check if passwords match (if confirmPassword is provided)
+      // Check if passwords match
       if (userData.confirmPassword && userData.password !== userData.confirmPassword) {
         throw new Error('Passwords do not match');
       }
 
-      const data: AuthResponse = await apiCall(authRoutes.register, {
-        method: 'POST',
-        body: JSON.stringify(userData),
-      });
+      const data = await apiClient.post<AuthResponse>(authRoutes.register, userData);
 
       setUser(data.user);
       setIsAuthenticated(true);
@@ -180,9 +242,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       setIsLoading(true);
-      await apiCall(authRoutes.logout, {
-        method: 'POST',
-      });
+      await apiClient.post(authRoutes.logout);
     } catch (error) {
       console.error('Logout failed:', error);
     } finally {
@@ -201,10 +261,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Please enter a valid email address');
       }
 
-      await apiCall('/api/auth/forgot-password', {
-        method: 'POST',
-        body: JSON.stringify({ email }),
-      });
+      await apiClient.post('/api/auth/forgot-password', { email });
     } catch (error) {
       console.error('Forgot password failed:', error);
       throw error;
@@ -230,9 +287,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Password must be at least 8 characters long');
       }
 
-      await apiCall('/api/auth/reset-password', {
-        method: 'POST',
-        body: JSON.stringify({ token, newPassword, confirmPassword }),
+      await apiClient.post('/api/auth/reset-password', { 
+        token, 
+        newPassword, 
+        confirmPassword 
       });
     } catch (error) {
       console.error('Reset password failed:', error);
@@ -244,8 +302,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Check authentication on mount
   useEffect(() => {
+    console.log('🚀 AuthProvider mounted, checking auth...');
     checkAuth();
   }, []);
+
+  // Debug: Log state changes
+  useEffect(() => {
+    console.log('🔄 Auth state changed:', { 
+      isAuthenticated, 
+      hasUser: !!user, 
+      isLoading, 
+      hasCheckedAuth,
+      username: user?.nickname 
+    });
+  }, [isAuthenticated, user, isLoading, hasCheckedAuth]);
 
   const value: AuthContextType = {
     user,
