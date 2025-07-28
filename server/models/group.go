@@ -98,6 +98,16 @@ type DeleteGroupEventRequest struct {
 
 // ===== GROUP MEMBER / INVITATION =====
 
+// GroupInvitation represents a group invitation in the database
+type GroupInvitation struct {
+	ID            int64  `json:"id"`
+	GroupID       int64  `json:"group_id"`
+	InvitedUserID int64  `json:"invited_user_id"`
+	InvitedBy     int64  `json:"invited_by"`
+	Status        string `json:"status"`
+	CreatedAt     string `json:"created_at"`
+}
+
 type InviteToGroupRequest struct {
 	GroupID int64 `json:"group_id"`
 	UserID  int64 `json:"user_id"`
