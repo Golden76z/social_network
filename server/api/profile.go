@@ -4,13 +4,15 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strconv"
+
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/models"
 	"github.com/Golden76z/social-network/utils"
-	"strconv"
+
+	"net/http"
 
 	"github.com/Golden76z/social-network/middleware"
-	"net/http"
 )
 
 // Handler to access User's Profile data

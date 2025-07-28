@@ -118,7 +118,7 @@ export default function Header() {
                 ✏️ Post
               </Link>
               <Link
-                href="/profile"
+                href="/dev/test"
                 className="block w-full px-4 py-2 rounded-md text-sm hover:bg-accent transition-colors text-center"
               >
                 👤 Profile

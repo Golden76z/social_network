@@ -1,7 +1,6 @@
 "use client"
 
 import React, { useState, useEffect } from 'react';
-import "../../globals.css";
 
 type ColorSet = Record<string, string>;
 
