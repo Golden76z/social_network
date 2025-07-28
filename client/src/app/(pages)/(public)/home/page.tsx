@@ -6,28 +6,32 @@ import { useAuth } from '@/context/AuthProvider';
 import { SideBarLeft } from '@/components/SideBarLeft';
 import { SideBarRight } from '@/components/SideBarRight';
 import { Post } from '@/components/Post';
-// import { BottomNav } from '@/components/BottomNav';
 
 const HomePage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isLoading, hasCheckedAuth } = useAuth();
+
+  // Wait for auth check to complete
+  if (!hasCheckedAuth || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-500 text-lg">Checking authentication...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-16 md:pb-0"> {/* extra padding bottom for mobile nav */}
-      {/* Navbar */}
+    <div className="min-h-screen bg-gray-50 pb-16 md:pb-0">
       <Header />
-
-      {/* Main Content */}
       <div className="flex flex-col md:flex-row max-w-full mx-auto">
-        {/* Left Sidebar - desktop only */}
         <div className="hidden md:block w-[20%] min-h-screen bg-white border-r border-gray-200 p-4">
           <SideBarLeft variant="sidebar" />
         </div>
 
-
-        {/* Main Feed - full width on mobile */}
         <div className="w-full md:w-[70%] px-4 md:px-8 py-6">
           <h1 className="text-2xl font-bold mb-4">
-            Welcome back, {user?.nickname || user?.first_name}!
+            {user
+              ? `Welcome back, ${user.nickname || user.first_name}!`
+              : 'Welcome!'}
           </h1>
 
           <div className="space-y-6">
@@ -54,13 +58,11 @@ const HomePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Sidebar - hidden on mobile */}
         <div className="hidden md:block w-[20%] min-h-screen bg-white border-l border-gray-200 p-4">
           <SideBarRight />
         </div>
       </div>
 
-      {/* Bottom Navigation - mobile only */}
       <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t border-gray-200 bg-white shadow-sm">
         <SideBarLeft variant="bottom" />
       </div>

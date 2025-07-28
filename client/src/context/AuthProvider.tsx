@@ -11,6 +11,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  hasCheckedAuth: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (userData: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
@@ -42,74 +43,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkAuth = async () => {
     try {
       setIsLoading(true);
-      
       console.log('🔍 Starting auth check...');
-      console.log('📋 Current cookies:', document.cookie);
-      
-      // Quick check using cookie presence
-      if (!apiClient.isAuthenticated()) {
-        console.log('❌ No jwt_token cookie found');
-        setUser(null);
-        setIsAuthenticated(false);
-        return;
-      }
-
-      console.log('✅ JWT token cookie found, verifying with server...');
-
-      // Use the user profile route to check authentication
+  
+      // No more client-side cookie checks
+      // Trust the backend to validate the cookie and return user data
       const userData = await apiClient.get<{ user: User } | User>('/api/user/profile');
-      
-      console.log('✅ Auth check successful:', userData);
-      
-      // Check if the response actually contains user data
-      if (userData && typeof userData === 'object' && 'message' in userData) {
-        console.log('⚠️ Profile endpoint returned message only:', userData.message);
-        throw new Error('Profile endpoint did not return user data');
-      }
-      
-      // Handle different response formats for actual user data
+  
+      console.log('✅ Auth check response:', userData);
+  
+      // Handle both { user: ... } and raw user object formats
       const userInfo = 'user' in userData ? userData.user : userData;
-      
-      if (!userInfo || !userInfo.id) {
-        console.log('❌ No valid user data received:', userInfo);
-        
-        // Try to get user data from token as fallback
-        const userFromToken = apiClient.getUserFromToken();
-        if (userFromToken && userFromToken.userid) {
-          const basicUser: User = {
-            id: parseInt(userFromToken.userid),
-            nickname: userFromToken.username || '',
-            email: '',
-            first_name: '',
-            last_name: '',
-            date_of_birth: '',
-            is_private: false,
-            created_at: '',
-            followers: 0,
-            followed: 0
-          };
-          setUser(basicUser);
-          setIsAuthenticated(true);
-          console.log('✅ User set from token fallback:', basicUser);
-        } else {
-          setUser(null);
-          setIsAuthenticated(false);
-        }
-        return;
+  
+      // If user data is valid, update context
+      if (userInfo && userInfo.id) {
+        setUser(userInfo);
+        setIsAuthenticated(true);
+        console.log('✅ User set in context:', userInfo);
+      } else {
+        throw new Error('No valid user data returned from profile endpoint');
       }
-      
-      setUser(userInfo);
-      setIsAuthenticated(true);
-      console.log('✅ User set in context:', userInfo);
-      
-    } catch (error) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
       console.error('❌ Auth check failed:', error);
-      
-      // Check if it's a 401/403 error (token expired/invalid)
-      if (error instanceof Error && error.message.includes('401')) {
-        console.log('🔄 Token seems expired, clearing auth state');
+  
+      // Handle expired/invalid token case
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.log('🔐 Token expired or invalid. Clearing auth state.');
       }
-      
+  
       setUser(null);
       setIsAuthenticated(false);
     } finally {
@@ -118,6 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('🏁 Auth check completed');
     }
   };
+  
 
   // Login function
   const login = async (email: string, password: string) => {
@@ -321,6 +283,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     isLoading,
     isAuthenticated,
+    hasCheckedAuth,
     login,
     register,
     logout,
