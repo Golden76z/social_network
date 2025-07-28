@@ -22,7 +22,6 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Only GET method allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	fmt.Println("Request made")
 
 	// Get current user ID from context (injected by AuthMiddleware)
 	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
@@ -106,7 +105,6 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 			IsPrivate: profile.IsPrivate,
 		}
 	}
-	fmt.Println("Response to the front: ", response)
 
 	// Set response headers and send a JSON response
 	w.Header().Set("Content-Type", "application/json")
