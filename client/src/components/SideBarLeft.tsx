@@ -33,7 +33,7 @@ export const SideBarLeft: React.FC<SideBarLeftProps> = ({
       className={
         variant === 'bottom'
           ? 'flex justify-around items-center h-14'
-          : 'space-y-2'
+          : 'space-y-2 fixed'
       }
     >
       {navigationItems.map(({ icon: Icon, label, href }) => {

@@ -3,16 +3,6 @@ import { Button } from '@/components/ui/button';
 export default function MessagesPage() {
   return (
     <div>
-      <div className="flex items-center justify-center w-full max-w-md mx-auto mt-8 mb-3">
-        <input
-          type="text"
-          placeholder="Search..."
-          className="w-full px-4 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-        />
-        <button className="px-4 py-2 bg-primary text-white font-semibold rounded-r-md hover:bg-primary/80 transition-colors">
-          Search
-        </button>
-      </div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold mb-6">Messages</h1>
         <Button variant="outline" className="mb-4 right-0" type="button">

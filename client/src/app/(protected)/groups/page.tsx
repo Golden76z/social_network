@@ -1,16 +1,6 @@
 export default function GroupsPage() {
   return (
     <div>
-      <div className="flex items-center justify-center w-full max-w-md mx-auto mt-8 mb-3">
-        <input
-          type="text"
-          placeholder="Search..."
-          className="w-full px-4 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-        />
-        <button className="px-4 py-2 bg-primary text-white font-semibold rounded-r-md hover:bg-primary/80 transition-colors">
-          Search
-        </button>
-      </div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Groups</h1>
         <button className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
@@ -81,12 +71,9 @@ export default function GroupsPage() {
               </button>
             </div>
           </div>
-        </div>
 
-        {/* Additional groups */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div className="p-6 border border-border rounded-lg bg-card">
-            <div className="w-full h-32 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg mb-4 flex items-center justify-center text-white text-2xl">
+            <div className="w-full h-32 bg-gradient-to-r from-blue-500 to-yellow-500 rounded-lg mb-4 flex items-center justify-center text-white text-2xl">
               📚
             </div>
             <h3 className="font-semibold mb-2">ZOne 01 Normandie</h3>
@@ -100,11 +87,9 @@ export default function GroupsPage() {
               </button>
             </div>
           </div>
-        </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div className="p-6 border border-border rounded-lg bg-card">
-            <div className="w-full h-32 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg mb-4 flex items-center justify-center text-white text-2xl">
+            <div className="w-full h-32 bg-gradient-to-r from-red-500 to-green-500 rounded-lg mb-4 flex items-center justify-center text-white text-2xl">
               📚
             </div>
             <h3 className="font-semibold mb-2">Quoiffeur</h3>
@@ -119,6 +104,8 @@ export default function GroupsPage() {
             </div>
           </div>
         </div>
+
+        {/* Additional groups */}
 
         {/* Empty state when no groups */}
         <div className="text-center py-12 text-muted-foreground">
