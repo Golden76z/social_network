@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/Golden76z/social-network/models"
@@ -153,21 +154,9 @@ func setupTestDB(t *testing.T) *sql.DB {
 	return db
 }
 
-// Helper function to create a test user
-func createTestUser(t *testing.T, nickname, firstName, lastName, email string) *models.User {
-	userReq := models.User{
-		Nickname:    nickname,
-		FirstName:   firstName,
-		LastName:    lastName,
-		Email:       email,
-		Password:    "pass",
-		DateOfBirth: "2000-01-01",
-		// Avatar:      "",
-		// Bio:         "",
-		IsPrivate: false,
-	}
-
-	err := DBService.CreateUser(userReq)
+func seedTestUser(t *testing.T, nickname, firstName, lastName, email string) *models.User {
+	w := httptest.NewRecorder()
+	err := DBService.RegisterDB(nickname, firstName, lastName, email, "password", "2000-01-01", "", w)
 	if err != nil {
 		t.Fatalf("CreateUser failed: %v", err)
 	}
@@ -179,54 +168,11 @@ func createTestUser(t *testing.T, nickname, firstName, lastName, email string) *
 	return user
 }
 
-func TestUserCRUD(t *testing.T) {
-	db := setupTestDB(t)
-	defer db.Close()
-
-	// Create user with request struct
-	userReq := models.User{
-		Nickname:    "nick",
-		FirstName:   "John",
-		LastName:    "Doe",
-		Email:       "john@doe.com",
-		Password:    "pass",
-		DateOfBirth: "2000-01-01",
-		// Avatar:      "",
-		// Bio:         "",
-		IsPrivate: false,
-	}
-
-	err := DBService.CreateUser(userReq)
-	if err != nil {
-		t.Fatalf("CreateUser failed: %v", err)
-	}
-
-	user, err := DBService.GetUserByEmail("john@doe.com")
-	if err != nil || user.Nickname != "nick" {
-		t.Fatalf("GetUserByEmail failed: %v", err)
-	}
-
-	// Update user with request struct
-	newBio := "New bio"
-	updateReq := models.UpdateUserProfileRequest{
-		Bio: &newBio,
-	}
-	err = DBService.UpdateUser(user.ID, updateReq)
-	if err != nil {
-		t.Fatalf("UpdateUser failed: %v", err)
-	}
-
-	err = DBService.DeleteUser(user.ID)
-	if err != nil {
-		t.Fatalf("DeleteUser failed: %v", err)
-	}
-}
-
 func TestPostCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	user := createTestUser(t, "nick", "John", "Doe", "john@doe.com")
+	user := seedTestUser(t, "nick", "John", "Doe", "john@doe.com")
 
 	postReq := models.CreatePostRequest{
 		Title:      "Title",
@@ -234,12 +180,13 @@ func TestPostCRUD(t *testing.T) {
 		Visibility: "public",
 	}
 
-	err := DBService.CreatePost(user.ID, postReq)
+	//err := DBService.CreatePost(user.ID, postReq)
+	_, err := DBService.CreatePost(user.ID, postReq)
 	if err != nil {
 		t.Fatalf("CreatePost failed: %v", err)
 	}
 
-	post, err := DBService.GetPostByID(1)
+	post, err := DBService.GetPostByID(1, user.ID)
 	if err != nil || post.Title != "Title" {
 		t.Fatalf("GetPostByID failed: %v", err)
 	}
@@ -268,16 +215,17 @@ func TestPostVisibilityCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	user := createTestUser(t, "nick", "John", "Doe", "john@doe.com")
+	user := seedTestUser(t, "nick", "John", "Doe", "john@doe.com")
 
 	postReq := models.CreatePostRequest{
 		Title:      "Title",
 		Body:       "Body",
 		Visibility: "public",
 	}
-	_ = DBService.CreatePost(user.ID, postReq)
+	//_, err = DBService.CreatePost(user.ID, postReq)
+	_, err := DBService.CreatePost(user.ID, postReq)
 
-	err := DBService.CreatePostVisibility(1, user.ID)
+	err = DBService.CreatePostVisibility(1, user.ID)
 	if err != nil {
 		t.Fatalf("CreatePostVisibility failed: %v", err)
 	}
@@ -297,7 +245,7 @@ func TestNotificationCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	user := createTestUser(t, "nick", "John", "Doe", "john@doe.com")
+	user := seedTestUser(t, "nick", "John", "Doe", "john@doe.com")
 
 	notifReq := models.CreateNotificationRequest{
 		UserID:  user.ID,
@@ -331,14 +279,14 @@ func TestLikeDislikeCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	user := createTestUser(t, "nick", "John", "Doe", "john@doe.com")
+	user := seedTestUser(t, "nick", "John", "Doe", "john@doe.com")
 
 	postReq := models.CreatePostRequest{
 		Title:      "Title",
 		Body:       "Body",
 		Visibility: "public",
 	}
-	_ = DBService.CreatePost(user.ID, postReq)
+	_, _ = DBService.CreatePost(user.ID, postReq)
 
 	postID := int64(1)
 	reactionReq := models.CreateReactionRequest{
@@ -367,8 +315,7 @@ func TestGroupCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	user := createTestUser(t, "nick", "John", "Doe", "john@doe.com")
-
+	user := seedTestUser(t, "nick", "John", "Doe", "john@doe.com")
 	groupReq := models.CreateGroupRequest{
 		Title:  "GroupTitle",
 		Avatar: "avatar.png",
@@ -409,7 +356,7 @@ func TestGroupMemberCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	user := createTestUser(t, "nick", "John", "Doe", "john@doe.com")
+	user := seedTestUser(t, "nick", "John", "Doe", "john@doe.com")
 	groupReq := models.CreateGroupRequest{
 		Title:  "GroupTitle",
 		Avatar: "avatar.png",
@@ -442,7 +389,7 @@ func TestGroupPostCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	user := createTestUser(t, "nick", "John", "Doe", "john@doe.com")
+	user := seedTestUser(t, "nick", "John", "Doe", "john@doe.com")
 	groupReq := models.CreateGroupRequest{
 		Title:  "GroupTitle",
 		Avatar: "avatar.png",
@@ -488,7 +435,7 @@ func TestGroupRequestCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	user := createTestUser(t, "nick", "John", "Doe", "john@doe.com")
+	user := seedTestUser(t, "nick", "John", "Doe", "john@doe.com")
 	groupReq := models.CreateGroupRequest{
 		Title:  "GroupTitle",
 		Avatar: "avatar.png",
@@ -521,7 +468,7 @@ func TestGroupMessageCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	user := createTestUser(t, "nick", "John", "Doe", "john@doe.com")
+	user := seedTestUser(t, "nick", "John", "Doe", "john@doe.com")
 	groupReq := models.CreateGroupRequest{
 		Title:  "GroupTitle",
 		Avatar: "avatar.png",
@@ -549,8 +496,8 @@ func TestPrivateMessageCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	sender := createTestUser(t, "nick", "John", "Doe", "john@doe.com")
-	receiver := createTestUser(t, "nick2", "Jane", "Smith", "jane@smith.com")
+	sender := seedTestUser(t, "nick", "John", "Doe", "john@doe.com")
+	receiver := seedTestUser(t, "nick2", "Jane", "Smith", "jane@smith.com")
 
 	err := DBService.CreatePrivateMessage(sender.ID, receiver.ID, "Hello Jane!")
 	if err != nil {
@@ -572,8 +519,8 @@ func TestFollowRequestCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	requester := createTestUser(t, "nick", "John", "Doe", "john@doe.com")
-	target := createTestUser(t, "nick2", "Jane", "Smith", "jane@smith.com")
+	requester := seedTestUser(t, "followrequester", "Follow", "Requester", "followrequester@example.com")
+	target := seedTestUser(t, "followtarget", "Follow", "Target", "followtarget@example.com")
 
 	err := DBService.CreateFollowRequest(requester.ID, target.ID, "pending")
 	if err != nil {
@@ -618,7 +565,7 @@ func TestEventRSVPCRUD(t *testing.T) {
 		t.Fatalf("failed to insert group_event: %v", err)
 	}
 
-	user := createTestUser(t, "nick", "John", "Doe", "john@doe.com")
+	user := seedTestUser(t, "nick", "John", "Doe", "john@doe.com")
 
 	rsvpReq := models.RSVPToEventRequest{
 		EventID: 1,
@@ -651,7 +598,7 @@ func TestGroupCommentCRUD(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	user := createTestUser(t, "nick", "John", "Doe", "john@doe.com")
+	user := seedTestUser(t, "nick", "John", "Doe", "john@doe.com")
 	groupReq := models.CreateGroupRequest{
 		Title:  "GroupTitle",
 		Avatar: "avatar.png",

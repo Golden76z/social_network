@@ -98,6 +98,16 @@ type DeleteGroupEventRequest struct {
 
 // ===== GROUP MEMBER / INVITATION =====
 
+// GroupInvitation represents a group invitation in the database
+type GroupInvitation struct {
+	ID            int64  `json:"id"`
+	GroupID       int64  `json:"group_id"`
+	InvitedUserID int64  `json:"invited_user_id"`
+	InvitedBy     int64  `json:"invited_by"`
+	Status        string `json:"status"`
+	CreatedAt     string `json:"created_at"`
+}
+
 type InviteToGroupRequest struct {
 	GroupID   int64 `json:"group_id"`
 	UserID    int64 `json:"user_id"`
@@ -109,8 +119,23 @@ type LeaveGroupRequest struct {
 	UserID  int64 `json:"user_id"`
 }
 
-// ===== RSVP =====
+type UpdateGroupMemberRequest struct {
+	GroupID  int64  `json:"groupID"`
+	MemberID int64  `json:"memberID"`
+	Role     string `json:"role"`
+}
 
+// GroupMember represents a group member in the database
+type GroupMember struct {
+	ID        int64  `json:"id"`
+	GroupID   int64  `json:"group_id"`
+	UserID    int64  `json:"user_id"`
+	Role      string `json:"role"`
+	InvitedBy *int64 `json:"invited_by,omitempty"`
+	CreatedAt string `json:"created_at"`
+}
+
+// ===== RSVP =====
 type RSVPToEventRequest struct {
 	EventID int64  `json:"event_id"`
 	UserID  int64  `json:"user_id"`
