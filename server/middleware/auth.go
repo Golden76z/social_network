@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -23,12 +24,15 @@ func AuthMiddleware() func(http.Handler) http.Handler {
 	//fmt.Println("[AuthMiddleware]")
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Println("Middleware test")
+
 			// 1. Check session cookie
 			token, err := r.Cookie("jwt_token")
 			if err != nil {
 				http.Error(w, "Unauthorized: Missing token", http.StatusUnauthorized)
 				return
 			}
+			fmt.Println("Token found: ", token)
 
 			// 2. Verify JWT validity
 			utils.ValidateToken(token.Value)
@@ -58,6 +62,7 @@ func AuthMiddleware() func(http.Handler) http.Handler {
 			ctx := r.Context()
 			ctx = context.WithValue(ctx, UserIDKey, userID)
 			//ctx = context.WithValue(ctx, UsernameKey, username)
+			fmt.Println("Auth checked")
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
