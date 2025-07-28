@@ -1,5 +1,5 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -30,7 +30,7 @@
   --ring: oklch(0.708 0 0);
   --chart-1: oklch(0.4875 0.1087 241.52 / 1); /*#2a4252*/
   --chart-2: oklch(0.4875 0.1087 241.52 / 0.3);
-  --chart-3: oklch(0.7636 0.0121 251.03);    /*#B1B2B5FF */
+  --chart-3: oklch(0.7636 0.0121 251.03); /*#B1B2B5FF */
   --chart-4: oklch(64.35% 0.247 263.96);
   --chart-5: oklch(0.769 0.188 70.08);
   --chart-6: oklch(0.627 0.265 303.9);
@@ -43,10 +43,9 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
-
 }
 
-[data-theme="dark"] {
+[data-theme='dark'] {
   --color-bg: #1e1b4b;
   --color-text: #f5f3ff;
   --color-primary: #c084fc;

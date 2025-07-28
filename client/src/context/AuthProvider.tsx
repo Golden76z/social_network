@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { authRoutes } from '@/constants/routes';
+import { config } from '@/config/environment';
 
 // Types
 interface User {
@@ -62,10 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_BASE_URL ||
-    process.env.API_BASE_URL ||
-    'http://localhost:8080';
+  const API_BASE_URL = config.API_BASE_URL;
 
   // Generic API call function with better error handling
   const apiCall = async (endpoint: string, options: RequestInit = {}) => {
@@ -212,6 +210,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   // Check authentication on mount
   useEffect(() => {
     checkAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const value: AuthContextType = {
