@@ -87,6 +87,7 @@ export function RegisterForm({
         email: form.email,
         date_of_birth: form.date_of_birth,
         password: form.password,
+        confirmPassword: ""
       })
       router.push("/") // Redirect to home page on success
     } catch (err) {

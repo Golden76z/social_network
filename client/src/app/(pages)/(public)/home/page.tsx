@@ -27,7 +27,7 @@ const HomePage: React.FC = () => {
         {/* Main Feed - full width on mobile */}
         <div className="w-full md:w-[70%] px-4 md:px-8 py-6">
           <h1 className="text-2xl font-bold mb-4">
-            Welcome back, {user?.username || user?.first_name}!
+            Welcome back, {user?.nickname || user?.first_name}!
           </h1>
 
           <div className="space-y-6">

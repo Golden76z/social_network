@@ -17,7 +17,8 @@ export const authApi = {
   // POST /auth/register
   register: (userData: RegisterRequest): Promise<AuthResponse> => {
     // Remove confirmPassword before sending to backend
-    const { confirmPassword: _, ...registerData } = userData;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { confirmPassword, ...registerData } = userData;
     return apiClient.post<AuthResponse>(authRoutes.register, registerData);
   },
   
@@ -33,6 +34,7 @@ export const authApi = {
 
   // POST /auth/reset-password (if you implement this)
   resetPassword: (data: ResetPasswordRequest): Promise<void> => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { confirmPassword, ...resetData } = data;
     return apiClient.post<void>('/auth/reset-password', resetData);
   },
