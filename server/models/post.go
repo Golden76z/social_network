@@ -80,6 +80,10 @@ type PostResponse struct {
 	CreatedAt      string         `json:"created_at"`
 	UpdatedAt      sql.NullString `json:"updated_at"`
 	Images         []string       `json:"images"`
+	Likes          int            `json:"likes"`
+	Dislikes       int            `json:"dislikes"`
+	UserLiked      bool           `json:"user_liked"`
+	UserDisliked   bool           `json:"user_disliked"`
 	GroupID        *int64         `json:"group_id,omitempty"`
 	GroupName      *string        `json:"group_name,omitempty"`
 }
