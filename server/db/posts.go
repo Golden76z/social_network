@@ -64,7 +64,11 @@ func (s *Service) GetPostByID(postID int64, currentUserID int64) (*models.PostRe
             p.created_at,
             p.updated_at,
             GROUP_CONCAT(pi.image_url) AS images,
-            p.visibility
+            p.visibility,
+            (SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
+            (SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
+            EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'like') AS user_liked,
+            EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'dislike') AS user_disliked
         FROM
             posts p
         JOIN
@@ -76,7 +80,7 @@ func (s *Service) GetPostByID(postID int64, currentUserID int64) (*models.PostRe
         GROUP BY
             p.id`
 
-	row := s.DB.QueryRow(query, postID)
+	row := s.DB.QueryRow(query, currentUserID, currentUserID, postID)
 
 	var post models.PostResponse
 	var images sql.NullString
@@ -94,6 +98,10 @@ func (s *Service) GetPostByID(postID int64, currentUserID int64) (*models.PostRe
 		&post.UpdatedAt,
 		&images,
 		&visibility,
+		&post.Likes,
+		&post.Dislikes,
+		&post.UserLiked,
+		&post.UserDisliked,
 	)
 
 	if err != nil {
@@ -131,6 +139,10 @@ func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostRe
                 p.created_at,
                 p.updated_at,
                 GROUP_CONCAT(pi.image_url) AS images,
+                (SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND is_group_post = 0 AND type = 'like') AS likes,
+                (SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND is_group_post = 0 AND type = 'dislike') AS dislikes,
+                EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND is_group_post = 0 AND type = 'like') AS user_liked,
+                EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND is_group_post = 0 AND type = 'dislike') AS user_disliked,
                 NULL AS group_id,
                 NULL AS group_name
             FROM
@@ -161,6 +173,10 @@ func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostRe
                 gp.created_at,
                 gp.updated_at,
                 GROUP_CONCAT(pi.image_url) AS images,
+                (SELECT COUNT(*) FROM likes_dislikes WHERE post_id = gp.id AND is_group_post = 1 AND type = 'like') AS likes,
+                (SELECT COUNT(*) FROM likes_dislikes WHERE post_id = gp.id AND is_group_post = 1 AND type = 'dislike') AS dislikes,
+                EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = gp.id AND user_id = ? AND is_group_post = 1 AND type = 'like') AS user_liked,
+                EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = gp.id AND user_id = ? AND is_group_post = 1 AND type = 'dislike') AS user_disliked,
                 g.id AS group_id,
                 g.title AS group_name
             FROM
@@ -183,7 +199,7 @@ func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostRe
         LIMIT ?
         OFFSET ?`
 
-	rows, err := s.DB.Query(query, currentUserID, currentUserID, currentUserID, limit, offset)
+	rows, err := s.DB.Query(query, currentUserID, currentUserID, currentUserID, currentUserID, currentUserID, currentUserID, currentUserID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -206,6 +222,10 @@ func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostRe
 			&post.CreatedAt,
 			&post.UpdatedAt,
 			&images,
+			&post.Likes,
+			&post.Dislikes,
+			&post.UserLiked,
+			&post.UserDisliked,
 			&post.GroupID,
 			&post.GroupName,
 		)
