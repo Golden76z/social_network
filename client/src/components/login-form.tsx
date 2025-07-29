@@ -16,7 +16,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthProvider"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
-import GoogleSignInButton from "./ui/googleButton"
+// import GoogleSignInButton from "./ui/googleButton"
 
 export function LoginForm({
   className,
@@ -146,7 +146,7 @@ export function LoginForm({
                 {/* <Button className="w-full" type="button" disabled={isLoading}>
                   Login with Google
                 </Button> */}
-                <GoogleSignInButton/>
+                {/* <GoogleSignInButton/> */}
               </div>
             </div>
             

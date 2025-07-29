@@ -268,7 +268,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     console.log('🚀 AuthProvider mounted, checking auth...');
     checkAuth();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Debug: Log state changes
