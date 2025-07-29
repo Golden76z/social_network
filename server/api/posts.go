@@ -79,31 +79,26 @@ func CreatePostHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetPostHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("test")
 	if r.Method != http.MethodGet {
 		http.Error(w, "Only GET method allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	fmt.Println("test1")
 	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	fmt.Println("test2")
 	idParam := r.URL.Query().Get("id")
 
 	if idParam != "" {
-		fmt.Println("test3")
 		postID, err := strconv.ParseInt(idParam, 10, 64)
 		if err != nil {
 			http.Error(w, "Invalid post ID format", http.StatusBadRequest)
 			return
 		}
 
-		fmt.Println("test4")
 		post, err := db.DBService.GetPostByID(postID, int64(currentUserID))
 		if err != nil {
 			if err.Error() == "unauthorized" {
@@ -114,7 +109,6 @@ func GetPostHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		fmt.Println("test5")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(post)
