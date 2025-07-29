@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { cn } from "@/lib/utils"
-import Button from "./ui/button"
+import { cn } from "@/lib/utils";
+import Button from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -59,6 +59,26 @@ export function LoginForm({
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="flex flex-col gap-3">
+            <Button
+              variant="outline"
+              className="w-full hover:bg-destructive hover:text-white"
+              type="button"
+            >
+              Login with Google
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full hover:bg-chart-3 hover:text-white"
+              type="button"
+            >
+              Login with Facebook
+            </Button>
+            <Button variant="outline" className="w-full mb-8" type="button">
+              Login with Apple
+            </Button>
+          </div>
+
           <form onSubmit={handleSubmit}>
             <div className="flex flex-col gap-6">
               {error && (
