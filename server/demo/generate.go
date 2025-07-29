@@ -284,7 +284,7 @@ func seedPosts(s *db.Service) error {
 			Body:       row[3],
 			Visibility: row[4],
 		}
-		if err := s.CreatePost(userID, post); err != nil {
+		if _, err := s.CreatePost(userID, post); err != nil {
 			log.Printf("Error creating post (line %d): %v", i+1, err)
 		}
 	}
