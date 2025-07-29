@@ -5,28 +5,16 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"fmt"
+	"github.com/Golden76z/social-network/utils"
+	"github.com/joho/godotenv"
 	"os"
 	"strconv"
 	"strings"
-
-	"github.com/Golden76z/social-network/utils"
-	"github.com/joho/godotenv"
 
 	//"os"
 	"sync"
 	"time"
 )
-
-//type Config struct {
-//	Port          string
-//	DBPath        string
-//	MigrationsDir string
-//	Environment   string
-//	JWTKey        string
-//	JwtPrivateKey *ecdsa.PrivateKey
-//	JwtPublicKey  *ecdsa.PublicKey
-//	JwtExpiration time.Duration
-//}
 
 type Config struct {
 	// Server
@@ -45,6 +33,10 @@ type Config struct {
 
 	// Application Settings
 	PostMaxLength          int
+	PostTitleMaxLength     int
+	PostContentMaxLength   int
+	MaxImagesPerPost       int
+	FeedPostLimit          int
 	MaxFileSizeMB          int
 	SessionCleanupInterval time.Duration
 
@@ -66,9 +58,6 @@ type Config struct {
 	// Logging
 	LogLevel string
 	LogFile  string
-
-	// Content related Settings
-	Limit int
 }
 
 var (
@@ -136,6 +125,10 @@ func Load() error {
 
 			// Application Settings
 			PostMaxLength:          getEnvAsInt("POST_MAX_LENGTH", 280),
+			PostTitleMaxLength:     getEnvAsInt("POST_TITLE_MAX_LENGTH", 125),
+			PostContentMaxLength:   getEnvAsInt("POST_CONTENT_MAX_LENGTH", 2200),
+			MaxImagesPerPost:       getEnvAsInt("MAX_IMAGES_PER_POST", 4),
+			FeedPostLimit:          getEnvAsInt("FEED_POST_LIMIT", 20),
 			MaxFileSizeMB:          getEnvAsInt("MAX_FILE_SIZE_MB", 10),
 			SessionCleanupInterval: time.Duration(getEnvAsInt("SESSION_CLEANUP_INTERVAL_HOURS", 1)) * time.Hour,
 
@@ -157,9 +150,6 @@ func Load() error {
 			// Logging
 			LogLevel: getEnv("LOG_LEVEL", "info"),
 			LogFile:  getEnv("LOG_FILE", "app.log"),
-
-			// Content related settings
-			Limit: getEnvAsInt("LIMIT", 20),
 		}
 	})
 
