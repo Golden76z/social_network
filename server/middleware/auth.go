@@ -3,7 +3,6 @@ package middleware
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -30,7 +29,6 @@ func AuthMiddleware() func(http.Handler) http.Handler {
 				http.Error(w, "Unauthorized: Missing token", http.StatusUnauthorized)
 				return
 			}
-			fmt.Println("Token found: ", token)
 
 			// 2. Verify JWT validity
 			utils.ValidateToken(token.Value)

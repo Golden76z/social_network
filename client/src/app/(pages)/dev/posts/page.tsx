@@ -86,7 +86,7 @@ const PostDebugPanel = () => {
             User Feed
           </button> */}
           <button
-            onClick={() => testEndpoint(`GET /api/post?id=${testPostId}`, () => postApi.getPostById(testPostId))}
+            onClick={() => testEndpoint(`GET /api/post`, () => postApi.getPostById())}
             className="bg-blue-500 text-white px-2 py-1 rounded text-xs"
           >
             Post by ID

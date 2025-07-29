@@ -13,8 +13,8 @@ export const postApi = {
   },
 
   // GET /api/post/{id} - Get specific post by ID
-  getPostById: (postId: number): Promise<Post> => {
-    return apiClient.get<Post>(`${postRoutes.base}/${postId}`);
+  getPostById: (): Promise<Post> => {
+    return apiClient.get<Post>(`${postRoutes.base}`);
   },
 
 //   // GET /api/post/user/{userId} - Get posts by specific user
