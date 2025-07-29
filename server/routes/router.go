@@ -1,10 +1,11 @@
 package routes
 
 import (
-	"context"
 	"net/http"
 	"path"
 	"strings"
+
+	"github.com/Golden76z/social-network/utils"
 )
 
 // Middleware represents a middleware function
@@ -120,7 +121,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				if len(params) > 0 {
 					ctx := req.Context()
 					for key, value := range params {
-						ctx = setPathParam(ctx, key, value)
+						ctx = utils.SetPathParam(ctx, key, value)
 					}
 					req = req.WithContext(ctx)
 				}
@@ -168,26 +169,4 @@ func (r *Router) wrapWithMiddlewares(handler http.HandlerFunc, middlewares []Mid
 		h = middlewares[i](h)
 	}
 	return h
-}
-
-// Context key for path parameters
-type contextKey string
-
-const pathParamsKey contextKey = "pathParams"
-
-func setPathParam(ctx context.Context, key, value string) context.Context {
-	params, _ := ctx.Value(pathParamsKey).(map[string]string)
-	if params == nil {
-		params = make(map[string]string)
-	}
-	params[key] = value
-	return context.WithValue(ctx, pathParamsKey, params)
-}
-
-// GetPathParam retrieves a path parameter from the request context
-func GetPathParam(req *http.Request, key string) string {
-	if params, ok := req.Context().Value(pathParamsKey).(map[string]string); ok {
-		return params[key]
-	}
-	return ""
 }
