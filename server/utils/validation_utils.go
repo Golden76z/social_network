@@ -136,3 +136,15 @@ func SanitizeString(input string) string {
 
 	return sanitized
 }
+
+func ValidatePostTitle(title string, maxLength int) bool {
+	return len(title) > 0 && len(title) <= maxLength
+}
+
+func ValidatePostBody(body string, maxLength int) bool {
+	return len(body) > 0 && len(body) <= maxLength
+}
+
+func ValidatePostImageCount(images []string, maxCount int) bool {
+	return len(images) <= maxCount
+}
