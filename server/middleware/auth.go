@@ -24,8 +24,6 @@ func AuthMiddleware() func(http.Handler) http.Handler {
 	//fmt.Println("[AuthMiddleware]")
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			fmt.Println("Middleware test")
-
 			// 1. Check session cookie
 			token, err := r.Cookie("jwt_token")
 			if err != nil {
@@ -62,7 +60,6 @@ func AuthMiddleware() func(http.Handler) http.Handler {
 			ctx := r.Context()
 			ctx = context.WithValue(ctx, UserIDKey, userID)
 			//ctx = context.WithValue(ctx, UsernameKey, username)
-			fmt.Println("Auth checked")
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
