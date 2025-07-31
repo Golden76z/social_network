@@ -2,9 +2,11 @@ package api
 
 import (
 	"encoding/json"
-	"github.com/Golden76z/social-network/middleware"
+	"fmt"
 	"net/http"
 	"strconv"
+
+	"github.com/Golden76z/social-network/middleware"
 
 	//"github.com/Golden76z/social-network/config"
 	"github.com/Golden76z/social-network/db"
@@ -81,14 +83,24 @@ func UpdateGroupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := int64(currentUserID)
-
 	// Converting the JSON sent by client-side to struct
 	var req models.UpdateGroupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		fmt.Println("Error: ", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+
+	// Extract the group ID from the query string
+	idParam := r.URL.Query().Get("id")
+	groupID, err := strconv.Atoi(idParam)
+	if err != nil || groupID <= 0 {
+		http.Error(w, "Invalid group ID", http.StatusBadRequest)
+		return
+	}
+
+	req.ID = int64(groupID)
+	userID := int64(currentUserID)
 
 	// Validate group ID
 	if req.ID <= 0 {
@@ -142,21 +154,22 @@ func DeleteGroupHandler(w http.ResponseWriter, r *http.Request) {
 
 	userID := int64(currentUserID)
 
-	// Converting the JSON sent by client-side to struct
-	var req models.DeleteGroupRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	// Extract the group ID from the query string
+	idParam := r.URL.Query().Get("id")
+	groupID, err := strconv.Atoi(idParam)
+	if err != nil || groupID <= 0 {
+		http.Error(w, "Invalid group ID", http.StatusBadRequest)
 		return
 	}
 
 	// Validate group ID
-	if req.ID <= 0 {
+	if groupID <= 0 {
 		http.Error(w, "Invalid group ID", http.StatusBadRequest)
 		return
 	}
 
 	// Check if user is the creator of the group
-	group, errGet := db.DBService.GetGroupByID(req.ID)
+	group, errGet := db.DBService.GetGroupByID(int64(groupID))
 	if errGet != nil {
 		http.Error(w, "Group not found", http.StatusNotFound)
 		return
@@ -168,7 +181,7 @@ func DeleteGroupHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete group from database
-	errDB := db.DBService.DeleteGroup(req.ID)
+	errDB := db.DBService.DeleteGroup(int64(groupID))
 	if errDB != nil {
 		http.Error(w, "Error deleting the group", http.StatusInternalServerError)
 		return

@@ -32,9 +32,9 @@ export const groupApi = {
     return apiClient.get<Group[]>(`${groupRoutes.base}${query}`);
   },
 
-  // GET /api/group/{id} - Get specific group by ID
+  // GET /api/group?id={id} - Get specific group by ID
   getGroupById: (groupId: string): Promise<Group> => {
-    return apiClient.get<Group>(`${groupRoutes.base}/${groupId}`);
+    return apiClient.get<Group>(`${groupRoutes.base}?id=${groupId}`);
   },
 
   // POST /api/group - Create new group
@@ -42,14 +42,14 @@ export const groupApi = {
     return apiClient.post<Group>(groupRoutes.base, data);
   },
 
-  // PUT /api/group/{id} - Update specific group
-  updateGroup: (groupId: string, data: UpdateGroupRequest): Promise<Group> => {
-    return apiClient.put<Group>(`${groupRoutes.base}/${groupId}`, data);
+  // PUT /api/group - Update specific group
+  updateGroup: (groupID: string, data: UpdateGroupRequest): Promise<Group> => {
+    return apiClient.put<Group>(`${groupRoutes.base}?id=${groupID}`, data);
   },
 
   // DELETE /api/group/{id} - Delete specific group
   deleteGroup: (groupId: string): Promise<void> => {
-    return apiClient.delete<void>(`${groupRoutes.base}/${groupId}`);
+    return apiClient.delete<void>(`${groupRoutes.base}?id=${groupId}`);
   },
 
   // ===== GROUP POSTS =====

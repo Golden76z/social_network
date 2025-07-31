@@ -54,15 +54,16 @@ const GroupDebugPanel = () => {
 
   // Test data for creating groups
   const testGroupData: CreateGroupRequest = {
-    name: "Test Group",
-    description: "This is a test group description",
+    title: "Test Group",
+    bio: "This is a test group description",
+    avatar: "https://images.unsplash.com/photo-1608889825103-eb5ed706fc64?w=400&h=400&fit=crop&crop=center",
     isPrivate: false
   };
 
   const testUpdateGroupData: UpdateGroupRequest = {
-    name: "Updated Test Group",
-    description: "Updated group description",
-    isPrivate: true
+    title: "Updated Test Group",
+    bio: "Updated group description",
+    // isPrivate: true
   };
 
   // Test data for group posts
@@ -194,13 +195,13 @@ const GroupDebugPanel = () => {
             Create Group
           </button>
           <button
-            onClick={() => testEndpoint(`PUT /api/group/${testGroupId}`, () => groupApi.updateGroup(testGroupId, testUpdateGroupData))}
+            onClick={() => testEndpoint(`PUT /api/group`, () => groupApi.updateGroup(testGroupId ,testUpdateGroupData))}
             className="bg-orange-500 text-white px-2 py-1 rounded text-xs"
           >
             Update Group
           </button>
           <button
-            onClick={() => testEndpoint(`DELETE /api/group/${testGroupId}`, () => groupApi.deleteGroup(testGroupId))}
+            onClick={() => testEndpoint(`DELETE /api/group?id=${testGroupId}`, () => groupApi.deleteGroup(testGroupId))}
             className="bg-red-500 text-white px-2 py-1 rounded text-xs"
           >
             Delete Group

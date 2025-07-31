@@ -22,10 +22,10 @@ export interface GroupMember {
 }
 
 export interface CreateGroupRequest {
-  name: string;
-  description: string;
+  title: string;
+  bio: string;
+  avatar?: string;
   isPrivate?: boolean;
-  coverImage?: File;
 }
 
 export interface GroupEvent {
@@ -142,10 +142,9 @@ export interface RSVPToEventRequest {
 
 // Update the existing Group interface if needed
 export interface UpdateGroupRequest {
-  name?: string;
-  description?: string;
-  isPrivate?: boolean;
-  coverImage?: File;
+  title?: string;
+  bio?: string;
+  avatar?: string;
 }
 
 export type GroupRole = 'owner' | 'admin' | 'member';
