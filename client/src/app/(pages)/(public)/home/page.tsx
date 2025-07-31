@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -5,16 +6,17 @@ import Header from '@/components/header';
 import { useAuth } from '@/context/AuthProvider';
 import { SideBarLeft } from '@/components/SideBarLeft';
 import { SideBarRight } from '@/components/SideBarRight';
-import { Post } from '@/components/Post';
+import { usePosts } from '@/lib/hooks/usePosts';
+import { PostCard } from '@/components/PostCard';
 
 const HomePage: React.FC = () => {
-  const { user, isLoading, hasCheckedAuth } = useAuth();
+  const { user, isLoading: authLoading, hasCheckedAuth } = useAuth();
+  const { posts, isLoading: postsLoading, error } = usePosts();
 
-  // Wait for auth check to complete
-  if (!hasCheckedAuth || isLoading) {
+  if (!hasCheckedAuth || authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500 text-lg">Checking authentication...</p>
+        <p className="text-gray-500 text-lg">Loading...</p>
       </div>
     );
   }
@@ -37,22 +39,12 @@ const HomePage: React.FC = () => {
           <div className="space-y-6">
             <div className="bg-white rounded-lg border border-gray-200 p-6">
               <h3 className="font-semibold mb-4">Recent Posts</h3>
+              {postsLoading && <p>Loading posts...</p>}
+              {error && <p className="text-red-500">{error}</p>}
               <div className="space-y-4">
-                <Post
-                  username="Sample User"
-                  timeAgo="2 hours ago"
-                  content="This is a sample post in your feed. Posts from friends and followed accounts will appear here."
-                />
-                <Post
-                  username="Sample User"
-                  timeAgo="2 hours ago"
-                  content="This is another example of a post shown in the timeline."
-                />
-                <Post
-                  username="Sample User"
-                  timeAgo="3 hours ago"
-                  content="And one more example to showcase the feed responsiveness."
-                />
+                {posts.map((post) => (
+                  <PostCard key={post.id} post={post} />
+                ))}
               </div>
             </div>
           </div>
