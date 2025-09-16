@@ -3,7 +3,7 @@
 import React from 'react';
 
 const username = '';
-const letter = username.charAt(0).toUpperCase() || @;
+const letter = username.charAt(0).toUpperCase() || '@';
 
 const bgcolorRandom = (): string => {
   const letters = '0123456789ABCDEF';
