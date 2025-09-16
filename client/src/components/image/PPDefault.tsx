@@ -2,7 +2,9 @@
 
 import React from 'react';
 
-const letter = 'c'
+const username = '';
+const letter = username.charAt(0).toUpperCase() || @;
+
 const bgcolorRandom = (): string => {
   const letters = '0123456789ABCDEF';
   let color = '#';
