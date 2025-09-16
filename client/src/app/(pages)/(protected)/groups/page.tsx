@@ -7,7 +7,7 @@ export default function GroupsPage() {
           Create Group
         </button>
       </div>
-      
+
       <div className="grid gap-6">
         {/* Groups tabs */}
         <div className="flex gap-2 mb-4">
@@ -71,7 +71,41 @@ export default function GroupsPage() {
               </button>
             </div>
           </div>
+
+          <div className="p-6 border border-border rounded-lg bg-card">
+            <div className="w-full h-32 bg-gradient-to-r from-blue-500 to-yellow-500 rounded-lg mb-4 flex items-center justify-center text-white text-2xl">
+              📚
+            </div>
+            <h3 className="font-semibold mb-2">ZOne 01 Normandie</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              A community for book lovers to discuss and share recommendations
+            </p>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">247 members</span>
+              <button className="px-3 py-1 border border-border rounded text-xs hover:bg-accent transition-colors">
+                View
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6 border border-border rounded-lg bg-card">
+            <div className="w-full h-32 bg-gradient-to-r from-red-500 to-green-500 rounded-lg mb-4 flex items-center justify-center text-white text-2xl">
+              📚
+            </div>
+            <h3 className="font-semibold mb-2">Quoiffeur</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              A community for book lovers to discuss and share recommendations
+            </p>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">247 members</span>
+              <button className="px-3 py-1 border border-border rounded text-xs hover:bg-accent transition-colors">
+                View
+              </button>
+            </div>
+          </div>
         </div>
+
+        {/* Additional groups */}
 
         {/* Empty state when no groups */}
         <div className="text-center py-12 text-muted-foreground">
