@@ -33,7 +33,9 @@ export const useAuth = () => {
 };
 
 // Auth Provider Component
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -85,12 +87,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      
+
       // Basic client-side validation
       if (!email || !password) {
         throw new Error('Email and password are required');
       }
-      
+
       if (!email.includes('@')) {
         throw new Error('Please enter a valid email address');
       }
@@ -178,7 +180,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!userData.email.includes('@')) {
         throw new Error('Please enter a valid email address');
       }
-      
+
       if (userData.password.length < 8) {
         throw new Error('Password must be at least 8 characters long');
       }
@@ -292,9 +294,5 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     resetPassword,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
