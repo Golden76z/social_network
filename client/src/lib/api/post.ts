@@ -12,9 +12,9 @@ export const postApi = {
     return apiClient.get<Post[]>(`${postRoutes.base}${query}`);
   },
 
-  // GET /api/post/{id} - Get specific post by ID
-  getPostById: (): Promise<Post> => {
-    return apiClient.get<Post>(`${postRoutes.base}`);
+  // GET /api/post?id={id} - Get specific post by ID
+  getPostById: (postId: string | number): Promise<Post> => {
+    return apiClient.get<Post>(`${postRoutes.base}?id=${postId}`);
   },
 
 //   // GET /api/post/user/{userId} - Get posts by specific user
@@ -33,12 +33,12 @@ export const postApi = {
   },
 
   // PUT /api/posts/{id} - Update specific post
-  updatePost: (postId: number, data: UpdatePostRequest): Promise<Post> => {
+  updatePost: (postId: string | number, data: UpdatePostRequest): Promise<Post> => {
     return apiClient.put<Post>(`${postRoutes.base}/${postId}`, data);
   },
 
   // DELETE /api/posts/{id} - Delete specific post
-  deletePost: (postId: number): Promise<void> => {
+  deletePost: (postId: string | number): Promise<void> => {
     return apiClient.delete<void>(`${postRoutes.base}/${postId}`);
   },
 
