@@ -60,11 +60,11 @@ export const PostCard: React.FC<PostCardProps> = ({
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
-            {(post as any).author_nickname?.charAt(0) || 'U'}
+            {(post as Post & { author_nickname?: string }).author_nickname?.charAt(0) || 'U'}
           </div>
           <div>
             <p className="font-semibold text-sm">
-              {(post as any).author_nickname || 'Unknown User'}
+              {(post as Post & { author_nickname?: string }).author_nickname || 'Unknown User'}
             </p>
             <p className="text-xs text-gray-500">{formatDate(post.created_at)}</p>
           </div>
