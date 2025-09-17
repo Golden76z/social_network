@@ -25,9 +25,12 @@ func setupGroupRoutes(r *Router) {
 
 	// Group comments
 	r.POST("/api/group/comment", api.CreateGroupCommentHandler)
-	r.GET("/api/group/comment", api.GetGroupCommentHandler)
-	r.PUT("/api/group/comment", api.UpdateGroupCommentHandler)
-	r.DELETE("/api/group/comment", api.DeleteGroupCommentHandler)
+	r.GET("/api/group/comment", api.GetGroupCommentHandler)            // List by postId
+	r.GET("/api/group/comment/{id}", api.GetGroupCommentHandler)       // Single by id
+	r.PUT("/api/group/comment", api.UpdateGroupCommentHandler)         // Body-based
+	r.PUT("/api/group/comment/{id}", api.UpdateGroupCommentHandler)    // Path-based
+	r.DELETE("/api/group/comment", api.DeleteGroupCommentHandler)      // Body-based
+	r.DELETE("/api/group/comment/{id}", api.DeleteGroupCommentHandler) // Path-based
 
 	// Group events
 	r.POST("/api/group/event", api.CreateGroupEventHandler)
