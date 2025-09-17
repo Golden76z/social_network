@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import Image from 'next/image';
 import { Heart, MessageCircle, MoreHorizontal } from 'lucide-react';
 import { Post } from '@/lib/types';
 import { reactionApi } from '@/lib/api/reaction';
@@ -114,19 +115,23 @@ export const PostCard: React.FC<PostCardProps> = ({
       {post.images && post.images.length > 0 && (
         <div className="mb-3">
           {post.images.length === 1 ? (
-            <img
+            <Image
               src={post.images[0]}
               alt="Post image"
+              width={400}
+              height={192}
               className="w-full max-h-48 object-cover rounded-lg cursor-pointer"
               onClick={handleViewDetails}
             />
           ) : (
             <div className="grid grid-cols-2 gap-2">
               {post.images.slice(0, 4).map((image, index) => (
-                <img
+                <Image
                   key={index}
                   src={image}
                   alt={`Post image ${index + 1}`}
+                  width={200}
+                  height={96}
                   className="w-full h-24 object-cover rounded-lg cursor-pointer"
                   onClick={handleViewDetails}
                 />
