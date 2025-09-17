@@ -1,151 +1,125 @@
-import { User } from './user';
+// (No imports required)
 
-export interface Group {
-  id: string;
-  name: string;
-  description: string;
-  isPrivate: boolean;
-  createdBy: string;
-  createdAt: string;
-  membersCount: number;
-  postsCount: number;
-  coverImage?: string;
-}
-
-export interface GroupMember {
-  id: string;
-  userId: string;
-  groupId: string;
-  user: User;
-  role: GroupRole;
-  joinedAt: string;
-}
-
+// ===== GROUP =====
 export interface CreateGroupRequest {
   title: string;
-  bio: string;
   avatar?: string;
-  isPrivate?: boolean;
+  bio?: string;
 }
 
-export interface GroupEvent {
-  id: string;
+export interface UpdateGroupRequest {
+  id?: number;
+  title?: string;
+  avatar?: string;
+  bio?: string;
+}
+
+export interface DeleteGroupRequest {
+  id: number;
+}
+
+export interface GroupResponse {
+  id: number;
   title: string;
-  description: string;
-  date: string;
-  location?: string;
-  groupId: string;
-  createdBy: string;
-  attendeesCount: number;
-  userRsvp?: EventRsvp;
+  avatar?: string;
+  bio?: string;
+  creator_id: number;
+  created_at: string;
+  updated_at?: string;
 }
 
-// Add these types to your existing types file
-
-// Group Post Types
-export interface GroupPost {
-  id: string;
-  groupId: string;
-  userId: string;
-  title: string;
-  body: string;
-  images?: string[];
-  visibility: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
+// ===== GROUP POST =====
 export interface CreateGroupPostRequest {
-  groupId: string;
+  group_id: number;
   title: string;
   body: string;
-  images?: File[];
+}
+
+export interface GroupPost {
+  id: number;
+  user_id: number;
+  title: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+  visibility: string;
+  images: string[];
+  likes: number;
+  dislikes: number;
+  user_liked: boolean;
+  user_disliked: boolean;
 }
 
 export interface UpdateGroupPostRequest {
+  id?: number;
   title?: string;
   body?: string;
-  images?: File[];
 }
 
-// Group Comment Types
-export interface GroupComment {
-  id: string;
-  groupPostId: string;
-  userId: string;
-  body: string;
-  createdAt: string;
-  updatedAt: string;
+export interface DeleteGroupPostRequest {
+  id: number;
 }
 
+// ===== GROUP COMMENT =====
 export interface CreateGroupCommentRequest {
-  groupPostId: string;
+  group_post_id: number;
   body: string;
 }
 
 export interface UpdateGroupCommentRequest {
-  body: string;
+  id?: number;
+  body?: string;
 }
 
-// Group Event Types (extending the existing GroupEvent interface)
+export interface DeleteGroupCommentRequest {
+  id: number;
+}
+
+// ===== GROUP EVENT =====
 export interface CreateGroupEventRequest {
-  groupId: string;
+  group_id: number;
   title: string;
   description: string;
-  date: string;
-  location?: string;
+  event_date_time: string;
 }
 
 export interface UpdateGroupEventRequest {
+  id?: number;
   title?: string;
   description?: string;
-  date?: string;
-  location?: string;
+  event_date_time?: string;
 }
 
-// Group Member Types (extending existing)
+export interface DeleteGroupEventRequest {
+  id: number;
+}
+
+// ===== GROUP MEMBER / INVITATION =====
 export interface InviteToGroupRequest {
-  groupId: string;
-  userId: string;
+  group_id: number;
+  user_id: number;
+}
+
+export interface LeaveGroupRequest {
+  group_id: number;
+  user_id: number;
 }
 
 export interface UpdateGroupMemberRequest {
-  groupId: string;
-  memberId: string;
-  role: GroupRole;
+  groupID: number;
+  memberID: number;
+  role: string;
 }
 
-// Group Invitation Types
-export interface GroupInvitation {
-  id: string;
-  groupId: string;
-  invitedUserId: string;
-  invitedBy: string;
-  status: 'pending' | 'accepted' | 'declined';
-  createdAt: string;
-}
-
-// RSVP Types
-export interface EventRSVP {
-  id: string;
-  eventId: string;
-  userId: string;
-  status: EventRsvp;
-  createdAt: string;
-  updatedAt: string;
-}
-
+// ===== RSVP =====
 export interface RSVPToEventRequest {
-  eventId: string;
-  status: EventRsvp;
+  event_id: number;
+  user_id: number;
+  status: string; // "come", "interested", "not_come"
 }
 
-// Update the existing Group interface if needed
-export interface UpdateGroupRequest {
-  title?: string;
-  bio?: string;
-  avatar?: string;
+export interface CancelRSVPRequest {
+  event_id: number;
+  user_id: number;
+  status: string;
 }
-
-export type GroupRole = 'owner' | 'admin' | 'member';
-export type EventRsvp = 'going' | 'not_going' | 'maybe';

@@ -1,7 +1,5 @@
 package models
 
-import "time"
-
 // ===== GROUP =====
 
 type CreateGroupRequest struct {
@@ -40,14 +38,18 @@ type CreateGroupPostRequest struct {
 }
 
 type GroupPost struct {
-	ID         int64
-	UserID     int64
-	Title      string
-	Body       string
-	Images     []string
-	Visibility string
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	ID           int64    `json:"id"`
+	UserID       int64    `json:"user_id"`
+	Title        string   `json:"title"`
+	Body         string   `json:"body"`
+	CreatedAt    string   `json:"created_at"`
+	UpdatedAt    string   `json:"updated_at"`
+	Visibility   string   `json:"visibility"`
+	Images       []string `json:"images"`
+	Likes        int      `json:"likes"`
+	Dislikes     int      `json:"dislikes"`
+	UserLiked    bool     `json:"user_liked"`
+	UserDisliked bool     `json:"user_disliked"`
 }
 
 type UpdateGroupPostRequest struct {

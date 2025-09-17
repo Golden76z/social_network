@@ -8,14 +8,20 @@ func setupGroupRoutes(r *Router) {
 	// Group management
 	r.POST("/api/group", api.CreateGroupHandler)
 	r.GET("/api/group", api.GetGroupHandler)
+	r.GET("/api/group/{id}", api.GetGroupHandler)
 	r.PUT("/api/group", api.UpdateGroupHandler)
+	r.PUT("/api/group/{id}", api.UpdateGroupHandler)
 	r.DELETE("/api/group", api.DeleteGroupHandler)
+	r.DELETE("/api/group/{id}", api.DeleteGroupHandler)
 
-	// Group posts
+	// Group posts - RESTful approach
 	r.POST("/api/group/post", api.CreateGroupPostHandler)
-	r.GET("/api/group/post", api.GetGroupPostHandler)
-	r.PUT("/api/group/post", api.UpdateGroupPostHandler)
-	r.DELETE("/api/group/post", api.DeleteGroupPostHandler)
+	r.GET("/api/group/post", api.GetGroupPostHandler)            // For list: ?groupId=1&offset=0
+	r.GET("/api/group/post/{id}", api.GetGroupPostHandler)       // For individual: /api/group/post/{id}
+	r.PUT("/api/group/post", api.UpdateGroupPostHandler)         // For body-based updates
+	r.PUT("/api/group/post/{id}", api.UpdateGroupPostHandler)    // For path-based updates: /api/group/post/{id}
+	r.DELETE("/api/group/post", api.DeleteGroupPostHandler)      // For body-based deletes
+	r.DELETE("/api/group/post/{id}", api.DeleteGroupPostHandler) // For path-based deletes: /api/group/post/{id}
 
 	// Group comments
 	r.POST("/api/group/comment", api.CreateGroupCommentHandler)
