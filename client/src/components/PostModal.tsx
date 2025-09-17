@@ -2,21 +2,24 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Heart, MessageCircle, Send } from 'lucide-react';
 import { Post, Comment } from '@/lib/types';
 import { commentApi } from '@/lib/api/comment';
+import { reactionApi } from '@/lib/api/reaction';
 import { CommentItem } from './CommentItem';
 
 interface PostModalProps {
   post: Post | null;
   isOpen: boolean;
   onClose: () => void;
+  onLike?: (postId: number) => void;
 }
 
-export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose }) => {
+export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onLike }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [isLiking, setIsLiking] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -84,9 +87,24 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose }) =
     }
   };
 
-  const handleLike = () => {
-    setIsLiked(!isLiked);
-    setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
+  const handleLike = async () => {
+    if (!post || isLiking) return;
+    
+    setIsLiking(true);
+    try {
+      // Always send a like request - the backend will handle toggle logic
+      await reactionApi.createReaction({
+        post_id: post.id,
+        type: 'like'
+      });
+      
+      // Notify parent component to refresh
+      onLike?.(post.id);
+    } catch (error) {
+      console.error('Error toggling like:', error);
+    } finally {
+      setIsLiking(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -171,9 +189,10 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose }) =
             <div className="flex items-center space-x-6 pt-3 border-t border-gray-100">
               <button
                 onClick={handleLike}
+                disabled={isLiking}
                 className={`flex items-center space-x-2 text-sm transition-colors ${
                   isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
-                }`}
+                } ${isLiking ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
                 <span>{likeCount}</span>

@@ -84,3 +84,25 @@ func (s *Service) UserReactionExists(userID int64, postID, commentID, groupPostI
 	}
 	return count > 0, nil
 }
+
+// GetUserReactionID gets the reaction ID for a user and a given target (post, comment, group post, group comment)
+func (s *Service) GetUserReactionID(userID int64, postID, commentID, groupPostID, groupCommentID *int64) (*models.ReactionResponse, error) {
+	row := s.DB.QueryRow(`
+	SELECT id, user_id, post_id, comment_id, group_post_id, group_comment_id, type, created_at
+	FROM likes_dislikes
+	WHERE user_id = ?
+	  AND (
+		(post_id = ? AND comment_id IS NULL AND group_post_id IS NULL AND group_comment_id IS NULL)
+		OR (comment_id = ? AND post_id IS NULL AND group_post_id IS NULL AND group_comment_id IS NULL)
+		OR (group_post_id = ? AND post_id IS NULL AND comment_id IS NULL AND group_comment_id IS NULL)
+		OR (group_comment_id = ? AND post_id IS NULL AND comment_id IS NULL AND group_post_id IS NULL)
+	  )
+`, userID, postID, commentID, groupPostID, groupCommentID)
+
+	var reaction models.ReactionResponse
+	err := row.Scan(&reaction.ID, &reaction.UserID, &reaction.PostID, &reaction.CommentID, &reaction.GroupPostID, &reaction.GroupCommentID, &reaction.Type, &reaction.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &reaction, nil
+}
