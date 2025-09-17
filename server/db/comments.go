@@ -1,6 +1,7 @@
 package db
 
 import (
+	"database/sql"
 	"fmt"
 
 	"github.com/Golden76z/social-network/models"
@@ -77,24 +78,47 @@ func (s *Service) DeleteComment(commentID int64) error {
 	return err
 }
 
-// Get multiple comments for a post (20 by 20)
+// Get multiple comments for a post (20 by 20) with user details
 func (s *Service) GetCommentsByPostID(postID int64, limit, offset int) ([]models.Comment, error) {
 	rows, err := s.DB.Query(`
-        SELECT id, post_id, user_id, body, created_at, updated_at
-        FROM comments
-        WHERE post_id = ?
-        ORDER BY created_at ASC
+        SELECT c.id, c.post_id, c.user_id, c.body, c.created_at, c.updated_at,
+               u.nickname, u.first_name, u.last_name, u.avatar
+        FROM comments c
+        JOIN users u ON c.user_id = u.id
+        WHERE c.post_id = ?
+        ORDER BY c.created_at ASC
         LIMIT ? OFFSET ?`, postID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+
 	var comments []models.Comment
 	for rows.Next() {
 		var c models.Comment
-		if err := rows.Scan(&c.ID, &c.PostID, &c.UserID, &c.Body, &c.CreatedAt, &c.UpdatedAt); err != nil {
+		var username, firstName, lastName sql.NullString
+		var avatar sql.NullString
+
+		err := rows.Scan(&c.ID, &c.PostID, &c.UserID, &c.Body, &c.CreatedAt, &c.UpdatedAt,
+			&username, &firstName, &lastName, &avatar)
+		if err != nil {
 			return nil, err
 		}
+
+		// Populate user details
+		if username.Valid {
+			c.Username = username.String
+		}
+		if firstName.Valid {
+			c.FirstName = firstName.String
+		}
+		if lastName.Valid {
+			c.LastName = lastName.String
+		}
+		if avatar.Valid {
+			c.Avatar = avatar.String
+		}
+
 		comments = append(comments, c)
 	}
 	return comments, nil
