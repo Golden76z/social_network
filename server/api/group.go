@@ -53,15 +53,49 @@ func CreateGroupHandler(w http.ResponseWriter, r *http.Request) {
 
 // Handler to get a group by ID
 func GetGroupHandler(w http.ResponseWriter, r *http.Request) {
-	// Extract the group ID from the query string
+	w.Header().Set("Content-Type", "application/json")
+
+	// Support: /api/group (list) with optional pagination; /api/group?id=1; /api/group/{id}
 	idParam := r.URL.Query().Get("id")
+	if idParam == "" {
+		// Try path param
+		idParam = utils.GetPathParam(r, "id")
+	}
+
+	if idParam == "" {
+		// No id provided → list all groups (minimal listing for debug) optionally with page/limit
+		pageStr := r.URL.Query().Get("page")
+		limitStr := r.URL.Query().Get("limit")
+		_ = pageStr
+		_ = limitStr
+		// For now, reuse GetGroupByID pattern via a simple query function
+		// Implement a basic listing from DB
+		rows, err := db.DBService.DB.Query(`SELECT id, title, avatar, bio, creator_id, created_at, updated_at FROM groups ORDER BY created_at DESC LIMIT 50`)
+		if err != nil {
+			http.Error(w, "Error retrieving groups", http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+		var groups []models.GroupResponse
+		for rows.Next() {
+			var g models.GroupResponse
+			if err := rows.Scan(&g.ID, &g.Title, &g.Avatar, &g.Bio, &g.CreatorID, &g.CreatedAt, &g.UpdatedAt); err != nil {
+				http.Error(w, "Error scanning groups", http.StatusInternalServerError)
+				return
+			}
+			groups = append(groups, g)
+		}
+		json.NewEncoder(w).Encode(groups)
+		return
+	}
+
 	groupID, err := strconv.Atoi(idParam)
 	if err != nil || groupID <= 0 {
 		http.Error(w, "Invalid group ID", http.StatusBadRequest)
 		return
 	}
 
-	// Query DB
+	// Query DB by id
 	group, err := db.DBService.GetGroupByID(int64(groupID))
 	if err != nil {
 		http.Error(w, "Group not found", http.StatusNotFound)
@@ -69,7 +103,6 @@ func GetGroupHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return result
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(group)
 }
@@ -91,8 +124,11 @@ func UpdateGroupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract the group ID from the query string
+	// Extract the group ID from query or path
 	idParam := r.URL.Query().Get("id")
+	if idParam == "" {
+		idParam = utils.GetPathParam(r, "id")
+	}
 	groupID, err := strconv.Atoi(idParam)
 	if err != nil || groupID <= 0 {
 		http.Error(w, "Invalid group ID", http.StatusBadRequest)
@@ -154,8 +190,11 @@ func DeleteGroupHandler(w http.ResponseWriter, r *http.Request) {
 
 	userID := int64(currentUserID)
 
-	// Extract the group ID from the query string
+	// Extract the group ID from query or path
 	idParam := r.URL.Query().Get("id")
+	if idParam == "" {
+		idParam = utils.GetPathParam(r, "id")
+	}
 	groupID, err := strconv.Atoi(idParam)
 	if err != nil || groupID <= 0 {
 		http.Error(w, "Invalid group ID", http.StatusBadRequest)

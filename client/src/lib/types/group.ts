@@ -1,4 +1,4 @@
-import { User } from './user';
+// (No imports required)
 
 // ===== GROUP =====
 export interface CreateGroupRequest {

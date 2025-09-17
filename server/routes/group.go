@@ -8,8 +8,11 @@ func setupGroupRoutes(r *Router) {
 	// Group management
 	r.POST("/api/group", api.CreateGroupHandler)
 	r.GET("/api/group", api.GetGroupHandler)
+	r.GET("/api/group/{id}", api.GetGroupHandler)
 	r.PUT("/api/group", api.UpdateGroupHandler)
+	r.PUT("/api/group/{id}", api.UpdateGroupHandler)
 	r.DELETE("/api/group", api.DeleteGroupHandler)
+	r.DELETE("/api/group/{id}", api.DeleteGroupHandler)
 
 	// Group posts - RESTful approach
 	r.POST("/api/group/post", api.CreateGroupPostHandler)

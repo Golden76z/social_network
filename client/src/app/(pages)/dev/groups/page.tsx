@@ -9,8 +9,16 @@ import {
   UpdateGroupMemberRequest, RSVPToEventRequest, LeaveGroupRequest
 } from '@/lib/types';
 
+type PanelResult = {
+  endpoint: string;
+  status: 'success' | 'error';
+  data?: unknown;
+  error?: string;
+  timestamp: string;
+};
+
 const GroupDebugPanel = () => {
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<PanelResult[]>([]);
   const [testGroupId, setTestGroupId] = useState("1");
   const [testPostId, setTestPostId] = useState("1");
   const [testCommentId, setTestCommentId] = useState("1");
