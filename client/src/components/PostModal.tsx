@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import { X, Heart, MessageCircle, Send } from 'lucide-react';
 import { Post, Comment } from '@/lib/types';
 import { commentApi } from '@/lib/api/comment';
@@ -22,13 +23,27 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
   const [isLiking, setIsLiking] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
 
+  const loadComments = useCallback(async () => {
+    if (!post) return;
+    
+    setIsLoadingComments(true);
+    try {
+      const commentsData = await commentApi.getComments(post.id);
+      setComments(commentsData);
+    } catch (error) {
+      console.error('Error loading comments:', error);
+    } finally {
+      setIsLoadingComments(false);
+    }
+  }, [post]);
+
   useEffect(() => {
     if (post && isOpen) {
       loadComments();
       setIsLiked(post.user_liked || false);
       setLikeCount(post.likes || 0);
     }
-  }, [post, isOpen]);
+  }, [post, isOpen, loadComments]);
 
   // Handle escape key and click outside
   useEffect(() => {
@@ -54,20 +69,6 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isOpen, onClose]);
-
-  const loadComments = async () => {
-    if (!post) return;
-    
-    setIsLoadingComments(true);
-    try {
-      const commentsData = await commentApi.getComments(post.id);
-      setComments(commentsData);
-    } catch (error) {
-      console.error('Error loading comments:', error);
-    } finally {
-      setIsLoadingComments(false);
-    }
-  };
 
   const handleSubmitComment = async () => {
     if (!post || !newComment.trim()) return;
@@ -165,18 +166,22 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
             {post.images && post.images.length > 0 && (
               <div className="mb-3">
                 {post.images.length === 1 ? (
-                  <img
+                  <Image
                     src={post.images[0]}
                     alt="Post image"
+                    width={800}
+                    height={384}
                     className="w-full max-h-96 object-cover rounded-lg"
                   />
                 ) : (
                   <div className="grid grid-cols-2 gap-2">
                     {post.images.map((image, index) => (
-                      <img
+                      <Image
                         key={index}
                         src={image}
                         alt={`Post image ${index + 1}`}
+                        width={400}
+                        height={128}
                         className="w-full h-32 object-cover rounded-lg"
                       />
                     ))}
