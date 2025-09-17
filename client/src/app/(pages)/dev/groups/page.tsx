@@ -195,19 +195,39 @@ const GroupDebugPanel = () => {
         </div>
       </div>
 
+      {/* Join Requests */}
+      <div className="mb-4">
+        <h4 className="font-semibold mb-2 text-sm">Join Requests</h4>
+        <div className="grid grid-cols-4 gap-1 mb-2">
+          <button onClick={()=>testEndpoint('requestToJoin',()=>groupApi.joinGroup(testGroupId))} className="bg-green-500 text-white px-2 py-1 rounded text-xs">Request to Join</button>
+          <button onClick={()=>testEndpoint('getGroupRequests',()=>groupApi.getGroupRequests(testGroupId))} className="bg-blue-500 text-white px-2 py-1 rounded text-xs">List Requests</button>
+          <button onClick={()=>testEndpoint('approveRequest',()=>groupApi.approveGroupRequest(testRsvpId))} className="bg-green-600 text-white px-2 py-1 rounded text-xs">Approve</button>
+          <button onClick={()=>testEndpoint('declineRequest',()=>groupApi.declineGroupRequest(testRsvpId))} className="bg-red-600 text-white px-2 py-1 rounded text-xs">Decline</button>
+        </div>
+        <div className="text-xs text-gray-600 mb-2">
+          <p>• <strong>Request to Join:</strong> Creates a pending join request (notifies group owner)</p>
+          <p>• <strong>List Requests:</strong> Shows pending requests for group (owner only)</p>
+          <p>• <strong>Approve/Decline:</strong> Use Request ID from list results</p>
+        </div>
+      </div>
+
       {/* Membership & RSVP */}
       <div className="mb-4">
         <h4 className="font-semibold mb-2 text-sm">Membership & RSVP</h4>
         <div className="grid grid-cols-4 gap-1 mb-2">
-          <button onClick={()=>testEndpoint('joinGroup',()=>groupApi.joinGroup(testGroupId))} className="bg-green-500 text-white px-2 py-1 rounded text-xs">Join</button>
           <button onClick={()=>testEndpoint('updateGroupMember',()=>groupApi.updateGroupMember(testUpdateMemberData))} className="bg-orange-500 text-white px-2 py-1 rounded text-xs">Update Member</button>
           <button onClick={()=>testEndpoint('leaveGroup',()=>groupApi.leaveGroup(testLeaveGroupData))} className="bg-red-500 text-white px-2 py-1 rounded text-xs">Leave</button>
           <button onClick={()=>testEndpoint('getEventRSVPs',()=>groupApi.getEventRSVPs(testEventId))} className="bg-blue-500 text-white px-2 py-1 rounded text-xs">Get RSVPs</button>
+          <button onClick={()=>testEndpoint('getNotifications',()=>groupApi.getNotifications())} className="bg-purple-500 text-white px-2 py-1 rounded text-xs">Notifications</button>
         </div>
         <div className="grid grid-cols-3 gap-1">
           <button onClick={()=>testEndpoint('rsvpToEvent',()=>groupApi.rsvpToEvent(testRSVPData))} className="bg-green-500 text-white px-2 py-1 rounded text-xs">RSVP</button>
           <button onClick={()=>testEndpoint('updateEventRSVP',()=>groupApi.updateEventRSVP(testRsvpId,'come'))} className="bg-orange-500 text-white px-2 py-1 rounded text-xs">Update RSVP</button>
           <button onClick={()=>testEndpoint('cancelEventRSVP',()=>groupApi.cancelEventRSVP(testRsvpId))} className="bg-red-500 text-white px-2 py-1 rounded text-xs">Cancel RSVP</button>
+        </div>
+        <div className="text-xs text-gray-600 mt-2">
+          <p>• <strong>RSVP:</strong> Use Event ID. Status: &apos;come&apos;, &apos;maybe&apos;, &apos;cant_come&apos;</p>
+          <p>• <strong>Update/Cancel RSVP:</strong> Use RSVP ID from getEventRSVPs results</p>
         </div>
       </div>
 

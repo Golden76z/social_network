@@ -81,3 +81,33 @@ func (s *Service) DeleteNotification(id int64) error {
 	_, err = tx.Exec(`DELETE FROM notifications WHERE id = ?`, id)
 	return err
 }
+
+// GetUserNotifications retrieves notifications for a user with pagination
+func (s *Service) GetUserNotifications(userID int64, limit, offset int, unreadOnly bool) ([]*models.NotificationResponse, error) {
+	query := `SELECT id, user_id, type, data, is_read, created_at FROM notifications WHERE user_id = ?`
+	args := []interface{}{userID}
+
+	if unreadOnly {
+		query += " AND is_read = FALSE"
+	}
+
+	query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+	args = append(args, limit, offset)
+
+	rows, err := s.DB.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var notifications []*models.NotificationResponse
+	for rows.Next() {
+		var n models.NotificationResponse
+		if err := rows.Scan(&n.ID, &n.UserID, &n.Type, &n.Data, &n.IsRead, &n.CreatedAt); err != nil {
+			return nil, err
+		}
+		notifications = append(notifications, &n)
+	}
+
+	return notifications, nil
+}
