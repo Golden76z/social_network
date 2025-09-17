@@ -44,14 +44,35 @@ const HomePage: React.FC = () => {
     }
   };
 
-  const handleCloseModal = () => {
+  const handleCloseModal = async () => {
     setIsModalOpen(false);
     setSelectedPost(null);
+    
+    // Always refresh posts when closing modal to ensure sync
+    try {
+      const updatedPosts = await postApi.getAllPosts();
+      setPosts(updatedPosts);
+    } catch (error) {
+      console.error('Error refreshing posts after modal close:', error);
+    }
   };
 
-  const handleLike = (postId: number) => {
-    // TODO: Implement like functionality
-    console.log('Like post:', postId);
+  const handleLike = async (postId: number) => {
+    // Refresh posts to get updated like counts
+    try {
+      const updatedPosts = await postApi.getAllPosts();
+      setPosts(updatedPosts);
+      
+      // Update selected post if it's the same
+      if (selectedPost?.id === postId) {
+        const updatedPost = updatedPosts.find(p => p.id === postId);
+        if (updatedPost) {
+          setSelectedPost(updatedPost);
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing posts after like:', error);
+    }
   };
 
   const handleComment = (postId: number) => {
@@ -127,6 +148,7 @@ const HomePage: React.FC = () => {
         post={selectedPost}
         isOpen={isModalOpen}
         onClose={handleCloseModal}
+        onLike={handleLike}
       />
     </div>
   );

@@ -139,10 +139,10 @@ func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostRe
                 p.created_at,
                 p.updated_at,
                 GROUP_CONCAT(pi.image_url) AS images,
-                (SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND is_group_post = 0 AND type = 'like') AS likes,
-                (SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND is_group_post = 0 AND type = 'dislike') AS dislikes,
-                EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND is_group_post = 0 AND type = 'like') AS user_liked,
-                EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND is_group_post = 0 AND type = 'dislike') AS user_disliked,
+                (SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
+                (SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
+                EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'like') AS user_liked,
+                EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'dislike') AS user_disliked,
                 NULL AS group_id,
                 NULL AS group_name
             FROM
@@ -173,10 +173,10 @@ func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostRe
                 gp.created_at,
                 gp.updated_at,
                 GROUP_CONCAT(pi.image_url) AS images,
-                (SELECT COUNT(*) FROM likes_dislikes WHERE post_id = gp.id AND is_group_post = 1 AND type = 'like') AS likes,
-                (SELECT COUNT(*) FROM likes_dislikes WHERE post_id = gp.id AND is_group_post = 1 AND type = 'dislike') AS dislikes,
-                EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = gp.id AND user_id = ? AND is_group_post = 1 AND type = 'like') AS user_liked,
-                EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = gp.id AND user_id = ? AND is_group_post = 1 AND type = 'dislike') AS user_disliked,
+                (SELECT COUNT(*) FROM likes_dislikes WHERE group_post_id = gp.id AND type = 'like') AS likes,
+                (SELECT COUNT(*) FROM likes_dislikes WHERE group_post_id = gp.id AND type = 'dislike') AS dislikes,
+                EXISTS(SELECT 1 FROM likes_dislikes WHERE group_post_id = gp.id AND user_id = ? AND type = 'like') AS user_liked,
+                EXISTS(SELECT 1 FROM likes_dislikes WHERE group_post_id = gp.id AND user_id = ? AND type = 'dislike') AS user_disliked,
                 g.id AS group_id,
                 g.title AS group_name
             FROM

@@ -5,6 +5,7 @@ const API_BASE_URL =
 
 export class ApiClient {
   private baseUrl: string;
+  private csrfToken: string | null = null;
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
@@ -15,9 +16,17 @@ export class ApiClient {
       ? endpoint
       : `${this.baseUrl}${endpoint}`;
 
+    // Get CSRF token if we don't have one and this is a state-changing request
+    if (!this.csrfToken && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method || 'GET')) {
+      await this.fetchCSRFToken();
+    }
+
     const headers = {
       'Content-Type': 'application/json',
       'X-Requested-With': 'XMLHttpRequest',
+      ...(this.csrfToken && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method || 'GET') 
+        ? { 'X-CSRF-Token': this.csrfToken } 
+        : {}),
       ...options.headers,
     };
 
@@ -47,6 +56,26 @@ export class ApiClient {
     }
 
     return response.json();
+  }
+
+  private async fetchCSRFToken(): Promise<void> {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/posts`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+      });
+      
+      const token = response.headers.get('X-CSRF-Token');
+      if (token) {
+        this.csrfToken = token;
+        console.log('🔐 CSRF token fetched:', token.substring(0, 10) + '...');
+      }
+    } catch (error) {
+      console.error('Failed to fetch CSRF token:', error);
+    }
   }
 
   async get<T>(endpoint: string, options: RequestInit = {}): Promise<T> {

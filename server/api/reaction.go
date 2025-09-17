@@ -56,24 +56,44 @@ func CreateUserReactionHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Vérifier qu’il n’existe pas déjà une réaction de ce user sur cette cible
-	exists, err := db.DBService.UserReactionExists(userID, req.PostID, req.CommentID, req.GroupPostID, req.GroupCommentID)
-	if err != nil {
+	// Check if a reaction already exists for this user and target
+	existingReaction, err := db.DBService.GetUserReactionID(userID, req.PostID, req.CommentID, req.GroupPostID, req.GroupCommentID)
+	if err != nil && err.Error() != "sql: no rows in result set" {
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		return
 	}
-	if exists {
-		http.Error(w, "Reaction already exists", http.StatusConflict)
-		return
-	}
 
-	if err := db.DBService.CreateLikeDislike(req); err != nil {
-		http.Error(w, "Error creating reaction", http.StatusInternalServerError)
-		return
+	if existingReaction != nil {
+		// Reaction exists - toggle logic
+		if existingReaction.Type == req.Type {
+			// Same type - remove the reaction (unlike)
+			if err := db.DBService.DeleteLikeDislike(existingReaction.ID); err != nil {
+				http.Error(w, "Error removing reaction", http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"response": "Reaction removed"}`))
+		} else {
+			// Different type - update the reaction (like -> dislike or vice versa)
+			if err := db.DBService.UpdateLikeDislike(existingReaction.ID, models.UpdateReactionRequest{
+				ID:   existingReaction.ID,
+				Type: req.Type,
+			}); err != nil {
+				http.Error(w, "Error updating reaction", http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"response": "Reaction updated"}`))
+		}
+	} else {
+		// No existing reaction - create new one
+		if err := db.DBService.CreateLikeDislike(req); err != nil {
+			http.Error(w, "Error creating reaction", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(`{"response": "Reaction successfully created"}`))
 	}
-
-	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(`{"response": "Reaction successfully created"}`))
 }
 
 // Handler to get a reaction by ID
