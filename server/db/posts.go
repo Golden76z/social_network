@@ -244,6 +244,218 @@ func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostRe
 	return posts, nil
 }
 
+// GetPostsByUser retrieves posts by a specific user
+func (s *Service) GetPostsByUser(userID int64, currentUserID int64) ([]*models.Post, error) {
+	query := `
+		SELECT 
+			p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
+			u.nickname, u.first_name, u.last_name,
+			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
+			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
+			EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'like') AS user_liked,
+			EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'dislike') AS user_disliked
+		FROM posts p
+		JOIN users u ON p.user_id = u.id
+		WHERE p.user_id = ?
+		ORDER BY p.created_at DESC
+	`
+
+	rows, err := s.DB.Query(query, currentUserID, currentUserID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []*models.Post
+	for rows.Next() {
+		var post models.Post
+		var userLikedInt, userDislikedInt int
+		var authorNickname, authorFirstName, authorLastName string
+
+		err := rows.Scan(
+			&post.ID, &post.UserID, &post.Title, &post.Body, &post.Visibility,
+			&post.CreatedAt, &post.UpdatedAt,
+			&authorNickname, &authorFirstName, &authorLastName,
+			&post.Likes, &post.Dislikes, &userLikedInt, &userDislikedInt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		post.UserLiked = userLikedInt == 1
+		post.UserDisliked = userDislikedInt == 1
+		post.AuthorNickname = authorNickname
+		post.AuthorFirstName = authorFirstName
+		post.AuthorLastName = authorLastName
+
+		// Get images for this post
+		imageRows, err := s.DB.Query(`
+			SELECT image_url FROM post_images
+			WHERE post_id = ? AND is_group_post = 0`, post.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		var images []string
+		for imageRows.Next() {
+			var url string
+			if err := imageRows.Scan(&url); err != nil {
+				imageRows.Close()
+				return nil, err
+			}
+			images = append(images, url)
+		}
+		imageRows.Close()
+		post.Images = images
+
+		posts = append(posts, &post)
+	}
+
+	return posts, nil
+}
+
+// GetLikedPosts retrieves posts liked by a specific user
+func (s *Service) GetLikedPosts(userID int64) ([]*models.Post, error) {
+	query := `
+		SELECT 
+			p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
+			u.nickname, u.first_name, u.last_name,
+			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
+			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
+			1 AS user_liked,
+			EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'dislike') AS user_disliked
+		FROM posts p
+		JOIN users u ON p.user_id = u.id
+		JOIN likes_dislikes ld ON p.id = ld.post_id
+		WHERE ld.user_id = ? AND ld.type = 'like'
+		ORDER BY p.created_at DESC
+	`
+
+	rows, err := s.DB.Query(query, userID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []*models.Post
+	for rows.Next() {
+		var post models.Post
+		var userLikedInt, userDislikedInt int
+		var authorNickname, authorFirstName, authorLastName string
+
+		err := rows.Scan(
+			&post.ID, &post.UserID, &post.Title, &post.Body, &post.Visibility,
+			&post.CreatedAt, &post.UpdatedAt,
+			&authorNickname, &authorFirstName, &authorLastName,
+			&post.Likes, &post.Dislikes, &userLikedInt, &userDislikedInt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		post.UserLiked = userLikedInt == 1
+		post.UserDisliked = userDislikedInt == 1
+		post.AuthorNickname = authorNickname
+		post.AuthorFirstName = authorFirstName
+		post.AuthorLastName = authorLastName
+
+		// Get images for this post
+		imageRows, err := s.DB.Query(`
+			SELECT image_url FROM post_images
+			WHERE post_id = ? AND is_group_post = 0`, post.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		var images []string
+		for imageRows.Next() {
+			var url string
+			if err := imageRows.Scan(&url); err != nil {
+				imageRows.Close()
+				return nil, err
+			}
+			images = append(images, url)
+		}
+		imageRows.Close()
+		post.Images = images
+
+		posts = append(posts, &post)
+	}
+
+	return posts, nil
+}
+
+// GetCommentedPosts retrieves posts commented by a specific user
+func (s *Service) GetCommentedPosts(userID int64) ([]*models.Post, error) {
+	query := `
+		SELECT DISTINCT
+			p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
+			u.nickname, u.first_name, u.last_name,
+			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
+			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
+			EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'like') AS user_liked,
+			EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'dislike') AS user_disliked
+		FROM posts p
+		JOIN users u ON p.user_id = u.id
+		JOIN comments c ON p.id = c.post_id
+		WHERE c.user_id = ?
+		ORDER BY p.created_at DESC
+	`
+
+	rows, err := s.DB.Query(query, userID, userID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []*models.Post
+	for rows.Next() {
+		var post models.Post
+		var userLikedInt, userDislikedInt int
+		var authorNickname, authorFirstName, authorLastName string
+
+		err := rows.Scan(
+			&post.ID, &post.UserID, &post.Title, &post.Body, &post.Visibility,
+			&post.CreatedAt, &post.UpdatedAt,
+			&authorNickname, &authorFirstName, &authorLastName,
+			&post.Likes, &post.Dislikes, &userLikedInt, &userDislikedInt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		post.UserLiked = userLikedInt == 1
+		post.UserDisliked = userDislikedInt == 1
+		post.AuthorNickname = authorNickname
+		post.AuthorFirstName = authorFirstName
+		post.AuthorLastName = authorLastName
+
+		// Get images for this post
+		imageRows, err := s.DB.Query(`
+			SELECT image_url FROM post_images
+			WHERE post_id = ? AND is_group_post = 0`, post.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		var images []string
+		for imageRows.Next() {
+			var url string
+			if err := imageRows.Scan(&url); err != nil {
+				imageRows.Close()
+				return nil, err
+			}
+			images = append(images, url)
+		}
+		imageRows.Close()
+		post.Images = images
+
+		posts = append(posts, &post)
+	}
+
+	return posts, nil
+}
+
 func (s *Service) IsFollowing(currentUserID, targetUserID int64) (bool, error) {
 	query := `
         SELECT EXISTS (

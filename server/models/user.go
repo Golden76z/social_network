@@ -14,6 +14,8 @@ type User struct {
 	Avatar      sql.NullString `json:"avatar,omitempty"`
 	Bio         sql.NullString `json:"bio,omitempty"`
 	IsPrivate   bool           `json:"is_private"`
+	Followers   int            `json:"followers"`
+	Followed    int            `json:"followed"`
 }
 
 // Struct GET - User information retrieving (Profile page)
@@ -27,6 +29,8 @@ type UserProfileResponse struct {
 	Avatar      string `json:"avatar,omitempty"`
 	Bio         string `json:"bio,omitempty"`
 	IsPrivate   bool   `json:"is_private"`
+	Followers   int    `json:"followers"`
+	Followed    int    `json:"followed"`
 }
 
 // Struct PUT - User Profile information Update

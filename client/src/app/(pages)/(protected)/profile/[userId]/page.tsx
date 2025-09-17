@@ -23,11 +23,38 @@ interface FollowersModalProps {
 }
 
 const FollowersModal: React.FC<FollowersModalProps> = ({ isOpen, onClose, users, title, onUserClick }) => {
+  const modalRef = React.useRef<HTMLDivElement>(null);
+
+  // Handle escape key and click outside
+  React.useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(e.target as Node) && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-md w-full max-h-[80vh] overflow-hidden">
+      <div ref={modalRef} className="bg-white rounded-lg max-w-md w-full max-h-[80vh] overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold">{title}</h2>
           <button
@@ -153,7 +180,7 @@ export default function UserProfilePage() {
   if (!profileUser) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500 text-lg">Loading profile...</p>
+        <p className="text-gray-500 text-lg">Loading profile data...</p>
       </div>
     );
   }
@@ -253,15 +280,8 @@ export default function UserProfilePage() {
   const canViewPosts = !profileUser.is_private || isOwnProfile || isFollowing;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-16 md:pb-0">
-      <Header />
-      <div className="flex flex-col md:flex-row max-w-full mx-auto">
-        <div className="hidden md:block w-[20%] min-h-screen bg-white border-r border-gray-200 p-4">
-          <SideBarLeft variant="sidebar" />
-        </div>
-
-        <div className="w-full md:w-[70%] px-4 md:px-8 py-6">
-          <div className="space-y-6">
+    <div className="w-full">
+      <div className="space-y-6">
             {/* Profile Header */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
               <div className="flex items-start gap-4">
@@ -429,16 +449,6 @@ export default function UserProfilePage() {
                 )}
               </div>
             )}
-          </div>
-        </div>
-
-        <div className="hidden md:block w-[20%] min-h-screen bg-white border-l border-gray-200 p-4">
-          <SideBarRight />
-        </div>
-      </div>
-
-      <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t border-gray-200 bg-white shadow-sm">
-        <SideBarLeft variant="bottom" />
       </div>
 
       {/* Post Modal */}

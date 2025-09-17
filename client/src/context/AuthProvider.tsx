@@ -56,6 +56,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         return;
       }
   
+      console.log('🔐 JWT token found, validating with backend...');
+      
       // Try to validate the token with the backend
       const userData = await apiClient.get<{ user: User } | User>('/api/user/profile');
   
@@ -79,7 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       // Handle expired/invalid token case
       if (error.message?.includes('401') || error.message?.includes('403') || 
           error.message?.includes('Unauthorized') || error.message?.includes('Forbidden')) {
-        console.log('🔐 Token expired or invalid. Clearing auth state and reloading page.');
+        console.log('🔐 Token expired or invalid. Clearing auth state.');
         
         // Clear the invalid token by calling logout
         try {
@@ -88,13 +90,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           console.error('Error clearing invalid token:', logoutError);
         }
         
-        // Reload the page to clear all state
-        if (typeof window !== 'undefined') {
-          window.location.reload();
-          return;
-        }
+        // Clear auth state but don't reload the page
+        setUser(null);
+        setIsAuthenticated(false);
+        return;
       }
   
+      // For other errors, just clear the auth state
       setUser(null);
       setIsAuthenticated(false);
     } finally {
