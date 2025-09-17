@@ -10,6 +10,7 @@ interface PostCardProps {
   onComment?: (postId: number) => void;
   onViewDetails?: (postId: number) => void;
   onUserClick?: (userId: number) => void;
+  disableLikes?: boolean; // New prop to disable like functionality
 }
 
 export const PostCard: React.FC<PostCardProps> = ({
@@ -18,6 +19,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   onComment,
   onViewDetails,
   onUserClick,
+  disableLikes = false,
 }) => {
   const [isLiked, setIsLiked] = useState(post.user_liked || false);
   const [likeCount, setLikeCount] = useState(post.likes || 0);
@@ -152,16 +154,23 @@ export const PostCard: React.FC<PostCardProps> = ({
       {/* Actions */}
       <div className="flex items-center justify-between pt-3 border-t border-gray-100">
         <div className="flex items-center space-x-6">
-          <button
-            onClick={handleLike}
-            disabled={isLoading}
-            className={`flex items-center space-x-2 text-sm transition-colors ${
-              isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
-            } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
-            <span>{likeCount}</span>
-          </button>
+            {disableLikes ? (
+              <div className="flex items-center space-x-2 text-sm text-gray-500">
+                <Heart className="w-4 h-4" />
+                <span>{likeCount}</span>
+              </div>
+            ) : (
+              <button
+                onClick={handleLike}
+                disabled={isLoading}
+                className={`flex items-center space-x-2 text-sm transition-colors ${
+                  isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
+                } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+                <span>{likeCount}</span>
+              </button>
+            )}
 
           <button
             onClick={handleComment}

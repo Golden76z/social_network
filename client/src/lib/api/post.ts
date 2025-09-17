@@ -37,6 +37,16 @@ export const postApi = {
     return apiClient.get<Post[]>(`${postRoutes.base}?commented=true`);
   },
 
+  // GET /api/post/liked?userId=X - Get posts liked by specific user
+  getLikedPostsByUser: (userId: number): Promise<Post[]> => {
+    return apiClient.get<Post[]>(`${postRoutes.base}?liked=true&userId=${userId}`);
+  },
+
+  // GET /api/post/commented?userId=X - Get posts commented by specific user
+  getCommentedPostsByUser: (userId: number): Promise<Post[]> => {
+    return apiClient.get<Post[]>(`${postRoutes.base}?commented=true&userId=${userId}`);
+  },
+
   // POST /api/posts - Create new post
   createPost: (data: CreatePostRequest): Promise<Post> => {
     return apiClient.post<Post>(postRoutes.base, data);

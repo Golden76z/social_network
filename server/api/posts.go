@@ -131,7 +131,17 @@ func GetPostHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid user ID format", http.StatusBadRequest)
 			return
 		}
-		posts, err = db.DBService.GetPostsByUser(targetUserID, int64(currentUserID))
+
+		if likedParam == "true" {
+			// Get posts liked by specific user
+			posts, err = db.DBService.GetLikedPostsByUser(targetUserID)
+		} else if commentedParam == "true" {
+			// Get posts commented by specific user
+			posts, err = db.DBService.GetCommentedPostsByUser(targetUserID)
+		} else {
+			// Get posts by specific user
+			posts, err = db.DBService.GetPostsByUser(targetUserID, int64(currentUserID))
+		}
 	} else if meParam == "true" {
 		// Get current user's posts
 		posts, err = db.DBService.GetPostsByUser(int64(currentUserID), int64(currentUserID))

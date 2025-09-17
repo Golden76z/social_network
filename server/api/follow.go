@@ -257,6 +257,12 @@ func DeleteFollowHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If the relationship was accepted, decrement counters
+	if followReq.Status == "accepted" {
+		_ = db.DBService.DecrementFollowingCount(followReq.RequesterID)
+		_ = db.DBService.DecrementFollowersCount(followReq.TargetID)
+	}
+
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"message": "Follow request deleted"}`))
 }
