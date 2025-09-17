@@ -32,6 +32,11 @@ export const postApi = {
     return apiClient.get<Post[]>(`${postRoutes.base}?liked=true`);
   },
 
+  // GET /api/post/commented - Get posts where current user commented
+  getCommentedPosts: (): Promise<Post[]> => {
+    return apiClient.get<Post[]>(`${postRoutes.base}?commented=true`);
+  },
+
   // POST /api/posts - Create new post
   createPost: (data: CreatePostRequest): Promise<Post> => {
     return apiClient.post<Post>(postRoutes.base, data);

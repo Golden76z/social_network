@@ -23,11 +23,38 @@ interface FollowersModalProps {
 }
 
 const FollowersModal: React.FC<FollowersModalProps> = ({ isOpen, onClose, users, title, onUserClick }) => {
+  const modalRef = React.useRef<HTMLDivElement>(null);
+
+  // Handle escape key and click outside
+  React.useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(e.target as Node) && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-md w-full max-h-[80vh] overflow-hidden">
+      <div ref={modalRef} className="bg-white rounded-lg max-w-md w-full max-h-[80vh] overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold">{title}</h2>
           <button
@@ -73,9 +100,10 @@ export default function ProfilePage() {
   const userId = searchParams.get('userId');
   const [profileUser, setProfileUser] = useState<UserProfile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'posts' | 'liked'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'commented'>('posts');
   const [posts, setPosts] = useState<Post[]>([]);
   const [likedPosts, setLikedPosts] = useState<Post[]>([]);
+  const [commentedPosts, setCommentedPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -136,9 +164,12 @@ export default function ProfilePage() {
         if (activeTab === 'posts') {
           const postsData = await postApi.getMyPosts();
           setPosts(postsData);
-        } else {
+        } else if (activeTab === 'liked') {
           const likedData = await postApi.getLikedPosts();
           setLikedPosts(likedData);
+        } else if (activeTab === 'commented') {
+          const commentedData = await postApi.getCommentedPosts();
+          setCommentedPosts(commentedData);
         }
       } catch (error) {
         console.error('Error loading posts:', error);
@@ -158,10 +189,18 @@ export default function ProfilePage() {
     );
   }
 
-  if (!user || !profileUser) {
+  if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-red-500 text-lg">You must be logged in to view your profile.</p>
+      </div>
+    );
+  }
+
+  if (!profileUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-500 text-lg">Loading profile data...</p>
       </div>
     );
   }
@@ -207,9 +246,15 @@ export default function ProfilePage() {
   };
 
   const handleViewDetails = (postId: number) => {
-    const post = activeTab === 'posts' 
-      ? posts.find(p => p.id === postId)
-      : likedPosts.find(p => p.id === postId);
+    let post: Post | undefined;
+    if (activeTab === 'posts') {
+      post = posts.find(p => p.id === postId);
+    } else if (activeTab === 'liked') {
+      post = likedPosts.find(p => p.id === postId);
+    } else if (activeTab === 'commented') {
+      post = commentedPosts.find(p => p.id === postId);
+    }
+    
     if (post) {
       setSelectedPost(post);
       setIsModalOpen(true);
@@ -227,15 +272,24 @@ export default function ProfilePage() {
       if (activeTab === 'posts') {
         const updatedPosts = await postApi.getMyPosts();
         setPosts(updatedPosts);
-      } else {
+      } else if (activeTab === 'liked') {
         const updatedLikedPosts = await postApi.getLikedPosts();
         setLikedPosts(updatedLikedPosts);
+      } else if (activeTab === 'commented') {
+        const updatedCommentedPosts = await postApi.getCommentedPosts();
+        setCommentedPosts(updatedCommentedPosts);
       }
       
       if (selectedPost?.id === postId) {
-        const updatedPost = activeTab === 'posts' 
-          ? posts.find(p => p.id === postId)
-          : likedPosts.find(p => p.id === postId);
+        let updatedPost: Post | undefined;
+        if (activeTab === 'posts') {
+          updatedPost = posts.find(p => p.id === postId);
+        } else if (activeTab === 'liked') {
+          updatedPost = likedPosts.find(p => p.id === postId);
+        } else if (activeTab === 'commented') {
+          updatedPost = commentedPosts.find(p => p.id === postId);
+        }
+        
         if (updatedPost) {
           setSelectedPost(updatedPost);
         }
@@ -276,17 +330,10 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-16 md:pb-0">
-      {/* <Header /> */}
-      <div className="flex flex-col md:flex-row max-w-full mx-auto">
-        {/* <div className="hidden md:block w-[20%] min-h-screen bg-white border-r border-gray-200 p-4">
-          <SideBarLeft variant="sidebar" />
-        </div> */}
+    <div className="w-full">
+      <h1 className="text-2xl font-bold mb-6">Your Profile</h1>
 
-        <div className="w-full md:w-[70%] px-4 md:px-8 py-6">
-          <h1 className="text-2xl font-bold mb-6">Your Profile</h1>
-
-          <div className="space-y-6">
+      <div className="space-y-6">
             {/* Profile Header */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
               <div className="flex items-start gap-4">
@@ -420,7 +467,7 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Posts/Liked Posts Tabs */}
+            {/* Posts/Liked Posts/Commented Posts Tabs */}
             <div className="bg-white rounded-lg border border-gray-200">
               <div className="flex border-b border-gray-200">
                 <button
@@ -443,6 +490,16 @@ export default function ProfilePage() {
                 >
                   Liked Posts
                 </button>
+                <button
+                  onClick={() => setActiveTab('commented')}
+                  className={`flex-1 py-3 px-4 text-center font-medium transition-colors ${
+                    activeTab === 'commented'
+                      ? 'text-blue-500 border-b-2 border-blue-500'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Commented Posts
+                </button>
               </div>
 
               <div className="p-6">
@@ -453,42 +510,47 @@ export default function ProfilePage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {(activeTab === 'posts' ? posts : likedPosts).length === 0 ? (
-                      <div className="text-center py-8">
-                        <p className="text-gray-500 text-lg">
-                          {activeTab === 'posts' ? 'No posts yet.' : 'No liked posts yet.'}
-                        </p>
-                        <p className="text-gray-400 text-sm mt-2">
-                          {activeTab === 'posts' 
-                            ? 'Create your first post to get started!' 
-                            : 'Like some posts to see them here!'}
-                        </p>
-                      </div>
-                    ) : (
-                      (activeTab === 'posts' ? posts : likedPosts).map((post) => (
-                        <PostCard
-                          key={post.id}
-                          post={post}
-                          onLike={handleLike}
-                          onComment={handleComment}
-                          onViewDetails={handleViewDetails}
-                        />
-                      ))
-                    )}
+                    {(() => {
+                      let currentPosts: Post[] = [];
+                      let emptyMessage = '';
+                      let emptySubMessage = '';
+                      
+                      if (activeTab === 'posts') {
+                        currentPosts = posts;
+                        emptyMessage = 'No posts yet.';
+                        emptySubMessage = 'Create your first post to get started!';
+                      } else if (activeTab === 'liked') {
+                        currentPosts = likedPosts;
+                        emptyMessage = 'No liked posts yet.';
+                        emptySubMessage = 'Like some posts to see them here!';
+                      } else if (activeTab === 'commented') {
+                        currentPosts = commentedPosts;
+                        emptyMessage = 'No commented posts yet.';
+                        emptySubMessage = 'Comment on some posts to see them here!';
+                      }
+                      
+                      return currentPosts.length === 0 ? (
+                        <div className="text-center py-8">
+                          <p className="text-gray-500 text-lg">{emptyMessage}</p>
+                          <p className="text-gray-400 text-sm mt-2">{emptySubMessage}</p>
+                        </div>
+                      ) : (
+                        currentPosts.map((post) => (
+                          <PostCard
+                            key={post.id}
+                            post={post}
+                            onLike={handleLike}
+                            onComment={handleComment}
+                            onViewDetails={handleViewDetails}
+                            onUserClick={handleUserClick}
+                          />
+                        ))
+                      );
+                    })()}
                   </div>
                 )}
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* <div className="hidden md:block w-[20%] min-h-screen bg-white border-l border-gray-200 p-4">
-          <SideBarRight />
-        </div> */}
-      </div>
-
-      <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t border-gray-200 bg-white shadow-sm">
-        <SideBarLeft variant="bottom" />
       </div>
 
       {/* Post Modal */}
