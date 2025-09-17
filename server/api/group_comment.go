@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/middleware"
@@ -54,30 +55,62 @@ func GetGroupCommentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Getting the information on the URL
+	// Support two cases:
+	// - /api/group/comment?postId=...&offset=...
+	// - /api/group/comment/{id}
 	query := r.URL.Query()
-
-	// Getting the offlimit from the url
-	offsetStr := query.Get("offset")
-	groupPostIDStr := query.Get("id")
-
-	// Converting offSet and groupID to int's
-	offSet, errOffSet := strconv.ParseInt(offsetStr, 10, 64)
-	groupPostID, errGroupID := strconv.ParseInt(groupPostIDStr, 10, 64)
-	if errOffSet != nil || errGroupID != nil {
-		http.Error(w, "Missing id or offlimit query parameter", http.StatusBadRequest)
+	if idPath := utils.GetPathParam(r, "id"); idPath != "" {
+		// Single comment by ID
+		commentID, err := strconv.ParseInt(idPath, 10, 64)
+		if err != nil || commentID <= 0 {
+			http.Error(w, "Invalid comment ID", http.StatusBadRequest)
+			return
+		}
+		comment, err := db.DBService.GetGroupCommentWithUserDetails(commentID, int64(userID))
+		if err != nil {
+			if err.Error() == "comment not found or access denied" {
+				http.Error(w, "Comment not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "Error retrieving comment: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(comment)
 		return
 	}
 
-	// Get comments from database
-	comments, errDB := db.DBService.GetGroupComments(groupPostID, int64(userID), int(offSet))
+	// List comments for a post
+	offsetStr := query.Get("offset")
+	postIDStr := query.Get("postId")
+
+	var offSet int64 = 0
+	var err error
+	if offsetStr != "" {
+		offSet, err = strconv.ParseInt(offsetStr, 10, 64)
+		if err != nil {
+			http.Error(w, "Invalid offset", http.StatusBadRequest)
+			return
+		}
+	}
+	postID, err := strconv.ParseInt(postIDStr, 10, 64)
+	if err != nil || postID <= 0 {
+		http.Error(w, "Missing or invalid postId", http.StatusBadRequest)
+		return
+	}
+
+	comments, errDB := db.DBService.GetGroupComments(postID, int64(userID), int(offSet))
 	if errDB != nil {
 		fmt.Println("Error db: ", errDB)
-		http.Error(w, "Error retrieving group comments", http.StatusInternalServerError)
+		if errDB.Error() == "comment not found or access denied" {
+			http.Error(w, "Access denied: Not a group member", http.StatusForbidden)
+			return
+		}
+		http.Error(w, "Error retrieving group comments: "+errDB.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Set content type and encode response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(comments)
@@ -98,6 +131,15 @@ func UpdateGroupCommentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Allow path-based id
+	if req.ID == 0 {
+		if idPath := utils.GetPathParam(r, "id"); idPath != "" {
+			if idNum, err := strconv.ParseInt(idPath, 10, 64); err == nil {
+				req.ID = idNum
+			}
+		}
+	}
+
 	// Validate request fields
 	if validationErrors := utils.ValidateStringLength(&req, 3, 100); len(validationErrors) > 0 {
 		w.WriteHeader(http.StatusBadRequest)
@@ -108,11 +150,15 @@ func UpdateGroupCommentHandler(w http.ResponseWriter, r *http.Request) {
 	// Update comment in database
 	errDB := db.DBService.UpdateGroupComment(req.ID, int64(userID), req)
 	if errDB != nil {
-		if errDB.Error() == "comment not found" || errDB.Error() == "unauthorized" {
-			http.Error(w, "Comment not found or unauthorized", http.StatusNotFound)
+		if errDB.Error() == "comment not found" {
+			http.Error(w, "Comment not found", http.StatusNotFound)
 			return
 		}
-		http.Error(w, "Error updating group comment", http.StatusInternalServerError)
+		if strings.HasPrefix(errDB.Error(), "unauthorized") {
+			http.Error(w, "Forbidden: You can only update your own comments", http.StatusForbidden)
+			return
+		}
+		http.Error(w, "Error updating group comment: "+errDB.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -129,21 +175,35 @@ func DeleteGroupCommentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Converting the JSON sent by client-side to struct
+	// Support body or path id
 	var req models.DeleteGroupCommentRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		// ignore body error; try path
+	}
+	if req.ID == 0 {
+		if idPath := utils.GetPathParam(r, "id"); idPath != "" {
+			if idNum, err := strconv.ParseInt(idPath, 10, 64); err == nil {
+				req.ID = idNum
+			}
+		}
+	}
+	if req.ID == 0 {
+		http.Error(w, "Comment ID is required", http.StatusBadRequest)
 		return
 	}
 
 	// Delete comment from database
 	errDB := db.DBService.DeleteGroupComment(req.ID, int64(userID))
 	if errDB != nil {
-		if errDB.Error() == "comment not found" || errDB.Error() == "unauthorized" {
-			http.Error(w, "Comment not found or unauthorized", http.StatusNotFound)
+		if errDB.Error() == "comment not found" {
+			http.Error(w, "Comment not found", http.StatusNotFound)
 			return
 		}
-		http.Error(w, "Error deleting group comment", http.StatusInternalServerError)
+		if strings.HasPrefix(errDB.Error(), "unauthorized") {
+			http.Error(w, "Forbidden: You can only delete your own comments", http.StatusForbidden)
+			return
+		}
+		http.Error(w, "Error deleting group comment: "+errDB.Error(), http.StatusInternalServerError)
 		return
 	}
 
