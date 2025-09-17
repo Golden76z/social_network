@@ -70,3 +70,44 @@ func (s *Service) DeleteGroupRequest(id int64) error {
 	_, err = tx.Exec(`DELETE FROM group_requests WHERE id = ?`, id)
 	return err
 }
+
+// GetGroupRequestByGroupAndUser finds the latest request for a user in a group
+func (s *Service) GetGroupRequestByGroupAndUser(groupID, userID int64) (*GroupRequest, error) {
+	row := s.DB.QueryRow(`
+        SELECT id, group_id, user_id, status, created_at
+        FROM group_requests
+        WHERE group_id = ? AND user_id = ?
+        ORDER BY created_at DESC
+        LIMIT 1`, groupID, userID)
+	var gr GroupRequest
+	if err := row.Scan(&gr.ID, &gr.GroupID, &gr.UserID, &gr.Status, &gr.CreatedAt); err != nil {
+		return nil, err
+	}
+	return &gr, nil
+}
+
+// GetGroupRequestsByGroup lists requests for a group, optionally filtered by status
+func (s *Service) GetGroupRequestsByGroup(groupID int64, status string, limit, offset int) ([]GroupRequest, error) {
+	query := `SELECT id, group_id, user_id, status, created_at FROM group_requests WHERE group_id = ?`
+	args := []interface{}{groupID}
+	if status != "" {
+		query += " AND status = ?"
+		args = append(args, status)
+	}
+	query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+	args = append(args, limit, offset)
+	rows, err := s.DB.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	reqs := make([]GroupRequest, 0)
+	for rows.Next() {
+		var gr GroupRequest
+		if err := rows.Scan(&gr.ID, &gr.GroupID, &gr.UserID, &gr.Status, &gr.CreatedAt); err != nil {
+			return nil, err
+		}
+		reqs = append(reqs, gr)
+	}
+	return reqs, nil
+}
