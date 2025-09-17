@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { Heart, MessageCircle, MoreHorizontal } from 'lucide-react';
 import { Post } from '@/lib/types';
+import { reactionApi } from '@/lib/api/reaction';
 
 interface PostCardProps {
   post: Post;
@@ -15,8 +17,9 @@ export const PostCard: React.FC<PostCardProps> = ({
   onComment,
   onViewDetails,
 }) => {
-  const [isLiked, setIsLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(0);
+  const [isLiked, setIsLiked] = useState(post.user_liked || false);
+  const [likeCount, setLikeCount] = useState(post.likes || 0);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Format date
   const formatDate = (dateString: string) => {
@@ -40,10 +43,34 @@ export const PostCard: React.FC<PostCardProps> = ({
     return content.substring(0, maxLength) + '...';
   };
 
-  const handleLike = () => {
-    setIsLiked(!isLiked);
-    setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
-    onLike?.(post.id);
+  const handleLike = async () => {
+    if (isLoading) return;
+    
+    setIsLoading(true);
+    
+    // Update local state immediately for instant UI feedback
+    const newLiked = !isLiked;
+    setIsLiked(newLiked);
+    setLikeCount(prev => newLiked ? prev + 1 : Math.max(0, prev - 1));
+    
+    try {
+      // Always send a like request - the backend will handle toggle logic
+      await reactionApi.createReaction({
+        post_id: post.id,
+        type: 'like'
+      });
+      
+      // Notify parent component
+      onLike?.(post.id);
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      
+      // Revert local state on error
+      setIsLiked(!newLiked);
+      setLikeCount(prev => newLiked ? Math.max(0, prev - 1) : prev + 1);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleComment = () => {
@@ -88,19 +115,23 @@ export const PostCard: React.FC<PostCardProps> = ({
       {post.images && post.images.length > 0 && (
         <div className="mb-3">
           {post.images.length === 1 ? (
-            <img
+            <Image
               src={post.images[0]}
               alt="Post image"
+              width={400}
+              height={192}
               className="w-full max-h-48 object-cover rounded-lg cursor-pointer"
               onClick={handleViewDetails}
             />
           ) : (
             <div className="grid grid-cols-2 gap-2">
               {post.images.slice(0, 4).map((image, index) => (
-                <img
+                <Image
                   key={index}
                   src={image}
                   alt={`Post image ${index + 1}`}
+                  width={200}
+                  height={96}
                   className="w-full h-24 object-cover rounded-lg cursor-pointer"
                   onClick={handleViewDetails}
                 />
@@ -115,9 +146,10 @@ export const PostCard: React.FC<PostCardProps> = ({
         <div className="flex items-center space-x-6">
           <button
             onClick={handleLike}
+            disabled={isLoading}
             className={`flex items-center space-x-2 text-sm transition-colors ${
               isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
-            }`}
+            } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
             <span>{likeCount}</span>

@@ -47,8 +47,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setIsLoading(true);
       console.log('🔍 Starting auth check...');
   
-      // No more client-side cookie checks
-      // Trust the backend to validate the cookie and return user data
+      // Check if we have a JWT token in cookies first
+      const userFromToken = apiClient.getUserFromToken();
+      if (!userFromToken || !userFromToken.userid) {
+        console.log('🔐 No JWT token found in cookies');
+        setUser(null);
+        setIsAuthenticated(false);
+        return;
+      }
+  
+      // Try to validate the token with the backend
       const userData = await apiClient.get<{ user: User } | User>('/api/user/profile');
   
       console.log('✅ Auth check response:', userData);
@@ -69,8 +77,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       console.error('❌ Auth check failed:', error);
   
       // Handle expired/invalid token case
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        console.log('🔐 Token expired or invalid. Clearing auth state.');
+      if (error.message?.includes('401') || error.message?.includes('403') || 
+          error.message?.includes('Unauthorized') || error.message?.includes('Forbidden')) {
+        console.log('🔐 Token expired or invalid. Clearing auth state and reloading page.');
+        
+        // Clear the invalid token by calling logout
+        try {
+          await apiClient.post(authRoutes.logout);
+        } catch (logoutError) {
+          console.error('Error clearing invalid token:', logoutError);
+        }
+        
+        // Reload the page to clear all state
+        if (typeof window !== 'undefined') {
+          window.location.reload();
+          return;
+        }
       }
   
       setUser(null);
@@ -213,6 +235,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setUser(null);
       setIsAuthenticated(false);
       setIsLoading(false);
+      
+      // Reload the page to clear any cached state
+      if (typeof window !== 'undefined') {
+        window.location.reload();
+      }
     }
   };
 
