@@ -49,6 +49,10 @@ export interface Comment {
 }
 
 export interface CreateCommentRequest {
-  content: string;
+  body: string;
   post_id: number;      // Changed to match likely DB schema
+}
+
+export interface UpdateCommentRequest {
+  body: string;
 }
