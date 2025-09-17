@@ -14,6 +14,12 @@ export interface Post {
   author_id?: number;   // If you add this field to your backend response
   author?: User;        // User info if populated
   images?: string[];    // Post images if you implement this
+  
+  // Like/dislike fields
+  likes?: number;
+  dislikes?: number;
+  user_liked?: boolean;
+  user_disliked?: boolean;
 }
 
 // Create request (matches your Go struct)
@@ -39,11 +45,19 @@ export interface DeletePostRequest {
 // If you still want to support comments later
 export interface Comment {
   id: number;
-  content: string;
-  post_id: number;      // Changed to match likely DB schema
-  user_id: number;      // Changed to match likely DB schema
-  author?: User;
+  body: string;          // Changed from 'content' to 'body' to match API
+  post_id: number;
+  user_id: number;
   created_at: string;
+  updated_at?: string;
+  
+  // User details populated by API
+  username?: string;
+  first_name?: string;
+  last_name?: string;
+  avatar?: string;
+  
+  // Optional fields
   likes_count?: number;
   is_liked?: boolean;
 }
