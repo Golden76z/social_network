@@ -57,5 +57,12 @@ func setupGroupRoutes(r *Router) {
 	r.POST("/api/group/event/rsvp", api.RSVPToEventHandler)
 	r.GET("/api/group/event/rsvp", api.GetEventRSVPsHandler)
 	r.PUT("/api/group/event/rsvp", api.UpdateEventRSVPHandler)
+	r.PUT("/api/group/event/rsvp/{id}", api.UpdateEventRSVPHandler)
 	r.DELETE("/api/group/event/rsvp", api.DeleteEventRSVPHandler)
+	r.DELETE("/api/group/event/rsvp/{id}", api.DeleteEventRSVPHandler)
+
+	// Group requests (join requests)
+	r.GET("/api/group/request", api.GetGroupRequestsHandler)
+	r.PUT("/api/group/request", api.UpdateGroupRequestHandler)
+	r.DELETE("/api/group/request", api.DeleteGroupRequestHandler)
 }

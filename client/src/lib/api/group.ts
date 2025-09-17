@@ -129,6 +129,30 @@ export const groupApi = {
     return apiClient.put('/api/group/member', data);
   },
 
+  // ===== GROUP REQUESTS =====
+
+  getGroupRequests: (groupId: string | number, status?: string) => {
+    const params = new URLSearchParams();
+    params.append('group_id', groupId.toString());
+    if (status) params.append('status', status);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiClient.get(`/api/group/request${query}`);
+  },
+
+  approveGroupRequest: (requestId: string | number) => {
+    return apiClient.put('/api/group/request', { id: Number(requestId), status: 'accepted' });
+  },
+
+  declineGroupRequest: (requestId: string | number) => {
+    return apiClient.put('/api/group/request', { id: Number(requestId), status: 'declined' });
+  },
+
+  cancelGroupRequest: (requestId: string | number): Promise<void> => {
+    return apiClient.delete('/api/group/request', {
+      body: JSON.stringify({ id: Number(requestId) }),
+    });
+  },
+
   // ===== RSVP =====
 
   getEventRSVPs: (eventId: string | number) => {
@@ -145,5 +169,24 @@ export const groupApi = {
 
   cancelEventRSVP: (rsvpId: string | number): Promise<void> => {
     return apiClient.delete(`/api/group/event/rsvp/${rsvpId}`);
+  },
+
+  // ===== NOTIFICATIONS =====
+
+  getNotifications: (unreadOnly?: boolean) => {
+    const params = new URLSearchParams();
+    if (unreadOnly) params.append('unread_only', 'true');
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiClient.get(`/api/user/notifications${query}`);
+  },
+
+  markNotificationRead: (notificationId: string | number) => {
+    return apiClient.put('/api/user/notifications', { id: Number(notificationId), is_read: true });
+  },
+
+  deleteNotification: (notificationId: string | number): Promise<void> => {
+    return apiClient.delete('/api/user/notifications', {
+      body: JSON.stringify({ id: Number(notificationId) }),
+    });
   },
 };

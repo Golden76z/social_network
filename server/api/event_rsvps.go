@@ -8,6 +8,7 @@ import (
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/middleware"
 	"github.com/Golden76z/social-network/models"
+	"github.com/Golden76z/social-network/utils"
 )
 
 // POST /api/group/event/rsvp
@@ -63,7 +64,12 @@ func RSVPToEventHandler(w http.ResponseWriter, r *http.Request) {
 // Only group members can view RSVPs for an event.
 func GetEventRSVPsHandler(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	eventID, _ := strconv.ParseInt(q.Get("event_id"), 10, 64)
+	// Support both event_id and eventId
+	eventIDStr := q.Get("event_id")
+	if eventIDStr == "" {
+		eventIDStr = q.Get("eventId")
+	}
+	eventID, _ := strconv.ParseInt(eventIDStr, 10, 64)
 	status := q.Get("status")
 	limit, _ := strconv.Atoi(q.Get("limit"))
 	if limit == 0 {
@@ -106,10 +112,7 @@ func GetEventRSVPsHandler(w http.ResponseWriter, r *http.Request) {
 // PUT /api/group/event/rsvp
 func UpdateEventRSVPHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.RSVPToEventRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
+	_ = json.NewDecoder(r.Body).Decode(&req) // ignore body errors; we'll also support path/query
 	userID := int64(0)
 	if ctxID, ok := r.Context().Value(middleware.UserIDKey).(int); ok {
 		userID = int64(ctxID)
@@ -122,10 +125,31 @@ func UpdateEventRSVPHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	existing, err := db.DBService.GetEventRSVPByUserAndEvent(req.EventID, userID)
-	if err != nil || existing == nil {
-		http.Error(w, "RSVP not found. Use POST to create.", http.StatusNotFound)
-		return
+	// Prefer RSVP id from path if provided
+	var existing *db.EventRSVP
+	if idPath := utils.GetPathParam(r, "id"); idPath != "" {
+		if idNum, err := strconv.ParseInt(idPath, 10, 64); err == nil {
+			if rsvp, err := db.DBService.GetEventRSVPByID(idNum); err == nil {
+				existing = rsvp
+				req.EventID = rsvp.EventID
+			}
+		}
+	}
+	if existing == nil {
+		// fallback by event_id (support query param too)
+		if req.EventID == 0 {
+			if evStr := r.URL.Query().Get("event_id"); evStr != "" {
+				if evID, err := strconv.ParseInt(evStr, 10, 64); err == nil {
+					req.EventID = evID
+				}
+			}
+		}
+		var err error
+		existing, err = db.DBService.GetEventRSVPByUserAndEvent(req.EventID, userID)
+		if err != nil || existing == nil {
+			http.Error(w, "RSVP not found. Use POST to create.", http.StatusNotFound)
+			return
+		}
 	}
 	if existing.Status == req.Status {
 		http.Error(w, "You already set this RSVP status", http.StatusBadRequest)
@@ -142,21 +166,35 @@ func UpdateEventRSVPHandler(w http.ResponseWriter, r *http.Request) {
 // DELETE /api/group/event/rsvp
 func DeleteEventRSVPHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.CancelRSVPRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
+	_ = json.NewDecoder(r.Body).Decode(&req) // allow empty body
 	userID := int64(0)
 	if ctxID, ok := r.Context().Value(middleware.UserIDKey).(int); ok {
 		userID = int64(ctxID)
 	}
 	req.UserID = userID
 
-	existing, err := db.DBService.GetEventRSVPByUserAndEvent(req.EventID, userID)
-	if err != nil || existing == nil {
-		http.Error(w, "RSVP not found", http.StatusNotFound)
-		return
+	// Prefer RSVP id from path if provided
+	var existing *db.EventRSVP
+	if idPath := utils.GetPathParam(r, "id"); idPath != "" {
+		if idNum, err := strconv.ParseInt(idPath, 10, 64); err == nil {
+			if rsvp, err := db.DBService.GetEventRSVPByID(idNum); err == nil {
+				existing = rsvp
+				req.EventID = rsvp.EventID
+			}
+		}
 	}
+	if existing == nil {
+		var err error
+		existing, err = db.DBService.GetEventRSVPByUserAndEvent(req.EventID, userID)
+		if err != nil || existing == nil {
+			http.Error(w, "RSVP not found", http.StatusNotFound)
+			return
+		}
+	}
+	// if err != nil || existing == nil {
+	// 	http.Error(w, "RSVP not found", http.StatusNotFound)
+	// 	return
+	// }
 	if req.Status != "" && req.Status != existing.Status {
 		http.Error(w, "Status does not match current RSVP", http.StatusBadRequest)
 		return

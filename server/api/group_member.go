@@ -14,23 +14,84 @@ import (
 
 // Handler to invite an user to a group
 func CreateGroupMemberHandler(w http.ResponseWriter, r *http.Request) {
-	// Converting the JSON sent by client-side to struct
-	var req models.GroupMember
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	// Convert this endpoint into a 'request to join' creator that creates a pending group request
+	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var body map[string]any
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-
-	// Calling the Database to create the new Group Member Invitation
-	errDB := db.DBService.CreateGroupMember(req)
-	if errDB != nil {
-		http.Error(w, "Error creating the group member invitation", http.StatusInternalServerError)
+	groupIDVal, ok := body["group_id"]
+	if !ok {
+		http.Error(w, "Missing group_id", http.StatusBadRequest)
+		return
+	}
+	var groupID int64
+	switch v := groupIDVal.(type) {
+	case float64:
+		groupID = int64(v)
+	case int:
+		groupID = int64(v)
+	case int64:
+		groupID = v
+	case string:
+		if parsed, err := strconv.ParseInt(v, 10, 64); err == nil {
+			groupID = parsed
+		}
+	}
+	if groupID == 0 {
+		http.Error(w, "Invalid group_id", http.StatusBadRequest)
 		return
 	}
 
-	// Send back a response to the client-side in case of success
+	// Ensure group exists
+	exists, err := db.DBService.GroupExists(groupID)
+	if err != nil {
+		http.Error(w, "Error checking group existence", http.StatusInternalServerError)
+		return
+	}
+	if !exists {
+		http.Error(w, "Group not found", http.StatusNotFound)
+		return
+	}
+
+	// If already member, short-circuit
+	isMember, err := db.DBService.IsUserInGroup(int64(currentUserID), groupID)
+	if err != nil {
+		http.Error(w, "Error checking membership", http.StatusInternalServerError)
+		return
+	}
+	if isMember {
+		http.Error(w, "User is already a member of the group", http.StatusBadRequest)
+		return
+	}
+
+	// Check for existing request
+	if existing, _ := db.DBService.GetGroupRequestByGroupAndUser(groupID, int64(currentUserID)); existing != nil && existing.Status == "pending" {
+		http.Error(w, "A pending request already exists", http.StatusBadRequest)
+		return
+	}
+
+	if err := db.DBService.CreateGroupRequest(groupID, int64(currentUserID), "pending"); err != nil {
+		http.Error(w, "Error creating join request", http.StatusInternalServerError)
+		return
+	}
+
+	// Notify group creator (if needed you can expand recipients later)
+	group, _ := db.DBService.GetGroupByID(groupID)
+	_ = db.DBService.CreateNotification(models.CreateNotificationRequest{
+		UserID: group.CreatorID,
+		Type:   "group_join_request",
+		Data:   fmt.Sprintf("{\"group_id\":%d,\"user_id\":%d}", groupID, currentUserID),
+	})
+
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(`{"response": "Group member successfuly got created"}`))
+	w.Write([]byte(`{"response": "Join request created"}`))
 }
 
 // Handler to get the member list of a group
@@ -103,8 +164,23 @@ func UpdateGroupMemberHandler(w http.ResponseWriter, r *http.Request) {
 	// Update the group member in the database
 	errDB := db.DBService.UpdateGroupMemberRole(req, int64(userID))
 	if errDB != nil {
-		http.Error(w, "Failed to update group member", http.StatusInternalServerError)
-		return
+		switch errDB.Error() {
+		case "not authorized: requester is not an admin of this group":
+			http.Error(w, "Forbidden: requester is not an admin of this group", http.StatusForbidden)
+			return
+		case "member not found in this group":
+			http.Error(w, "Member not found in this group", http.StatusNotFound)
+			return
+		case "member already has the requested role":
+			http.Error(w, "Member already has the requested role", http.StatusBadRequest)
+			return
+		case "cannot demote: would remove the last admin from the group":
+			http.Error(w, "Cannot demote the last admin", http.StatusBadRequest)
+			return
+		default:
+			http.Error(w, "Failed to update group member: "+errDB.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	// Send success response
