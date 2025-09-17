@@ -226,7 +226,7 @@ const GroupDebugPanel = () => {
           <button onClick={()=>testEndpoint('cancelEventRSVP',()=>groupApi.cancelEventRSVP(testRsvpId))} className="bg-red-500 text-white px-2 py-1 rounded text-xs">Cancel RSVP</button>
         </div>
         <div className="text-xs text-gray-600 mt-2">
-          <p>• <strong>RSVP:</strong> Use Event ID. Status: 'come', 'maybe', 'cant_come'</p>
+          <p>• <strong>RSVP:</strong> Use Event ID. Status: &apos;come&apos;, &apos;maybe&apos;, &apos;cant_come&apos;</p>
           <p>• <strong>Update/Cancel RSVP:</strong> Use RSVP ID from getEventRSVPs results</p>
         </div>
       </div>
