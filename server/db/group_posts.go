@@ -21,7 +21,8 @@ func (s *Service) IsUserInGroup(userID, groupID int64) (bool, error) {
 
 func (s *Service) IsUserGroupAdmin(userID, groupID int64) (bool, error) {
 	var isAdmin bool
-	err := s.DB.QueryRow(`SELECT EXISTS(SELECT 1 FROM groups WHERE id = ? AND admin_id = ?)`, groupID, userID).Scan(&isAdmin)
+	// In schema, group creator is the admin/owner; column is likely creator_id
+	err := s.DB.QueryRow(`SELECT EXISTS(SELECT 1 FROM groups WHERE id = ? AND creator_id = ?)`, groupID, userID).Scan(&isAdmin)
 	return isAdmin, err
 }
 
@@ -70,18 +71,25 @@ func (s *Service) GetGroupPostsWithImagesByGroupID(groupID int64, offset int, us
 	// Checking if the group id is valid
 	exists, err := s.GroupExists(groupID)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errors.New("post not found")
+		}
 		return nil, err
 	}
 	if !exists {
 		return nil, errors.New("group does not exist")
 	}
 
-	// Checking if the user making the request is part of the group
+	// Checking if the user making the request is part of the group or admin
 	isMember, err := s.IsUserInGroup(userID, groupID)
 	if err != nil {
 		return nil, err
 	}
-	if !isMember {
+	isAdmin, err := s.IsUserGroupAdmin(userID, groupID)
+	if err != nil {
+		return nil, err
+	}
+	if !isMember && !isAdmin {
 		return nil, errors.New("user is not a member of the group")
 	}
 
@@ -99,19 +107,22 @@ func (s *Service) GetGroupPostsWithImagesByGroupID(groupID int64, offset int, us
 	}()
 
 	rows, err := tx.Query(`
-		SELECT id, user_id, title, body, created_at, updated_at
-		FROM group_posts
-		WHERE group_id = ?
-		ORDER BY created_at DESC
-		LIMIT -1 OFFSET (
-			SELECT CASE 
-				WHEN COUNT(*) <= ? THEN 0 
-				ELSE ? 
-			END
-			FROM group_posts
-			WHERE group_id = ?
-		)
-	`, groupID, offset, offset, groupID)
+        SELECT 
+            gp.id, 
+            gp.user_id, 
+            gp.title, 
+            gp.body, 
+            gp.created_at, 
+            gp.updated_at,
+            (SELECT COUNT(*) FROM likes_dislikes WHERE group_post_id = gp.id AND type = 'like') AS likes,
+            (SELECT COUNT(*) FROM likes_dislikes WHERE group_post_id = gp.id AND type = 'dislike') AS dislikes,
+            EXISTS(SELECT 1 FROM likes_dislikes WHERE group_post_id = gp.id AND user_id = ? AND type = 'like') AS user_liked,
+            EXISTS(SELECT 1 FROM likes_dislikes WHERE group_post_id = gp.id AND user_id = ? AND type = 'dislike') AS user_disliked
+        FROM group_posts gp
+        WHERE gp.group_id = ?
+        ORDER BY gp.created_at DESC
+        LIMIT 20 OFFSET ?
+    `, userID, userID, groupID, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -121,11 +132,16 @@ func (s *Service) GetGroupPostsWithImagesByGroupID(groupID int64, offset int, us
 	var posts []*models.GroupPost
 	for rows.Next() {
 		var gp models.GroupPost
-		err = rows.Scan(&gp.ID, &gp.UserID, &gp.Title, &gp.Body, &gp.CreatedAt, &gp.UpdatedAt)
+		var userLikedInt, userDislikedInt int
+		err = rows.Scan(&gp.ID, &gp.UserID, &gp.Title, &gp.Body, &gp.CreatedAt, &gp.UpdatedAt,
+			&gp.Likes, &gp.Dislikes, &userLikedInt, &userDislikedInt)
 		if err != nil {
 			return nil, err
 		}
 		gp.Visibility = "public"
+		gp.UserLiked = userLikedInt == 1
+		gp.UserDisliked = userDislikedInt == 1
+
 		imageRows, err := tx.Query(`
 			SELECT image_url FROM post_images
 			WHERE post_id = ? AND is_group_post = 1`, gp.ID)
@@ -154,28 +170,49 @@ func (s *Service) GetGroupPostWithImagesByID(postID, userID int64) (*models.Grou
 	// Retrieve group_id from post to verify access
 	groupID, err := s.GetGroupIDFromPost(postID)
 	if err != nil {
-
+		if err == sql.ErrNoRows || err.Error() == "post not found" {
+			return nil, errors.New("post not found")
+		}
+		return nil, err
 	}
 
-	// Check if user is a member of the group
+	// Check if user is a member or admin of the group
 	isMember, err := s.IsUserInGroup(userID, groupID)
 	if err != nil {
 		return nil, err
 	}
-	if !isMember {
+	isAdmin, err := s.IsUserGroupAdmin(userID, groupID)
+	if err != nil {
+		return nil, err
+	}
+	if !isMember && !isAdmin {
 		return nil, errors.New("user is not a member of the group")
 	}
 
-	// Get post details
+	// Get post details with likes/dislikes
 	var gp models.GroupPost
+	var userLikedInt, userDislikedInt int
 	err = s.DB.QueryRow(`
-        SELECT id, user_id, title, body, created_at, updated_at
-        FROM group_posts
-        WHERE id = ?`, postID).Scan(&gp.ID, &gp.UserID, &gp.Title, &gp.Body, &gp.CreatedAt, &gp.UpdatedAt)
+        SELECT 
+            gp.id, 
+            gp.user_id, 
+            gp.title, 
+            gp.body, 
+            gp.created_at, 
+            gp.updated_at,
+            (SELECT COUNT(*) FROM likes_dislikes WHERE group_post_id = gp.id AND type = 'like') AS likes,
+            (SELECT COUNT(*) FROM likes_dislikes WHERE group_post_id = gp.id AND type = 'dislike') AS dislikes,
+            EXISTS(SELECT 1 FROM likes_dislikes WHERE group_post_id = gp.id AND user_id = ? AND type = 'like') AS user_liked,
+            EXISTS(SELECT 1 FROM likes_dislikes WHERE group_post_id = gp.id AND user_id = ? AND type = 'dislike') AS user_disliked
+        FROM group_posts gp
+        WHERE gp.id = ?`, userID, userID, postID).Scan(&gp.ID, &gp.UserID, &gp.Title, &gp.Body, &gp.CreatedAt, &gp.UpdatedAt,
+		&gp.Likes, &gp.Dislikes, &userLikedInt, &userDislikedInt)
 	if err != nil {
 		return nil, err
 	}
 	gp.Visibility = "public"
+	gp.UserLiked = userLikedInt == 1
+	gp.UserDisliked = userDislikedInt == 1
 
 	// Get post images
 	rows, err := s.DB.Query(`

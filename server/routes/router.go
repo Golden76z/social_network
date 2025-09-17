@@ -132,8 +132,11 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	// No route found
-	http.NotFound(w, req)
+	// No route found - still apply middlewares (e.g., CORS) to the 404 response
+	notFoundHandler := r.wrapWithMiddlewares(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	}), r.middlewares)
+	notFoundHandler.ServeHTTP(w, req)
 }
 
 // matchRoute checks if a pattern matches a path and extracts parameters
