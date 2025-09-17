@@ -17,15 +17,20 @@ export const postApi = {
     return apiClient.get<Post>(`${postRoutes.base}?id=${postId}`);
   },
 
-//   // GET /api/post/user/{userId} - Get posts by specific user
-//   getPostsByUser: (userId: number): Promise<Post[]> => {
-//     return apiClient.get<Post[]>(`${postRoutes.user}/${userId}`);
-//   },
+  // GET /api/post/user/{userId} - Get posts by specific user
+  getPostsByUser: (userId: number): Promise<Post[]> => {
+    return apiClient.get<Post[]>(`${postRoutes.base}?userId=${userId}`);
+  },
 
-//   // GET /api/post/me - Get current user's posts
-//   getMyPosts: (): Promise<Post[]> => {
-//     return apiClient.get<Post[]>(postRoutes.me);
-//   },
+  // GET /api/post/me - Get current user's posts
+  getMyPosts: (): Promise<Post[]> => {
+    return apiClient.get<Post[]>(`${postRoutes.base}?me=true`);
+  },
+
+  // GET /api/post/liked - Get current user's liked posts
+  getLikedPosts: (): Promise<Post[]> => {
+    return apiClient.get<Post[]>(`${postRoutes.base}?liked=true`);
+  },
 
   // POST /api/posts - Create new post
   createPost: (data: CreatePostRequest): Promise<Post> => {

@@ -9,6 +9,7 @@ interface PostCardProps {
   onLike?: (postId: number) => void;
   onComment?: (postId: number) => void;
   onViewDetails?: (postId: number) => void;
+  onUserClick?: (userId: number) => void;
 }
 
 export const PostCard: React.FC<PostCardProps> = ({
@@ -16,6 +17,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   onLike,
   onComment,
   onViewDetails,
+  onUserClick,
 }) => {
   const [isLiked, setIsLiked] = useState(post.user_liked || false);
   const [likeCount, setLikeCount] = useState(post.likes || 0);
@@ -86,11 +88,17 @@ export const PostCard: React.FC<PostCardProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
+          <div 
+            className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => post.author_id && onUserClick?.(post.author_id)}
+          >
             {(post as Post & { author_nickname?: string }).author_nickname?.charAt(0) || 'U'}
           </div>
           <div>
-            <p className="font-semibold text-sm">
+            <p 
+              className="font-semibold text-sm cursor-pointer hover:text-blue-500 transition-colors"
+              onClick={() => post.author_id && onUserClick?.(post.author_id)}
+            >
               {(post as Post & { author_nickname?: string }).author_nickname || 'Unknown User'}
             </p>
             <p className="text-xs text-gray-500">{formatDate(post.created_at)}</p>
