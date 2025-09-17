@@ -12,7 +12,7 @@ import { PostModal } from '@/components/PostModal';
 import Header from '@/components/header';
 import { SideBarLeft } from '@/components/SideBarLeft';
 import { SideBarRight } from '@/components/SideBarRight';
-import { Users, Lock, Unlock } from 'lucide-react';
+import { Users, Lock, Unlock, UserMinus, UserPlus } from 'lucide-react';
 
 interface FollowersModalProps {
   isOpen: boolean;
@@ -110,6 +110,8 @@ export default function ProfilePage() {
   const [followersModal, setFollowersModal] = useState<{isOpen: boolean, type: 'followers' | 'following'}>({isOpen: false, type: 'followers'});
   const [followers, setFollowers] = useState<UserDisplayInfo[]>([]);
   const [following, setFollowing] = useState<UserDisplayInfo[]>([]);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
 
   const [formState, setFormState] = useState({
     first_name: '',
@@ -122,20 +124,20 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Redirect to dynamic route if userId is provided
-  useEffect(() => {
-    if (userId && hasCheckedAuth && !isLoading) {
-      router.push(`/profile/${userId}`);
-    }
-  }, [userId, hasCheckedAuth, isLoading, router]);
-
   // Load profile data
   useEffect(() => {
     const loadProfile = async () => {
-      if (!user || userId) return; // Don't load if userId is provided (will redirect)
+      if (!user) return;
       
       try {
-        const profileData = await userApi.getProfile();
+        let profileData;
+        if (userId) {
+          // Load other user's profile
+          profileData = await userApi.getUserById(parseInt(userId));
+        } else {
+          // Load own profile
+          profileData = await userApi.getProfile();
+        }
         setProfileUser(profileData);
         setFormState({
           first_name: profileData.first_name,
@@ -149,7 +151,7 @@ export default function ProfilePage() {
       }
     };
 
-    if (hasCheckedAuth && !isLoading && user && !userId) {
+    if (hasCheckedAuth && !isLoading && user) {
       loadProfile();
     }
   }, [user, hasCheckedAuth, isLoading, userId]);
@@ -162,14 +164,35 @@ export default function ProfilePage() {
       setLoadingPosts(true);
       try {
         if (activeTab === 'posts') {
-          const postsData = await postApi.getMyPosts();
-          setPosts(postsData);
+          if (userId) {
+            // Load other user's posts
+            const postsData = await postApi.getPostsByUser(parseInt(userId));
+            setPosts(postsData);
+          } else {
+            // Load own posts
+            const postsData = await postApi.getMyPosts();
+            setPosts(postsData);
+          }
         } else if (activeTab === 'liked') {
-          const likedData = await postApi.getLikedPosts();
-          setLikedPosts(likedData);
+          if (userId) {
+            // Load other user's liked posts
+            const likedData = await postApi.getLikedPostsByUser(parseInt(userId));
+            setLikedPosts(likedData);
+          } else {
+            // Load own liked posts
+            const likedData = await postApi.getLikedPosts();
+            setLikedPosts(likedData);
+          }
         } else if (activeTab === 'commented') {
-          const commentedData = await postApi.getCommentedPosts();
-          setCommentedPosts(commentedData);
+          if (userId) {
+            // Load other user's commented posts
+            const commentedData = await postApi.getCommentedPostsByUser(parseInt(userId));
+            setCommentedPosts(commentedData);
+          } else {
+            // Load own commented posts
+            const commentedData = await postApi.getCommentedPosts();
+            setCommentedPosts(commentedData);
+          }
         }
       } catch (error) {
         console.error('Error loading posts:', error);
@@ -179,7 +202,7 @@ export default function ProfilePage() {
     };
 
     loadPosts();
-  }, [activeTab, user]);
+  }, [activeTab, user, userId]);
 
   if (!hasCheckedAuth || isLoading) {
     return (
@@ -324,14 +347,43 @@ export default function ProfilePage() {
   };
 
   const handleUserClick = (userId: number) => {
-    // Navigate to user profile (you can implement this later)
-    console.log('Navigate to user profile:', userId);
+    // Navigate to user profile
+    router.push(`/profile?userId=${userId}`);
     setFollowersModal({isOpen: false, type: 'followers'});
+  };
+
+  const handleFollowToggle = async () => {
+    if (!userId || !user) return;
+    
+    setIsFollowLoading(true);
+    try {
+      if (isFollowing) {
+        await userApi.unfollowUser(parseInt(userId));
+        setIsFollowing(false);
+        // Update followers count
+        if (profileUser) {
+          setProfileUser({...profileUser, followers: profileUser.followers - 1});
+        }
+      } else {
+        await userApi.followUser(parseInt(userId));
+        setIsFollowing(true);
+        // Update followers count
+        if (profileUser) {
+          setProfileUser({...profileUser, followers: profileUser.followers + 1});
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling follow:', error);
+    } finally {
+      setIsFollowLoading(false);
+    }
   };
 
   return (
     <div className="w-full">
-      <h1 className="text-2xl font-bold mb-6">Your Profile</h1>
+      <h1 className="text-2xl font-bold mb-6">
+        {userId ? `${profileUser?.nickname || 'User'}'s Profile` : 'Your Profile'}
+      </h1>
 
       <div className="space-y-6">
             {/* Profile Header */}
@@ -412,28 +464,61 @@ export default function ProfilePage() {
                   )}
                 </div>
 
-                {isEditing ? (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleSave}
-                      disabled={saving}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
-                    >
-                      {saving ? 'Saving...' : 'Save'}
-                    </button>
-                    <button
-                      onClick={handleCancel}
-                      className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
+                {!userId && (
+                  <>
+                    {isEditing ? (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleSave}
+                          disabled={saving}
+                          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                        >
+                          {saving ? 'Saving...' : 'Save'}
+                        </button>
+                        <button
+                          onClick={handleCancel}
+                          className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                        onClick={() => setIsEditing(true)}
+                      >
+                        Edit Profile
+                      </button>
+                    )}
+                  </>
+                )}
+                
+                {userId && user && parseInt(userId) !== user.id && (
                   <button
-                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                    onClick={() => setIsEditing(true)}
+                    onClick={handleFollowToggle}
+                    disabled={isFollowLoading}
+                    className={`px-4 py-2 rounded-lg transition-colors flex items-center space-x-2 ${
+                      isFollowing
+                        ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        : 'bg-blue-500 text-white hover:bg-blue-600'
+                    } ${isFollowLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
-                    Edit Profile
+                    {isFollowLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                        <span>Loading...</span>
+                      </>
+                    ) : isFollowing ? (
+                      <>
+                        <UserMinus className="w-4 h-4" />
+                        <span>Unfollow</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="w-4 h-4" />
+                        <span>Follow</span>
+                      </>
+                    )}
                   </button>
                 )}
               </div>
@@ -447,21 +532,21 @@ export default function ProfilePage() {
             <div className="bg-white rounded-lg border border-gray-200 p-6">
               <div className="grid grid-cols-3 gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold">{posts.length}</div>
+                  <div className="text-2xl font-bold">{posts?.length || 0}</div>
                   <div className="text-sm text-gray-500">Posts</div>
                 </div>
                 <div 
                   className="text-center cursor-pointer hover:text-blue-500 transition-colors"
                   onClick={handleFollowingClick}
                 >
-                  <div className="text-2xl font-bold">{profileUser.followed}</div>
+                  <div className="text-2xl font-bold">{profileUser?.followed || 0}</div>
                   <div className="text-sm text-gray-500">Following</div>
                 </div>
                 <div 
                   className="text-center cursor-pointer hover:text-blue-500 transition-colors"
                   onClick={handleFollowersClick}
                 >
-                  <div className="text-2xl font-bold">{profileUser.followers}</div>
+                  <div className="text-2xl font-bold">{profileUser?.followers || 0}</div>
                   <div className="text-sm text-gray-500">Followers</div>
                 </div>
               </div>
@@ -543,6 +628,7 @@ export default function ProfilePage() {
                             onComment={handleComment}
                             onViewDetails={handleViewDetails}
                             onUserClick={handleUserClick}
+                            disableLikes={!!userId} // Disable likes when viewing other users' profiles
                           />
                         ))
                       );
