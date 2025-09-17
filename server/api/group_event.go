@@ -9,6 +9,7 @@ import (
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/middleware"
 	"github.com/Golden76z/social-network/models"
+	"github.com/Golden76z/social-network/utils"
 )
 
 // CreateGroupEventHandler handles the creation of a new group event
@@ -22,10 +23,14 @@ func CreateGroupEventHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing required fields", http.StatusBadRequest)
 		return
 	}
-	// Validate datetime format
+	// Validate datetime format: accept "YYYY-MM-DD HH:MM:SS" or RFC3339, normalize to SQL format
 	if _, err := time.Parse("2006-01-02 15:04:05", req.EventDateTime); err != nil {
-		http.Error(w, "Invalid event_date_time format", http.StatusBadRequest)
-		return
+		if t, errRFC := time.Parse(time.RFC3339, req.EventDateTime); errRFC == nil {
+			req.EventDateTime = t.Format("2006-01-02 15:04:05")
+		} else {
+			http.Error(w, "Invalid event_date_time format. Use YYYY-MM-DD HH:MM:SS or RFC3339", http.StatusBadRequest)
+			return
+		}
 	}
 	// Get creatorID from context
 	creatorID := int64(0)
@@ -66,7 +71,44 @@ func CreateGroupEventHandler(w http.ResponseWriter, r *http.Request) {
 // Handler to retrieve all events in a group
 func GetGroupEventHandler(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	groupID, _ := strconv.ParseInt(q.Get("group_id"), 10, 64)
+	// Support path param for single fetch
+	if idPath := utils.GetPathParam(r, "id"); idPath != "" {
+		// Get single event by id
+		eventID, err := strconv.ParseInt(idPath, 10, 64)
+		if err != nil || eventID <= 0 {
+			http.Error(w, "Invalid event id", http.StatusBadRequest)
+			return
+		}
+		ge, err := db.DBService.GetGroupEventByID(eventID)
+		if err != nil {
+			http.Error(w, "Event not found", http.StatusNotFound)
+			return
+		}
+		// membership check
+		userID := int64(0)
+		if ctxID, ok := r.Context().Value(middleware.UserIDKey).(int); ok {
+			userID = int64(ctxID)
+		}
+		isMember, err := db.DBService.IsUserInGroup(userID, ge.GroupID)
+		if err != nil {
+			http.Error(w, "Error checking group membership", http.StatusInternalServerError)
+			return
+		}
+		if !isMember {
+			http.Error(w, "Forbidden: you must be a group member to view events", http.StatusForbidden)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(ge)
+		return
+	}
+
+	// Support both group_id and groupId query params
+	groupIDStr := q.Get("group_id")
+	if groupIDStr == "" {
+		groupIDStr = q.Get("groupId")
+	}
+	groupID, _ := strconv.ParseInt(groupIDStr, 10, 64)
 
 	// Get userID from context
 	userID := int64(0)
@@ -102,7 +144,7 @@ func GetGroupEventHandler(w http.ResponseWriter, r *http.Request) {
 
 	events, err := db.DBService.GetGroupEvents(groupID, upcoming, limit, offset, fromDate, toDate)
 	if err != nil {
-		http.Error(w, "Error fetching events", http.StatusInternalServerError)
+		http.Error(w, "Error fetching events: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -116,6 +158,14 @@ func UpdateGroupEventHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+	// Allow id from path param if not present in body
+	if req.ID == 0 {
+		if idPath := utils.GetPathParam(r, "id"); idPath != "" {
+			if idNum, err := strconv.ParseInt(idPath, 10, 64); err == nil {
+				req.ID = idNum
+			}
+		}
+	}
 	if req.ID == 0 {
 		http.Error(w, "Missing event ID", http.StatusBadRequest)
 		return
@@ -124,11 +174,16 @@ func UpdateGroupEventHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No fields to update", http.StatusBadRequest)
 		return
 	}
-	// Vérification du format de la date si fournie
+	// Validate/normalize date format if provided: accept SQL format or RFC3339
 	if req.EventDateTime != nil {
 		if _, err := time.Parse("2006-01-02 15:04:05", *req.EventDateTime); err != nil {
-			http.Error(w, "Invalid event_date_time format. Use YYYY-MM-DD HH:MM:SS", http.StatusBadRequest)
-			return
+			if t, errRFC := time.Parse(time.RFC3339, *req.EventDateTime); errRFC == nil {
+				normalized := t.Format("2006-01-02 15:04:05")
+				req.EventDateTime = &normalized
+			} else {
+				http.Error(w, "Invalid event_date_time format. Use YYYY-MM-DD HH:MM:SS or RFC3339", http.StatusBadRequest)
+				return
+			}
 		}
 	}
 	// Access control: only creator can update and must still be a group member
@@ -156,7 +211,7 @@ func UpdateGroupEventHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := db.DBService.UpdateGroupEvent(req.ID, req); err != nil {
-		http.Error(w, "Error updating event", http.StatusInternalServerError)
+		http.Error(w, "Error updating event: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -167,8 +222,14 @@ func UpdateGroupEventHandler(w http.ResponseWriter, r *http.Request) {
 func DeleteGroupEventHandler(w http.ResponseWriter, r *http.Request) {
 	var req models.DeleteGroupEventRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
+		// try path param
+	}
+	if req.ID == 0 {
+		if idPath := utils.GetPathParam(r, "id"); idPath != "" {
+			if idNum, err := strconv.ParseInt(idPath, 10, 64); err == nil {
+				req.ID = idNum
+			}
+		}
 	}
 	if req.ID == 0 {
 		http.Error(w, "Missing event ID", http.StatusBadRequest)
@@ -199,7 +260,7 @@ func DeleteGroupEventHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := db.DBService.DeleteGroupEvent(req.ID); err != nil {
-		http.Error(w, "Error deleting event", http.StatusInternalServerError)
+		http.Error(w, "Error deleting event: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusOK)

@@ -34,9 +34,12 @@ func setupGroupRoutes(r *Router) {
 
 	// Group events
 	r.POST("/api/group/event", api.CreateGroupEventHandler)
-	r.GET("/api/group/event", api.GetGroupEventHandler)
-	r.PUT("/api/group/event", api.UpdateGroupEventHandler)
-	r.DELETE("/api/group/event", api.DeleteGroupEventHandler)
+	r.GET("/api/group/event", api.GetGroupEventHandler)            // List by group
+	r.GET("/api/group/event/{id}", api.GetGroupEventHandler)       // Single by id
+	r.PUT("/api/group/event", api.UpdateGroupEventHandler)         // Body-based
+	r.PUT("/api/group/event/{id}", api.UpdateGroupEventHandler)    // Path-based
+	r.DELETE("/api/group/event", api.DeleteGroupEventHandler)      // Body-based
+	r.DELETE("/api/group/event/{id}", api.DeleteGroupEventHandler) // Path-based
 
 	// Group membership
 	r.POST("/api/group/member", api.CreateGroupMemberHandler)
