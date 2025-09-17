@@ -89,7 +89,7 @@ func (s *Service) GetGroupComments(groupPostID, userID int64, offset int) ([]mod
 	}
 	defer rows.Close()
 
-	var comments []models.Comment
+	comments := make([]models.Comment, 0)
 	for rows.Next() {
 		var comment models.Comment
 		var username, firstName, lastName sql.NullString

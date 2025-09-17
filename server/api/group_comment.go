@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/middleware"
@@ -71,7 +72,7 @@ func GetGroupCommentHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "Comment not found", http.StatusNotFound)
 				return
 			}
-			http.Error(w, "Error retrieving comment", http.StatusInternalServerError)
+			http.Error(w, "Error retrieving comment: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -102,7 +103,11 @@ func GetGroupCommentHandler(w http.ResponseWriter, r *http.Request) {
 	comments, errDB := db.DBService.GetGroupComments(postID, int64(userID), int(offSet))
 	if errDB != nil {
 		fmt.Println("Error db: ", errDB)
-		http.Error(w, "Error retrieving group comments", http.StatusInternalServerError)
+		if errDB.Error() == "comment not found or access denied" {
+			http.Error(w, "Access denied: Not a group member", http.StatusForbidden)
+			return
+		}
+		http.Error(w, "Error retrieving group comments: "+errDB.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -145,11 +150,15 @@ func UpdateGroupCommentHandler(w http.ResponseWriter, r *http.Request) {
 	// Update comment in database
 	errDB := db.DBService.UpdateGroupComment(req.ID, int64(userID), req)
 	if errDB != nil {
-		if errDB.Error() == "comment not found" || errDB.Error() == "unauthorized" {
-			http.Error(w, "Comment not found or unauthorized", http.StatusNotFound)
+		if errDB.Error() == "comment not found" {
+			http.Error(w, "Comment not found", http.StatusNotFound)
 			return
 		}
-		http.Error(w, "Error updating group comment", http.StatusInternalServerError)
+		if strings.HasPrefix(errDB.Error(), "unauthorized") {
+			http.Error(w, "Forbidden: You can only update your own comments", http.StatusForbidden)
+			return
+		}
+		http.Error(w, "Error updating group comment: "+errDB.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -186,11 +195,15 @@ func DeleteGroupCommentHandler(w http.ResponseWriter, r *http.Request) {
 	// Delete comment from database
 	errDB := db.DBService.DeleteGroupComment(req.ID, int64(userID))
 	if errDB != nil {
-		if errDB.Error() == "comment not found" || errDB.Error() == "unauthorized" {
-			http.Error(w, "Comment not found or unauthorized", http.StatusNotFound)
+		if errDB.Error() == "comment not found" {
+			http.Error(w, "Comment not found", http.StatusNotFound)
 			return
 		}
-		http.Error(w, "Error deleting group comment", http.StatusInternalServerError)
+		if strings.HasPrefix(errDB.Error(), "unauthorized") {
+			http.Error(w, "Forbidden: You can only delete your own comments", http.StatusForbidden)
+			return
+		}
+		http.Error(w, "Error deleting group comment: "+errDB.Error(), http.StatusInternalServerError)
 		return
 	}
 
