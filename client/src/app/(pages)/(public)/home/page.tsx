@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Header from '@/components/header';
 import { useAuth } from '@/context/AuthProvider';
 import { SideBarLeft } from '@/components/SideBarLeft';
@@ -12,6 +13,7 @@ import { Post } from '@/lib/types';
 
 const HomePage: React.FC = () => {
   const { user, isLoading, hasCheckedAuth } = useAuth();
+  const router = useRouter();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
@@ -55,6 +57,11 @@ const HomePage: React.FC = () => {
     } catch (error) {
       console.error('Error refreshing posts after modal close:', error);
     }
+  };
+
+  const handleUserClick = (userId: number) => {
+    // Navigate to user profile
+    router.push(`/profile?userId=${userId}`);
   };
 
   const handleLike = async (postId: number) => {
@@ -119,15 +126,16 @@ const HomePage: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {posts.map((post) => (
-                    <PostCard
-                      key={post.id}
-                      post={post}
-                      onLike={handleLike}
-                      onComment={handleComment}
-                      onViewDetails={handleViewDetails}
-                    />
-                  ))}
+                {posts.map((post) => (
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    onLike={handleLike}
+                    onComment={handleComment}
+                    onViewDetails={handleViewDetails}
+                    onUserClick={handleUserClick}
+                  />
+                ))}
                 </div>
               )}
             </div>
