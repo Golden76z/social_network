@@ -1,18 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import { userApi } from '@/lib/api/user';
-import { postApi } from '@/lib/api/post';
 import { UpdateUserRequest, UserProfile, UserDisplayInfo } from '@/lib/types';
-import { Post } from '@/lib/types/post';
-import { PostCard } from '@/components/PostCard';
-import { PostModal } from '@/components/PostModal';
-import Header from '@/components/header';
-import { SideBarLeft } from '@/components/SideBarLeft';
-import { SideBarRight } from '@/components/SideBarRight';
-import { Users, Lock, Unlock, UserMinus, UserPlus } from 'lucide-react';
+import { Lock, Unlock, UserMinus, UserPlus } from 'lucide-react';
 
 interface FollowersModalProps {
   isOpen: boolean;
@@ -93,20 +86,13 @@ const FollowersModal: React.FC<FollowersModalProps> = ({ isOpen, onClose, users,
   );
 };
 
-export default function ProfilePage() {
+function ProfilePageContent() {
   const { user, isLoading, hasCheckedAuth, checkAuth } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
   const userId = searchParams.get('userId');
   const [profileUser, setProfileUser] = useState<UserProfile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'commented'>('posts');
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [likedPosts, setLikedPosts] = useState<Post[]>([]);
-  const [commentedPosts, setCommentedPosts] = useState<Post[]>([]);
-  const [loadingPosts, setLoadingPosts] = useState(false);
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [followersModal, setFollowersModal] = useState<{isOpen: boolean, type: 'followers' | 'following'}>({isOpen: false, type: 'followers'});
   const [followers, setFollowers] = useState<UserDisplayInfo[]>([]);
   const [following, setFollowing] = useState<UserDisplayInfo[]>([]);
@@ -156,53 +142,6 @@ export default function ProfilePage() {
     }
   }, [user, hasCheckedAuth, isLoading, userId]);
 
-  // Load posts when tab changes
-  useEffect(() => {
-    const loadPosts = async () => {
-      if (!user) return;
-      
-      setLoadingPosts(true);
-      try {
-        if (activeTab === 'posts') {
-          if (userId) {
-            // Load other user's posts
-            const postsData = await postApi.getPostsByUser(parseInt(userId));
-            setPosts(postsData);
-          } else {
-            // Load own posts
-            const postsData = await postApi.getMyPosts();
-            setPosts(postsData);
-          }
-        } else if (activeTab === 'liked') {
-          if (userId) {
-            // Load other user's liked posts
-            const likedData = await postApi.getLikedPostsByUser(parseInt(userId));
-            setLikedPosts(likedData);
-          } else {
-            // Load own liked posts
-            const likedData = await postApi.getLikedPosts();
-            setLikedPosts(likedData);
-          }
-        } else if (activeTab === 'commented') {
-          if (userId) {
-            // Load other user's commented posts
-            const commentedData = await postApi.getCommentedPostsByUser(parseInt(userId));
-            setCommentedPosts(commentedData);
-          } else {
-            // Load own commented posts
-            const commentedData = await postApi.getCommentedPosts();
-            setCommentedPosts(commentedData);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading posts:', error);
-      } finally {
-        setLoadingPosts(false);
-      }
-    };
-
-    loadPosts();
-  }, [activeTab, user, userId]);
 
   if (!hasCheckedAuth || isLoading) {
     return (
@@ -212,7 +151,9 @@ export default function ProfilePage() {
     );
   }
 
-  if (!user) {
+  // Allow unauthenticated users to view other users' profiles
+  // Only require authentication for own profile (when userId is not provided)
+  if (!user && !userId) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-red-500 text-lg">You must be logged in to view your profile.</p>
@@ -268,67 +209,12 @@ export default function ProfilePage() {
     setError(null);
   };
 
-  const handleViewDetails = (postId: number) => {
-    let post: Post | undefined;
-    if (activeTab === 'posts') {
-      post = posts.find(p => p.id === postId);
-    } else if (activeTab === 'liked') {
-      post = likedPosts.find(p => p.id === postId);
-    } else if (activeTab === 'commented') {
-      post = commentedPosts.find(p => p.id === postId);
-    }
-    
-    if (post) {
-      setSelectedPost(post);
-      setIsModalOpen(true);
-    }
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setSelectedPost(null);
-  };
-
-  const handleLike = async (postId: number) => {
-    // Refresh posts after like
-    try {
-      if (activeTab === 'posts') {
-        const updatedPosts = await postApi.getMyPosts();
-        setPosts(updatedPosts);
-      } else if (activeTab === 'liked') {
-        const updatedLikedPosts = await postApi.getLikedPosts();
-        setLikedPosts(updatedLikedPosts);
-      } else if (activeTab === 'commented') {
-        const updatedCommentedPosts = await postApi.getCommentedPosts();
-        setCommentedPosts(updatedCommentedPosts);
-      }
-      
-      if (selectedPost?.id === postId) {
-        let updatedPost: Post | undefined;
-        if (activeTab === 'posts') {
-          updatedPost = posts.find(p => p.id === postId);
-        } else if (activeTab === 'liked') {
-          updatedPost = likedPosts.find(p => p.id === postId);
-        } else if (activeTab === 'commented') {
-          updatedPost = commentedPosts.find(p => p.id === postId);
-        }
-        
-        if (updatedPost) {
-          setSelectedPost(updatedPost);
-        }
-      }
-    } catch (error) {
-      console.error('Error refreshing posts after like:', error);
-    }
-  };
-
-  const handleComment = (postId: number) => {
-    handleViewDetails(postId);
-  };
 
   const handleFollowersClick = async () => {
     try {
-      const followersData = await userApi.getFollowers(user.id);
+      const targetUserId = userId ? parseInt(userId) : (user?.id || 0);
+      if (!targetUserId) return;
+      const followersData = await userApi.getFollowers(targetUserId);
       setFollowers(followersData);
       setFollowersModal({isOpen: true, type: 'followers'});
     } catch (error) {
@@ -338,7 +224,9 @@ export default function ProfilePage() {
 
   const handleFollowingClick = async () => {
     try {
-      const followingData = await userApi.getFollowing(user.id);
+      const targetUserId = userId ? parseInt(userId) : (user?.id || 0);
+      if (!targetUserId) return;
+      const followingData = await userApi.getFollowing(targetUserId);
       setFollowing(followingData);
       setFollowersModal({isOpen: true, type: 'following'});
     } catch (error) {
@@ -530,11 +418,7 @@ export default function ProfilePage() {
 
             {/* Profile Stats */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{posts?.length || 0}</div>
-                  <div className="text-sm text-gray-500">Posts</div>
-                </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div 
                   className="text-center cursor-pointer hover:text-blue-500 transition-colors"
                   onClick={handleFollowingClick}
@@ -552,100 +436,8 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Posts/Liked Posts/Commented Posts Tabs */}
-            <div className="bg-white rounded-lg border border-gray-200">
-              <div className="flex border-b border-gray-200">
-                <button
-                  onClick={() => setActiveTab('posts')}
-                  className={`flex-1 py-3 px-4 text-center font-medium transition-colors ${
-                    activeTab === 'posts'
-                      ? 'text-blue-500 border-b-2 border-blue-500'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Posts
-                </button>
-                <button
-                  onClick={() => setActiveTab('liked')}
-                  className={`flex-1 py-3 px-4 text-center font-medium transition-colors ${
-                    activeTab === 'liked'
-                      ? 'text-blue-500 border-b-2 border-blue-500'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Liked Posts
-                </button>
-                <button
-                  onClick={() => setActiveTab('commented')}
-                  className={`flex-1 py-3 px-4 text-center font-medium transition-colors ${
-                    activeTab === 'commented'
-                      ? 'text-blue-500 border-b-2 border-blue-500'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Commented Posts
-                </button>
-              </div>
-
-              <div className="p-6">
-                {loadingPosts ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                    <span className="ml-2 text-gray-500">Loading {activeTab}...</span>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {(() => {
-                      let currentPosts: Post[] = [];
-                      let emptyMessage = '';
-                      let emptySubMessage = '';
-                      
-                      if (activeTab === 'posts') {
-                        currentPosts = posts;
-                        emptyMessage = 'No posts yet.';
-                        emptySubMessage = 'Create your first post to get started!';
-                      } else if (activeTab === 'liked') {
-                        currentPosts = likedPosts;
-                        emptyMessage = 'No liked posts yet.';
-                        emptySubMessage = 'Like some posts to see them here!';
-                      } else if (activeTab === 'commented') {
-                        currentPosts = commentedPosts;
-                        emptyMessage = 'No commented posts yet.';
-                        emptySubMessage = 'Comment on some posts to see them here!';
-                      }
-                      
-                      return currentPosts.length === 0 ? (
-                        <div className="text-center py-8">
-                          <p className="text-gray-500 text-lg">{emptyMessage}</p>
-                          <p className="text-gray-400 text-sm mt-2">{emptySubMessage}</p>
-                        </div>
-                      ) : (
-                        currentPosts.map((post) => (
-                          <PostCard
-                            key={post.id}
-                            post={post}
-                            onLike={handleLike}
-                            onComment={handleComment}
-                            onViewDetails={handleViewDetails}
-                            onUserClick={handleUserClick}
-                            disableLikes={!!userId} // Disable likes when viewing other users' profiles
-                          />
-                        ))
-                      );
-                    })()}
-                  </div>
-                )}
-              </div>
-            </div>
       </div>
 
-      {/* Post Modal */}
-      <PostModal
-        post={selectedPost}
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        onLike={handleLike}
-      />
 
       {/* Followers/Following Modal */}
       <FollowersModal
@@ -656,5 +448,13 @@ export default function ProfilePage() {
         onUserClick={handleUserClick}
       />
     </div>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><p className="text-gray-500 text-lg">Loading...</p></div>}>
+      <ProfilePageContent />
+    </Suspense>
   );
 }

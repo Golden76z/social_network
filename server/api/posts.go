@@ -273,3 +273,22 @@ func DeletePostHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Post deleted successfully"})
 }
+
+// GetPublicPostsHandler handles getting posts for public access (no authentication required)
+func GetPublicPostsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET method allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get public posts only (no authentication required)
+	posts, err := db.DBService.GetPublicPosts()
+	if err != nil {
+		http.Error(w, "Error retrieving posts", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(posts)
+}

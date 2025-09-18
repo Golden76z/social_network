@@ -62,21 +62,17 @@ export const postApi = {
     return apiClient.delete<void>(`${postRoutes.base}/${postId}`);
   },
 
-//   // GET /api/posts/public - Get only public posts
-//   getPublicPosts: (page?: number, limit?: number): Promise<Post[]> => {
-//     const params = new URLSearchParams();
-//     if (page) params.append('page', page.toString());
-//     if (limit) params.append('limit', limit.toString());
-//     const query = params.toString() ? `?${params.toString()}` : '';
-//     return apiClient.get<Post[]>(`${postRoutes.public}${query}`);
-//   },
+  // GET /api/posts/public - Get only public posts (no authentication required)
+  getPublicPosts: (): Promise<Post[]> => {
+    return apiClient.get<Post[]>('/api/posts/public');
+  },
 
-//   // GET /api/posts/feed - Get personalized feed (following users' posts)
-//   getFeed: (page?: number, limit?: number): Promise<Post[]> => {
-//     const params = new URLSearchParams();
-//     if (page) params.append('page', page.toString());
-//     if (limit) params.append('limit', limit.toString());
-//     const query = params.toString() ? `?${params.toString()}` : '';
-//     return apiClient.get<Post[]>(`${postRoutes.feed}${query}`);
-//   },
+  // GET /api/post - Get personalized user feed (when authenticated)
+  getUserFeed: (page?: number, limit?: number): Promise<Post[]> => {
+    const params = new URLSearchParams();
+    if (page) params.append('offset', ((page - 1) * (limit || 20)).toString());
+    if (limit) params.append('limit', limit.toString());
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiClient.get<Post[]>(`${postRoutes.base}${query}`);
+  },
 };

@@ -163,6 +163,7 @@ export const PostCard: React.FC<PostCardProps> = ({
               <button
                 onClick={handleLike}
                 disabled={isLoading}
+                aria-label={isLiked ? 'Unlike post' : 'Like post'}
                 className={`flex items-center space-x-2 text-sm transition-colors ${
                   isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
                 } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
