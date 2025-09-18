@@ -86,7 +86,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4 hover:shadow-md transition-shadow">
+    <div className="bg-card rounded-lg border border-border p-4 mb-4 hover:shadow-md transition-shadow">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-3">
@@ -98,16 +98,16 @@ export const PostCard: React.FC<PostCardProps> = ({
           </div>
           <div>
             <p 
-              className="font-semibold text-sm cursor-pointer hover:text-blue-500 transition-colors"
+              className="font-semibold text-base cursor-pointer hover:text-primary transition-colors"
               onClick={() => (post.author_id || post.user_id) && onUserClick?.(post.author_id || post.user_id)}
             >
               {(post as Post & { author_nickname?: string }).author_nickname || 'Unknown User'}
             </p>
-            <p className="text-xs text-gray-500">{formatDate(post.created_at)}</p>
+            <p className="text-sm text-muted-foreground">{formatDate(post.created_at)}</p>
           </div>
         </div>
-        <button className="p-1 hover:bg-gray-100 rounded-full">
-          <MoreHorizontal className="w-4 h-4 text-gray-500" />
+        <button className="p-1 hover:bg-accent rounded-full">
+          <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
         </button>
       </div>
 
@@ -117,7 +117,7 @@ export const PostCard: React.FC<PostCardProps> = ({
       )}
 
       {/* Content - Limited to 2 lines */}
-      <p className="text-gray-700 mb-3 line-clamp-2">
+      <p className="text-foreground mb-3 line-clamp-2 text-base">
         {truncateContent(post.body)}
       </p>
 
@@ -152,10 +152,10 @@ export const PostCard: React.FC<PostCardProps> = ({
       )}
 
       {/* Actions */}
-      <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+      <div className="flex items-center justify-between pt-3 border-t border-border">
         <div className="flex items-center space-x-6">
             {disableLikes ? (
-              <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <div className="flex items-center space-x-2 text-base text-muted-foreground">
                 <Heart className="w-4 h-4" />
                 <span>{likeCount}</span>
               </div>
@@ -164,8 +164,8 @@ export const PostCard: React.FC<PostCardProps> = ({
                 onClick={handleLike}
                 disabled={isLoading}
                 aria-label={isLiked ? 'Unlike post' : 'Like post'}
-                className={`flex items-center space-x-2 text-sm transition-colors ${
-                  isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
+                className={`flex items-center space-x-2 text-base transition-colors ${
+                  isLiked ? 'text-red-500' : 'text-muted-foreground hover:text-red-500'
                 } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
@@ -175,7 +175,7 @@ export const PostCard: React.FC<PostCardProps> = ({
 
           <button
             onClick={handleComment}
-            className="flex items-center space-x-2 text-sm text-gray-500 hover:text-blue-500 transition-colors"
+            className="flex items-center space-x-2 text-base text-muted-foreground hover:text-primary transition-colors"
           >
             <MessageCircle className="w-4 h-4" />
             <span>Comment</span>
@@ -185,7 +185,7 @@ export const PostCard: React.FC<PostCardProps> = ({
         {/* View Details Button */}
         <button
           onClick={handleViewDetails}
-          className="text-xs text-blue-500 hover:text-blue-700 font-medium"
+          className="text-sm text-primary hover:text-primary/80 font-medium"
         >
           View Details
         </button>
