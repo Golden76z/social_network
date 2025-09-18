@@ -107,6 +107,47 @@ func GetGroupHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(group)
 }
 
+// Handler to get groups that the current user is a member of
+func GetUserGroupsHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Get current user ID from context (injected by AuthMiddleware)
+	userID, ok := r.Context().Value(middleware.UserIDKey).(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Query to get groups where user is a member
+	query := `
+		SELECT g.id, g.title, g.avatar, g.bio, g.creator_id, g.created_at, g.updated_at 
+		FROM groups g
+		INNER JOIN group_members gm ON g.id = gm.group_id
+		WHERE gm.user_id = ?
+		ORDER BY g.created_at DESC
+	`
+
+	rows, err := db.DBService.DB.Query(query, userID)
+	if err != nil {
+		http.Error(w, "Error retrieving user groups", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var groups []models.GroupResponse
+	for rows.Next() {
+		var g models.GroupResponse
+		if err := rows.Scan(&g.ID, &g.Title, &g.Avatar, &g.Bio, &g.CreatorID, &g.CreatedAt, &g.UpdatedAt); err != nil {
+			http.Error(w, "Error scanning user groups", http.StatusInternalServerError)
+			return
+		}
+		groups = append(groups, g)
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(groups)
+}
+
 // Handler to update a group
 func UpdateGroupHandler(w http.ResponseWriter, r *http.Request) {
 	// Get current user ID from context (injected by AuthMiddleware)

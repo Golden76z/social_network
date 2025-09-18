@@ -9,6 +9,7 @@ func setupGroupRoutes(r *Router) {
 	r.POST("/api/group", api.CreateGroupHandler)
 	r.GET("/api/group", api.GetGroupHandler)
 	r.GET("/api/group/{id}", api.GetGroupHandler)
+	r.GET("/api/group/user/mine", api.GetUserGroupsHandler) // Get groups user is member of
 	r.PUT("/api/group", api.UpdateGroupHandler)
 	r.PUT("/api/group/{id}", api.UpdateGroupHandler)
 	r.DELETE("/api/group", api.DeleteGroupHandler)
