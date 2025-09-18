@@ -14,6 +14,7 @@ export default function GroupsPage() {
   const [myGroups, setMyGroups] = useState<GroupResponse[]>([]);
   const [groupMemberCounts, setGroupMemberCounts] = useState<Record<number, number>>({});
   const [userMemberships, setUserMemberships] = useState<Set<number>>(new Set());
+  const [pendingRequests, setPendingRequests] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'my-groups' | 'all-groups'>('my-groups');
@@ -24,33 +25,47 @@ export default function GroupsPage() {
       setLoading(true);
       setError(null);
 
-      // Fetch all groups and user groups in parallel
-      const [allGroupsData, userGroupsData] = await Promise.all([
+      // Fetch all groups, user groups, and pending requests in parallel
+      const [allGroupsData, userGroupsData, pendingRequestsData] = await Promise.all([
         groupApi.getAllGroups(),
-        groupApi.getUserGroups()
+        groupApi.getUserGroups(),
+        groupApi.getUserPendingRequests()
       ]);
       
-      setAllGroups(allGroupsData);
-      setMyGroups(userGroupsData);
+      setAllGroups(allGroupsData || []);
+      setMyGroups(userGroupsData || []);
+
+      // Process pending requests
+      const pendingSet = new Set<number>();
+      if (pendingRequestsData && Array.isArray(pendingRequestsData.requests)) {
+        pendingRequestsData.requests.forEach((request: any) => {
+          pendingSet.add(request.group_id);
+        });
+      }
+      setPendingRequests(pendingSet);
 
       // Fetch member counts for all groups
       const memberCounts: Record<number, number> = {};
       const memberships = new Set<number>();
       
       // Add user groups to memberships set
-      userGroupsData.forEach(group => {
-        memberships.add(group.id);
-      });
+      if (userGroupsData && Array.isArray(userGroupsData)) {
+        userGroupsData.forEach(group => {
+          memberships.add(group.id);
+        });
+      }
       
       // Get member counts for all groups
-      for (const group of allGroupsData) {
-        try {
-          const membersResponse = await groupApi.getGroupMembers(group.id);
-          const members = Array.isArray(membersResponse) ? membersResponse : [];
-          memberCounts[group.id] = members.length;
-        } catch (err) {
-          console.warn(`Failed to get member count for group ${group.id}:`, err);
-          memberCounts[group.id] = 0;
+      if (allGroupsData && Array.isArray(allGroupsData)) {
+        for (const group of allGroupsData) {
+          try {
+            const membersResponse = await groupApi.getGroupMembers(group.id);
+            const members = Array.isArray(membersResponse) ? membersResponse : [];
+            memberCounts[group.id] = members.length;
+          } catch (err) {
+            console.warn(`Failed to get member count for group ${group.id}:`, err);
+            memberCounts[group.id] = 0;
+          }
         }
       }
       
@@ -79,18 +94,30 @@ export default function GroupsPage() {
     return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
-  const handleJoinGroup = (groupId: number) => {
-    // Add to user memberships
-    setUserMemberships(prev => new Set([...prev, groupId]));
-    
-    // Add to my groups if not already there
-    setMyGroups(prev => {
-      const group = allGroups.find(g => g.id === groupId);
-      if (group && !prev.some(g => g.id === groupId)) {
-        return [...prev, group];
-      }
-      return prev;
-    });
+  const handleJoinGroup = async (groupId: number) => {
+    try {
+      console.log('🚀 Attempting to create group request for group:', groupId);
+      console.log('👤 Current user:', user);
+      
+      // Create a group request instead of direct join
+      const response = await groupApi.createGroupRequest(groupId);
+      console.log('✅ Group request created successfully:', response);
+      
+      // Show success message
+      alert('Join request sent! The group admin will review your request.');
+      
+      // Refresh the groups to update pending requests
+      await loadGroups();
+      
+    } catch (error) {
+      console.error('❌ Failed to request join group:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      alert('Failed to send join request. Please try again.');
+    }
   };
 
   const handleLeaveGroup = (groupId: number) => {
@@ -207,6 +234,7 @@ export default function GroupsPage() {
                     group={group}
                     isMember={isUserMember(group.id)}
                     memberCount={getMemberCount(group.id)}
+                    hasPendingRequest={pendingRequests.has(group.id)}
                     onJoin={handleJoinGroup}
                     onLeave={handleLeaveGroup}
                     onView={handleViewGroup}

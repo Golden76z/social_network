@@ -52,7 +52,8 @@ export const groupApi = {
   getGroupPosts: (groupId: string | number, offset?: number): Promise<GroupPost[]> => {
     const params = new URLSearchParams();
     params.append('groupId', groupId.toString());
-    if (offset !== undefined) params.append('offset', offset.toString());
+    // Always provide offset parameter (default to 0 if not specified)
+    params.append('offset', (offset ?? 0).toString());
     const query = params.toString() ? `?${params.toString()}` : '';
     return apiClient.get(`/api/group/post${query}`);
   },
@@ -129,12 +130,15 @@ export const groupApi = {
     });
   },
 
-  getGroupMembers: (groupId: string | number, offset?: number) => {
+  getGroupMembers: async (groupId: string | number, offset?: number) => {
     const params = new URLSearchParams();
     params.append('id', groupId.toString());
-    if (offset !== undefined) params.append('offset', offset.toString());
+    // Always provide offset parameter (default to 0 if not specified)
+    params.append('offset', (offset ?? 0).toString());
     const query = params.toString() ? `?${params.toString()}` : '';
-    return apiClient.get(`/api/group/members${query}`);
+    const response = await apiClient.get(`/api/group/members${query}`) as any;
+    // Server returns { response: string, members: array }
+    return response.members || [];
   },
 
   updateGroupMember: (data: UpdateGroupMemberRequest) => {
@@ -143,12 +147,20 @@ export const groupApi = {
 
   // ===== GROUP REQUESTS =====
 
+  createGroupRequest: (groupId: string | number) => {
+    return apiClient.post('/api/group/request', { group_id: Number(groupId) });
+  },
+
   getGroupRequests: (groupId: string | number, status?: string) => {
     const params = new URLSearchParams();
     params.append('group_id', groupId.toString());
     if (status) params.append('status', status);
     const query = params.toString() ? `?${params.toString()}` : '';
     return apiClient.get(`/api/group/request${query}`);
+  },
+
+  getUserPendingRequests: () => {
+    return apiClient.get('/api/group/request/user');
   },
 
   approveGroupRequest: (requestId: string | number) => {

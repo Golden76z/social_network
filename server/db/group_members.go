@@ -78,7 +78,7 @@ func (s *Service) GetGroupMemberByID(memberID int64) (*models.GroupMember, error
 }
 
 // Method to retrieve a list a member from a given group with a limit
-func (s *Service) GetGroupMembers(groupID int64, offset int, userID int64) ([]*models.GroupMember, error) {
+func (s *Service) GetGroupMembers(groupID int64, offset int, userID int64) ([]*models.GroupMemberWithUser, error) {
 	tx, err := s.DB.Begin()
 	if err != nil {
 		fmt.Println("Error: ", err)
@@ -93,26 +93,32 @@ func (s *Service) GetGroupMembers(groupID int64, offset int, userID int64) ([]*m
 		}
 	}()
 
-	members := make([]*models.GroupMember, 0)
+	members := make([]*models.GroupMemberWithUser, 0)
 	fmt.Println("UserID: ", userID)
 	fmt.Println("GroupID: ", groupID)
 
+	// First check if group exists
+	var groupExists bool
+	err = tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM groups WHERE id = ?)`, groupID).Scan(&groupExists)
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return nil, err
+	}
+	if !groupExists {
+		fmt.Println("Error: group does not exist")
+		return nil, errors.New("group does not exist")
+	}
+
+	// Get group members with user information (anyone can view members)
 	rows, err := tx.Query(`
-		WITH
-		existing_group AS (
-			SELECT 1 AS exists_flag FROM groups WHERE id = ?
-		),
-		authorized_user AS (
-			SELECT 1 AS is_authorized
-			FROM group_members
-			WHERE group_id = ? AND user_id = ?
-		)
-		SELECT gm.id, gm.group_id, gm.user_id, gm.role, gm.invited_by, gm.created_at
-		FROM group_members gm, existing_group eg, authorized_user au
+		SELECT gm.id, gm.group_id, gm.user_id, gm.role, gm.invited_by, gm.created_at,
+		       u.nickname, u.first_name, u.last_name, u.avatar
+		FROM group_members gm
+		JOIN users u ON gm.user_id = u.id
 		WHERE gm.group_id = ?
 		ORDER BY gm.created_at ASC
 		LIMIT 20 OFFSET ?
-	`, groupID, groupID, userID, groupID, offset)
+	`, groupID, offset)
 	if err != nil {
 		fmt.Println("Error: ", err)
 		return nil, err
@@ -120,33 +126,36 @@ func (s *Service) GetGroupMembers(groupID int64, offset int, userID int64) ([]*m
 	defer rows.Close()
 
 	for rows.Next() {
-		var gm models.GroupMember
-		if scanErr := rows.Scan(&gm.ID, &gm.GroupID, &gm.UserID, &gm.Role, &gm.InvitedBy, &gm.CreatedAt); scanErr != nil {
+		var gm models.GroupMemberWithUser
+		var nickname, firstName, lastName sql.NullString
+		var avatar sql.NullString
+		if scanErr := rows.Scan(&gm.ID, &gm.GroupID, &gm.UserID, &gm.Role, &gm.InvitedBy, &gm.CreatedAt,
+			&nickname, &firstName, &lastName, &avatar); scanErr != nil {
 			err = scanErr // triggers rollback via defer
 			fmt.Println("Error: ", err)
 			return nil, err
 		}
+
+		// Convert sql.NullString to string
+		if nickname.Valid {
+			gm.Nickname = nickname.String
+		}
+		if firstName.Valid {
+			gm.FirstName = firstName.String
+		}
+		if lastName.Valid {
+			gm.LastName = lastName.String
+		}
+		if avatar.Valid {
+			gm.Avatar = avatar.String
+		}
+
 		members = append(members, &gm)
 	}
 
 	if err = rows.Err(); err != nil {
 		fmt.Println("Error: ", err)
 		return nil, err
-	}
-
-	if len(members) == 0 {
-		var groupExists bool
-		err = tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM groups WHERE id = ?)`, groupID).Scan(&groupExists)
-		if err != nil {
-			fmt.Println("Error: ", err)
-			return nil, err
-		}
-		if !groupExists {
-			fmt.Println("Error: ", err)
-			return nil, errors.New("group does not exist")
-		}
-		fmt.Println("Error: ", err)
-		return nil, errors.New("user is not authorized to view group members")
 	}
 
 	return members, nil

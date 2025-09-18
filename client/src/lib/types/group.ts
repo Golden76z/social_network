@@ -111,6 +111,31 @@ export interface UpdateGroupMemberRequest {
   role: string;
 }
 
+export interface GroupMemberWithUser {
+  id: number;
+  group_id: number;
+  user_id: number;
+  role: string;
+  invited_by?: number;
+  created_at: string;
+  nickname?: string;
+  first_name?: string;
+  last_name?: string;
+  avatar?: string;
+}
+
+export interface GroupRequestWithUser {
+  id: number;
+  group_id: number;
+  user_id: number;
+  status: string;
+  created_at: string;
+  nickname?: string;
+  first_name?: string;
+  last_name?: string;
+  avatar?: string;
+}
+
 // ===== RSVP =====
 export interface RSVPToEventRequest {
   event_id: number;

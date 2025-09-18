@@ -54,12 +54,13 @@ export default function GroupDetailPage() {
     if (!group) return;
     
     try {
-      await groupApi.joinGroup(group.id);
-      setMemberCount(prev => prev + 1);
-      // Refresh the page to show updated membership status
+      await groupApi.createGroupRequest(group.id);
+      alert('Join request sent! The group admin will review your request.');
+      // Refresh the page to show updated request status
       window.location.reload();
     } catch (error) {
-      console.error('Failed to join group:', error);
+      console.error('Failed to request join group:', error);
+      alert((error as Error).message || 'Failed to send join request. Please try again.');
     }
   };
 
