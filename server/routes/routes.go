@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/Golden76z/social-network/api"
 	"github.com/Golden76z/social-network/config"
 	"github.com/Golden76z/social-network/middleware"
 	"github.com/Golden76z/social-network/websockets"
@@ -19,6 +20,9 @@ func setupPublicRoutes(r *Router, wsHub *websockets.Hub, cfg *config.Config) {
 	r.Group(func(r *Router) {
 		setupAuthRoutes(r)
 		setupWebSocketRoutes(r, wsHub, cfg)
+
+		// Public posts route (no authentication required)
+		r.GET("/api/posts/public", api.GetPublicPostsHandler)
 	})
 }
 

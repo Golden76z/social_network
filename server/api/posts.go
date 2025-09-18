@@ -115,23 +115,63 @@ func GetPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limitParam := r.URL.Query().Get("limit")
-	limit, err := strconv.Atoi(limitParam)
-	cfg := config.GetConfig()
-	if err != nil || limit <= 0 {
-		limit = cfg.FeedPostLimit
+	// Check for specific query parameters
+	userIdParam := r.URL.Query().Get("userId")
+	meParam := r.URL.Query().Get("me")
+	likedParam := r.URL.Query().Get("liked")
+	commentedParam := r.URL.Query().Get("commented")
+
+	var posts interface{}
+	var err error
+
+	if userIdParam != "" {
+		// Get posts by specific user
+		targetUserID, err := strconv.ParseInt(userIdParam, 10, 64)
+		if err != nil {
+			http.Error(w, "Invalid user ID format", http.StatusBadRequest)
+			return
+		}
+
+		if likedParam == "true" {
+			// Get posts liked by specific user
+			posts, err = db.DBService.GetLikedPostsByUser(targetUserID)
+		} else if commentedParam == "true" {
+			// Get posts commented by specific user
+			posts, err = db.DBService.GetCommentedPostsByUser(targetUserID)
+		} else {
+			// Get posts by specific user
+			posts, err = db.DBService.GetPostsByUser(targetUserID, int64(currentUserID))
+		}
+	} else if meParam == "true" {
+		// Get current user's posts
+		posts, err = db.DBService.GetPostsByUser(int64(currentUserID), int64(currentUserID))
+	} else if likedParam == "true" {
+		// Get posts liked by current user
+		posts, err = db.DBService.GetLikedPosts(int64(currentUserID))
+	} else if commentedParam == "true" {
+		// Get posts commented by current user
+		posts, err = db.DBService.GetCommentedPosts(int64(currentUserID))
+	} else {
+		// Default: get user feed
+		limitParam := r.URL.Query().Get("limit")
+		limit, err := strconv.Atoi(limitParam)
+		cfg := config.GetConfig()
+		if err != nil || limit <= 0 {
+			limit = cfg.FeedPostLimit
+		}
+
+		offsetParam := r.URL.Query().Get("offset")
+		offset, err := strconv.Atoi(offsetParam)
+		if err != nil || offset < 0 {
+			offset = 0
+		}
+
+		posts, err = db.DBService.GetUserFeed(currentUserID, limit, offset)
 	}
 
-	offsetParam := r.URL.Query().Get("offset")
-	offset, err := strconv.Atoi(offsetParam)
-	if err != nil || offset < 0 {
-		offset = 0
-	}
-
-	posts, err := db.DBService.GetUserFeed(currentUserID, limit, offset)
 	if err != nil {
-		fmt.Printf("[ERROR] Get user feed failed: %v\n", err)
-		http.Error(w, "Failed to get user feed", http.StatusInternalServerError)
+		fmt.Printf("[ERROR] Get posts failed: %v\n", err)
+		http.Error(w, "Failed to get posts", http.StatusInternalServerError)
 		return
 	}
 
@@ -232,4 +272,23 @@ func DeletePostHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Post deleted successfully"})
+}
+
+// GetPublicPostsHandler handles getting posts for public access (no authentication required)
+func GetPublicPostsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET method allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get public posts only (no authentication required)
+	posts, err := db.DBService.GetPublicPosts()
+	if err != nil {
+		http.Error(w, "Error retrieving posts", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(posts)
 }

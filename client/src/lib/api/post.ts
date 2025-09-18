@@ -17,15 +17,35 @@ export const postApi = {
     return apiClient.get<Post>(`${postRoutes.base}?id=${postId}`);
   },
 
-//   // GET /api/post/user/{userId} - Get posts by specific user
-//   getPostsByUser: (userId: number): Promise<Post[]> => {
-//     return apiClient.get<Post[]>(`${postRoutes.user}/${userId}`);
-//   },
+  // GET /api/post/user/{userId} - Get posts by specific user
+  getPostsByUser: (userId: number): Promise<Post[]> => {
+    return apiClient.get<Post[]>(`${postRoutes.base}?userId=${userId}`);
+  },
 
-//   // GET /api/post/me - Get current user's posts
-//   getMyPosts: (): Promise<Post[]> => {
-//     return apiClient.get<Post[]>(postRoutes.me);
-//   },
+  // GET /api/post/me - Get current user's posts
+  getMyPosts: (): Promise<Post[]> => {
+    return apiClient.get<Post[]>(`${postRoutes.base}?me=true`);
+  },
+
+  // GET /api/post/liked - Get current user's liked posts
+  getLikedPosts: (): Promise<Post[]> => {
+    return apiClient.get<Post[]>(`${postRoutes.base}?liked=true`);
+  },
+
+  // GET /api/post/commented - Get posts where current user commented
+  getCommentedPosts: (): Promise<Post[]> => {
+    return apiClient.get<Post[]>(`${postRoutes.base}?commented=true`);
+  },
+
+  // GET /api/post/liked?userId=X - Get posts liked by specific user
+  getLikedPostsByUser: (userId: number): Promise<Post[]> => {
+    return apiClient.get<Post[]>(`${postRoutes.base}?liked=true&userId=${userId}`);
+  },
+
+  // GET /api/post/commented?userId=X - Get posts commented by specific user
+  getCommentedPostsByUser: (userId: number): Promise<Post[]> => {
+    return apiClient.get<Post[]>(`${postRoutes.base}?commented=true&userId=${userId}`);
+  },
 
   // POST /api/posts - Create new post
   createPost: (data: CreatePostRequest): Promise<Post> => {
@@ -42,21 +62,17 @@ export const postApi = {
     return apiClient.delete<void>(`${postRoutes.base}/${postId}`);
   },
 
-//   // GET /api/posts/public - Get only public posts
-//   getPublicPosts: (page?: number, limit?: number): Promise<Post[]> => {
-//     const params = new URLSearchParams();
-//     if (page) params.append('page', page.toString());
-//     if (limit) params.append('limit', limit.toString());
-//     const query = params.toString() ? `?${params.toString()}` : '';
-//     return apiClient.get<Post[]>(`${postRoutes.public}${query}`);
-//   },
+  // GET /api/posts/public - Get only public posts (no authentication required)
+  getPublicPosts: (): Promise<Post[]> => {
+    return apiClient.get<Post[]>('/api/posts/public');
+  },
 
-//   // GET /api/posts/feed - Get personalized feed (following users' posts)
-//   getFeed: (page?: number, limit?: number): Promise<Post[]> => {
-//     const params = new URLSearchParams();
-//     if (page) params.append('page', page.toString());
-//     if (limit) params.append('limit', limit.toString());
-//     const query = params.toString() ? `?${params.toString()}` : '';
-//     return apiClient.get<Post[]>(`${postRoutes.feed}${query}`);
-//   },
+  // GET /api/post - Get personalized user feed (when authenticated)
+  getUserFeed: (page?: number, limit?: number): Promise<Post[]> => {
+    const params = new URLSearchParams();
+    if (page) params.append('offset', ((page - 1) * (limit || 20)).toString());
+    if (limit) params.append('limit', limit.toString());
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiClient.get<Post[]>(`${postRoutes.base}${query}`);
+  },
 };

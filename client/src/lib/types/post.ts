@@ -10,9 +10,14 @@ export interface Post {
   created_at: string;   // Changed from createdAt to match DB
   updated_at?: string;  // Changed from updatedAt to match DB
   
-  // Your backend doesn't populate these fields currently
+  // Author information
   author_id?: number;   // If you add this field to your backend response
   author?: User;        // User info if populated
+  author_nickname?: string;
+  author_first_name?: string;
+  author_last_name?: string;
+  
+  // Images
   images?: string[];    // Post images if you implement this
   
   // Like/dislike fields

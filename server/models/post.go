@@ -7,14 +7,21 @@ import (
 )
 
 type Post struct {
-	ID         int64    `json:"id"`
-	UserID     int64    `json:"user_id"`
-	Title      string   `json:"title"`
-	Body       string   `json:"body"`
-	Images     []string `json:"images"`
-	Visibility string   `json:"visibility"`
-	CreatedAt  string   `json:"created_at"`
-	UpdatedAt  string   `json:"updated_at,omitempty"`
+	ID              int64    `json:"id"`
+	UserID          int64    `json:"user_id"`
+	Title           string   `json:"title"`
+	Body            string   `json:"body"`
+	Images          []string `json:"images"`
+	Visibility      string   `json:"visibility"`
+	CreatedAt       string   `json:"created_at"`
+	UpdatedAt       string   `json:"updated_at,omitempty"`
+	Likes           int      `json:"likes"`
+	Dislikes        int      `json:"dislikes"`
+	UserLiked       bool     `json:"user_liked"`
+	UserDisliked    bool     `json:"user_disliked"`
+	AuthorNickname  string   `json:"author_nickname"`
+	AuthorFirstName string   `json:"author_first_name"`
+	AuthorLastName  string   `json:"author_last_name"`
 }
 
 // Create request (client → server)

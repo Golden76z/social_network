@@ -84,6 +84,8 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 			Avatar:      profile.GetAvatar(),
 			Bio:         profile.GetBio(),
 			IsPrivate:   profile.IsPrivate,
+			Followers:   profile.Followers,
+			Followed:    profile.Followed,
 		}
 	} else if profile.IsPrivate {
 		// Private profile - return minimal information
@@ -92,6 +94,8 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 			Nickname:  profile.Nickname,
 			Avatar:    profile.GetAvatar(),
 			IsPrivate: profile.IsPrivate,
+			Followers: profile.Followers,
+			Followed:  profile.Followed,
 		}
 	} else {
 		// Public profile - return profile without sensitive data
@@ -103,6 +107,8 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 			Avatar:    profile.GetAvatar(),
 			Bio:       profile.GetBio(),
 			IsPrivate: profile.IsPrivate,
+			Followers: profile.Followers,
+			Followed:  profile.Followed,
 		}
 	}
 
@@ -117,7 +123,7 @@ func getUserProfileFromDB(userID int64) (*models.User, error) {
 	var user models.User
 
 	query := `
-		SELECT id, nickname, first_name, last_name, email, date_of_birth, avatar, bio, is_private
+		SELECT id, nickname, first_name, last_name, email, date_of_birth, avatar, bio, is_private, followers, followed
 		FROM users
 		WHERE id = ?
 	`
@@ -132,6 +138,8 @@ func getUserProfileFromDB(userID int64) (*models.User, error) {
 		&user.Avatar,
 		&user.Bio,
 		&user.IsPrivate,
+		&user.Followers,
+		&user.Followed,
 	)
 
 	if err != nil {
