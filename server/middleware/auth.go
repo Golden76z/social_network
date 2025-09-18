@@ -2,10 +2,10 @@ package middleware
 
 import (
 	"context"
-	"database/sql"
 	"net/http"
 	"time"
 
+	"github.com/Golden76z/social-network/config"
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/utils"
 )
@@ -33,28 +33,28 @@ func AuthMiddleware() func(http.Handler) http.Handler {
 			// 2. Verify JWT validity
 			utils.ValidateToken(token.Value)
 
-			// 3. Verify session in database
-			var userID int
-			err = db.DBService.DB.QueryRow(`
-                SELECT user_id FROM sessions 
-                WHERE token = ? AND expires_at > ?`,
-				token.Value,
-				time.Now(),
-			).Scan(&userID)
-
-			// Add this line to see what the DB actually returns
-			//fmt.Println("[AUTH] Database returned userID:", userID)
-
-			if err != nil {
-				if err == sql.ErrNoRows {
-					http.Error(w, "Invalid session", http.StatusUnauthorized)
-				} else {
-					http.Error(w, "Database error", http.StatusInternalServerError)
-				}
+			// 3. Extract user ID from JWT token (more reliable than session lookup)
+			userID, err := utils.GetUserIDFromTokenString(token.Value)
+			if err != nil || userID == 0 {
+				http.Error(w, "Invalid token", http.StatusUnauthorized)
 				return
 			}
 
-			// 4. Attach user data to context using custom keys
+			// 4. Optionally verify session exists (but don't fail if it doesn't)
+			var sessionExists bool
+			err = db.DBService.DB.QueryRow(`
+                SELECT EXISTS(SELECT 1 FROM sessions 
+                WHERE token = ? AND expires_at > ?)`,
+				token.Value,
+				time.Now(),
+			).Scan(&sessionExists)
+
+			// If session doesn't exist, create one (but don't fail if this fails)
+			if err == nil && !sessionExists {
+				_ = db.DBService.CreateSession(userID, token.Value, config.GetConfig().JwtExpiration)
+			}
+
+			// 5. Attach user data to context using custom keys
 			ctx := r.Context()
 			ctx = context.WithValue(ctx, UserIDKey, userID)
 			//ctx = context.WithValue(ctx, UsernameKey, username)

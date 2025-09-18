@@ -106,6 +106,26 @@ const DevPage = () => {
             </div>
           </Link>
 
+          {/* API Debug Panel */}
+          <Link href="/dev/api-debug" className="block">
+            <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+              <div className="flex items-center mb-4">
+                <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mr-4">
+                  <span className="text-2xl">🔧</span>
+                </div>
+                <h2 className="text-xl font-semibold text-gray-900">API Debug</h2>
+              </div>
+              <p className="text-gray-600 text-sm mb-4">
+                Debug authentication, API calls, and token issues.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded">Auth</span>
+                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">API</span>
+                <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded">Debug</span>
+              </div>
+            </div>
+          </Link>
+
           {/* Playground Panel */}
           <Link href="/dev/playground" className="block">
             <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
