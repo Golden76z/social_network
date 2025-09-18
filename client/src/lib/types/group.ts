@@ -94,6 +94,16 @@ export interface DeleteGroupEventRequest {
   id: number;
 }
 
+export interface GroupEvent {
+  id: number;
+  group_id: number;
+  creator_id: number;
+  title: string;
+  description: string;
+  event_datetime: string;
+  created_at: string;
+}
+
 // ===== GROUP MEMBER / INVITATION =====
 export interface InviteToGroupRequest {
   group_id: number;

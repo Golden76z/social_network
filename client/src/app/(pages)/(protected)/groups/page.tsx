@@ -37,8 +37,8 @@ export default function GroupsPage() {
 
       // Process pending requests
       const pendingSet = new Set<number>();
-      if (pendingRequestsData && Array.isArray(pendingRequestsData.requests)) {
-        pendingRequestsData.requests.forEach((request: any) => {
+      if (pendingRequestsData && Array.isArray((pendingRequestsData as any).requests)) {
+        (pendingRequestsData as any).requests.forEach((request: any) => {
           pendingSet.add(request.group_id);
         });
       }
@@ -112,9 +112,9 @@ export default function GroupsPage() {
     } catch (error) {
       console.error('❌ Failed to request join group:', error);
       console.error('❌ Error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+        name: (error as Error).name
       });
       alert('Failed to send join request. Please try again.');
     }

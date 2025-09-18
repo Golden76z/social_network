@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { GroupResponse, UpdateGroupRequest } from '@/lib/types/group';
+import { GroupResponse, UpdateGroupRequest, GroupPost, GroupEvent } from '@/lib/types/group';
 import { groupApi } from '@/lib/api/group';
 import { userApi } from '@/lib/api/user';
 import { useAuth } from '@/context/AuthProvider';
-import { UserPlus, Settings, Users, UserCheck } from 'lucide-react';
+import { UserPlus, Settings, Users, UserCheck, Calendar, MessageSquare, Plus, Edit, Trash2 } from 'lucide-react';
 import { UserDisplayInfo } from '@/lib/types';
 
 interface GroupMember {
@@ -54,6 +54,23 @@ export default function GroupPage() {
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [showRequestsModal, setShowRequestsModal] = useState(false);
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
+  
+  // Posts and Events state
+  const [posts, setPosts] = useState<GroupPost[]>([]);
+  const [events, setEvents] = useState<GroupEvent[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+  const [eventRSVPs, setEventRSVPs] = useState<Map<number, any[]>>(new Map());
+  
+  // Modal states
+  const [showCreatePostModal, setShowCreatePostModal] = useState(false);
+  const [showCreateEventModal, setShowCreateEventModal] = useState(false);
+  const [postFormData, setPostFormData] = useState({ title: '', body: '' });
+  const [eventFormData, setEventFormData] = useState({ title: '', description: '', event_datetime: '' });
+  const [creatingPost, setCreatingPost] = useState(false);
+  const [creatingEvent, setCreatingEvent] = useState(false);
+  const [postError, setPostError] = useState('');
+  const [eventError, setEventError] = useState('');
 
   const [formState, setFormState] = useState({
     title: '',
@@ -96,8 +113,8 @@ export default function GroupPage() {
       }
 
       // Check if user has a pending request for this group
-      if (pendingRequestsData && Array.isArray(pendingRequestsData.requests)) {
-        const hasRequest = pendingRequestsData.requests.some((request: any) => 
+      if (pendingRequestsData && Array.isArray((pendingRequestsData as any).requests)) {
+        const hasRequest = (pendingRequestsData as any).requests.some((request: any) => 
           request.group_id === parseInt(groupId)
         );
         setHasPendingRequest(hasRequest);
@@ -117,6 +134,17 @@ export default function GroupPage() {
     }
   }, [groupId, user]);
 
+  // Load posts and events when active tab changes
+  useEffect(() => {
+    if (isMember && groupId) {
+      if (activeTab === 'posts') {
+        loadPosts();
+      } else if (activeTab === 'events') {
+        loadEvents();
+      }
+    }
+  }, [activeTab, isMember, groupId]);
+
   // Handle escape key for modals
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -131,14 +159,24 @@ export default function GroupPage() {
         if (showLeaveConfirm) {
           setShowLeaveConfirm(false);
         }
+        if (showCreatePostModal) {
+          setShowCreatePostModal(false);
+          setPostFormData({ title: '', body: '' });
+          setPostError('');
+        }
+        if (showCreateEventModal) {
+          setShowCreateEventModal(false);
+          setEventFormData({ title: '', description: '', event_datetime: '' });
+          setEventError('');
+        }
       }
     };
 
-    if (showInviteModal || showRequestsModal || showLeaveConfirm) {
+    if (showInviteModal || showRequestsModal || showLeaveConfirm || showCreatePostModal || showCreateEventModal) {
       document.addEventListener('keydown', handleEscape);
       return () => document.removeEventListener('keydown', handleEscape);
     }
-  }, [showInviteModal, showRequestsModal, showLeaveConfirm]);
+  }, [showInviteModal, showRequestsModal, showLeaveConfirm, showCreatePostModal, showCreateEventModal]);
 
   const handleJoinGroup = async () => {
     if (!group || hasPendingRequest) return;
@@ -313,6 +351,154 @@ export default function GroupPage() {
   const handleManageRequests = () => {
     setShowRequestsModal(true);
     loadGroupRequests();
+  };
+
+  const loadPosts = async () => {
+    if (!isMember) return;
+    
+    try {
+      setLoadingPosts(true);
+      const postsData = await groupApi.getGroupPosts(groupId);
+      setPosts(Array.isArray(postsData) ? postsData : []);
+    } catch (error) {
+      console.error('Failed to load posts:', error);
+      setPosts([]);
+    } finally {
+      setLoadingPosts(false);
+    }
+  };
+
+  const loadEvents = async () => {
+    if (!isMember) return;
+    
+    try {
+      setLoadingEvents(true);
+      const eventsData = await groupApi.getGroupEvents(groupId);
+      const eventsArray = Array.isArray(eventsData) ? eventsData : [];
+      setEvents(eventsArray);
+      
+      // Load RSVPs for each event
+      const rsvpPromises = eventsArray.map(async (event) => {
+        try {
+          const rsvps = await groupApi.getEventRSVPs(event.id);
+          return { eventId: event.id, rsvps: Array.isArray(rsvps) ? rsvps : [] };
+        } catch (error) {
+          console.error(`Failed to load RSVPs for event ${event.id}:`, error);
+          return { eventId: event.id, rsvps: [] };
+        }
+      });
+      
+      const rsvpResults = await Promise.all(rsvpPromises);
+      const rsvpMap = new Map<number, any[]>();
+      rsvpResults.forEach(({ eventId, rsvps }) => {
+        rsvpMap.set(eventId, rsvps);
+      });
+      setEventRSVPs(rsvpMap);
+    } catch (error) {
+      console.error('Failed to load events:', error);
+      setEvents([]);
+    } finally {
+      setLoadingEvents(false);
+    }
+  };
+
+  const handleRSVP = async (eventId: number, status: string) => {
+    if (!user) return;
+    
+    try {
+      await groupApi.rsvpToEvent({
+        event_id: eventId,
+        user_id: user.id,
+        status: status
+      });
+      
+      // Refresh events to update RSVP data
+      await loadEvents();
+    } catch (error) {
+      console.error('Failed to RSVP:', error);
+      alert('Failed to update RSVP. Please try again.');
+    }
+  };
+
+  const handleUpdateRSVP = async (rsvpId: number, status: string) => {
+    try {
+      await groupApi.updateEventRSVP(rsvpId, status);
+      
+      // Refresh events to update RSVP data
+      await loadEvents();
+    } catch (error) {
+      console.error('Failed to update RSVP:', error);
+      alert('Failed to update RSVP. Please try again.');
+    }
+  };
+
+  const handleCancelRSVP = async (rsvpId: number) => {
+    try {
+      await groupApi.cancelEventRSVP(rsvpId);
+      
+      // Refresh events to update RSVP data
+      await loadEvents();
+    } catch (error) {
+      console.error('Failed to cancel RSVP:', error);
+      alert('Failed to cancel RSVP. Please try again.');
+    }
+  };
+
+  const handleCreatePost = async () => {
+    if (!group || !postFormData.title.trim() || !postFormData.body.trim()) {
+      setPostError('Please fill in all fields');
+      return;
+    }
+
+    try {
+      setCreatingPost(true);
+      setPostError('');
+      
+      await groupApi.createGroupPost({
+        group_id: group.id,
+        title: postFormData.title.trim(),
+        body: postFormData.body.trim()
+      });
+
+      // Close modal and refresh posts
+      setShowCreatePostModal(false);
+      setPostFormData({ title: '', body: '' });
+      await loadPosts();
+    } catch (error) {
+      console.error('Failed to create post:', error);
+      setPostError((error as Error).message || 'Failed to create post. Please try again.');
+    } finally {
+      setCreatingPost(false);
+    }
+  };
+
+  const handleCreateEvent = async () => {
+    if (!group || !eventFormData.title.trim() || !eventFormData.description.trim() || !eventFormData.event_datetime.trim()) {
+      setEventError('Please fill in all fields');
+      return;
+    }
+
+    try {
+      setCreatingEvent(true);
+      setEventError('');
+      
+      await groupApi.createGroupEvent({
+        group_id: group.id,
+        title: eventFormData.title.trim(),
+        description: eventFormData.description.trim(),
+        event_date_time: eventFormData.event_datetime
+      });
+
+      // Close modal and refresh events
+      setShowCreateEventModal(false);
+      setEventFormData({ title: '', description: '', event_datetime: '' });
+      await loadEvents();
+    } catch (error) {
+      console.error('Failed to create event:', error);
+      setEventError((error as Error).message || 'Failed to create event. Please try again.');
+    } finally {
+      setCreatingEvent(false);
+    }
   };
 
   const handleBack = () => {
@@ -495,17 +681,22 @@ export default function GroupPage() {
 
         {/* Group Stats */}
         <div className="bg-card rounded-lg border border-border p-6">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold">{members.length}</div>
               <div className="text-sm text-muted-foreground">Members</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold">0</div>
+              <div className="text-2xl font-bold">{posts.length}</div>
+              <div className="text-sm text-muted-foreground">Posts</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold">{events.length}</div>
               <div className="text-sm text-muted-foreground">Events</div>
             </div>
           </div>
         </div>
+
 
         {/* Posts/Events Tabs Section */}
         {isMember && (
@@ -536,28 +727,203 @@ export default function GroupPage() {
 
             {/* Tab Content */}
             {activeTab === 'posts' && (
-              <div className="text-center py-8 text-muted-foreground">
-                <div className="text-4xl mb-4">📝</div>
-                <p className="mb-4">Group posts will be displayed here</p>
-                <button 
-                  onClick={() => router.push(`/groups/${group.id}/posts`)}
-                  className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                >
-                  View All Posts
-                </button>
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5" />
+                    Posts ({posts.length})
+                  </h3>
+                  {isAdmin && (
+                    <button 
+                      onClick={() => setShowCreatePostModal(true)}
+                      className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Create Post
+                    </button>
+                  )}
+                </div>
+                
+                {loadingPosts ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Loading posts...</p>
+                  </div>
+                ) : posts.length > 0 ? (
+                  <div className="space-y-4">
+                    {posts.slice(0, 5).map((post) => (
+                      <div key={post.id} className="border border-border rounded-lg p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <h4 className="font-semibold text-foreground">{post.title}</h4>
+                          {isAdmin && (
+                            <div className="flex gap-2">
+                              <button className="p-1 text-muted-foreground hover:text-foreground">
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button className="p-1 text-muted-foreground hover:text-red-500">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-muted-foreground text-sm mb-3 line-clamp-3">{post.body}</p>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                          <div className="flex gap-4">
+                            <span>{post.likes} likes</span>
+                            <span>{post.dislikes} dislikes</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {posts.length > 5 && (
+                      <div className="text-center pt-4">
+                        <button 
+                          onClick={() => router.push(`/groups/${group.id}/posts`)}
+                          className="px-6 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors"
+                        >
+                          View All Posts ({posts.length})
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg font-medium">No posts yet</p>
+                    <p className="text-sm">Be the first to create a post in this group</p>
+                  </div>
+                )}
               </div>
             )}
 
             {activeTab === 'events' && (
-              <div className="text-center py-8 text-muted-foreground">
-                <div className="text-4xl mb-4">📅</div>
-                <p className="mb-4">Group events will be displayed here</p>
-                <button 
-                  onClick={() => router.push(`/groups/${group.id}/events`)}
-                  className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                >
-                  View All Events
-                </button>
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Calendar className="w-5 h-5" />
+                    Events ({events.length})
+                  </h3>
+                  {isAdmin && (
+                    <button 
+                      onClick={() => setShowCreateEventModal(true)}
+                      className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Create Event
+                    </button>
+                  )}
+                </div>
+                
+                {loadingEvents ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Loading events...</p>
+                  </div>
+                ) : events.length > 0 ? (
+                  <div className="space-y-4">
+                    {events.slice(0, 5).map((event) => {
+                      const rsvps = eventRSVPs.get(event.id) || [];
+                      const userRSVP = user ? rsvps.find((rsvp: any) => rsvp.user_id === user.id) : null;
+                      
+                      return (
+                        <div key={event.id} className="border border-border rounded-lg p-4">
+                          <div className="flex items-start justify-between mb-2">
+                            <h4 className="font-semibold text-foreground">{event.title}</h4>
+                            {isAdmin && (
+                              <div className="flex gap-2">
+                                <button className="p-1 text-muted-foreground hover:text-foreground">
+                                  <Edit className="w-4 h-4" />
+                                </button>
+                                <button className="p-1 text-muted-foreground hover:text-red-500">
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-muted-foreground text-sm mb-3">{event.description}</p>
+                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
+                            <span>{new Date(event.event_datetime).toLocaleString()}</span>
+                            <span>{rsvps.length} RSVPs</span>
+                          </div>
+                          
+                          {/* RSVP Buttons */}
+                          <div className="flex gap-2">
+                            {userRSVP ? (
+                              <div className="flex gap-2">
+                                <span className="px-3 py-1 bg-primary/10 text-primary rounded text-xs">
+                                  {userRSVP.status === 'come' ? 'Going' : 
+                                   userRSVP.status === 'maybe' ? 'Maybe' : 'Not Going'}
+                                </span>
+                                <button 
+                                  onClick={() => handleUpdateRSVP(userRSVP.id, 'come')}
+                                  className="px-3 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 transition-colors"
+                                >
+                                  Going
+                                </button>
+                                <button 
+                                  onClick={() => handleUpdateRSVP(userRSVP.id, 'maybe')}
+                                  className="px-3 py-1 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 transition-colors"
+                                >
+                                  Maybe
+                                </button>
+                                <button 
+                                  onClick={() => handleUpdateRSVP(userRSVP.id, 'cant_come')}
+                                  className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-colors"
+                                >
+                                  Not Going
+                                </button>
+                                <button 
+                                  onClick={() => handleCancelRSVP(userRSVP.id)}
+                                  className="px-3 py-1 border border-border rounded text-xs hover:bg-accent transition-colors"
+                                >
+                                  Cancel RSVP
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex gap-2">
+                                <button 
+                                  onClick={() => handleRSVP(event.id, 'come')}
+                                  className="px-3 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 transition-colors"
+                                >
+                                  Going
+                                </button>
+                                <button 
+                                  onClick={() => handleRSVP(event.id, 'maybe')}
+                                  className="px-3 py-1 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 transition-colors"
+                                >
+                                  Maybe
+                                </button>
+                                <button 
+                                  onClick={() => handleRSVP(event.id, 'cant_come')}
+                                  className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-colors"
+                                >
+                                  Not Going
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {events.length > 5 && (
+                      <div className="text-center pt-4">
+                        <button 
+                          onClick={() => router.push(`/groups/${group.id}/events`)}
+                          className="px-6 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors"
+                        >
+                          View All Events ({events.length})
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg font-medium">No events yet</p>
+                    <p className="text-sm">Be the first to create an event in this group</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -655,13 +1021,13 @@ export default function GroupPage() {
                         onClick={() => handleUserSelection(mutualUser.id)}
                       >
                         <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                          {mutualUser.nickname?.charAt(0) || mutualUser.username?.charAt(0) || 'U'}
+                          {mutualUser.nickname?.charAt(0) || 'U'}
                         </div>
                         <div className="flex-1">
                           <p className="font-medium text-sm">
-                            {mutualUser.nickname || mutualUser.username || 'Unknown User'}
+                            {mutualUser.nickname || 'Unknown User'}
                           </p>
-                          <p className="text-xs text-muted-foreground">@{mutualUser.username}</p>
+                          <p className="text-xs text-muted-foreground">@{mutualUser.nickname}</p>
                         </div>
                         <div className={`w-4 h-4 rounded border-2 ${
                           selectedUsers.has(mutualUser.id)
@@ -843,6 +1209,189 @@ export default function GroupPage() {
                 className="px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Post Modal */}
+      {showCreatePostModal && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowCreatePostModal(false);
+              setPostFormData({ title: '', body: '' });
+              setPostError('');
+            }
+          }}
+        >
+          <div className="bg-card border border-border rounded-lg p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <MessageSquare className="w-5 h-5" />
+                Create Post
+              </h3>
+              <button
+                onClick={() => {
+                  setShowCreatePostModal(false);
+                  setPostFormData({ title: '', body: '' });
+                  setPostError('');
+                }}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-accent transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {postError && (
+                <div className="rounded-md bg-red-50 p-4 text-red-700 text-sm border border-red-200">
+                  {postError}
+                </div>
+              )}
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Title *</label>
+                <input
+                  type="text"
+                  value={postFormData.title}
+                  onChange={(e) => setPostFormData(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="Enter post title"
+                  maxLength={100}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Content *</label>
+                <textarea
+                  value={postFormData.body}
+                  onChange={(e) => setPostFormData(prev => ({ ...prev, body: e.target.value }))}
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                  placeholder="Write your post content..."
+                  rows={6}
+                  maxLength={1000}
+                />
+                <div className="text-xs text-muted-foreground text-right">
+                  {postFormData.body.length}/1000 characters
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6 pt-4 border-t border-border">
+              <button
+                onClick={() => {
+                  setShowCreatePostModal(false);
+                  setPostFormData({ title: '', body: '' });
+                  setPostError('');
+                }}
+                className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreatePost}
+                disabled={creatingPost || !postFormData.title.trim() || !postFormData.body.trim()}
+                className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {creatingPost ? 'Creating...' : 'Create Post'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Event Modal */}
+      {showCreateEventModal && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowCreateEventModal(false);
+              setEventFormData({ title: '', description: '', event_datetime: '' });
+              setEventError('');
+            }
+          }}
+        >
+          <div className="bg-card border border-border rounded-lg p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <Calendar className="w-5 h-5" />
+                Create Event
+              </h3>
+              <button
+                onClick={() => {
+                  setShowCreateEventModal(false);
+                  setEventFormData({ title: '', description: '', event_datetime: '' });
+                  setEventError('');
+                }}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-accent transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {eventError && (
+                <div className="rounded-md bg-red-50 p-4 text-red-700 text-sm border border-red-200">
+                  {eventError}
+                </div>
+              )}
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Event Title *</label>
+                <input
+                  type="text"
+                  value={eventFormData.title}
+                  onChange={(e) => setEventFormData(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="Enter event title"
+                  maxLength={255}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Description *</label>
+                <textarea
+                  value={eventFormData.description}
+                  onChange={(e) => setEventFormData(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                  placeholder="Describe your event..."
+                  rows={4}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Date & Time *</label>
+                <input
+                  type="datetime-local"
+                  value={eventFormData.event_datetime}
+                  onChange={(e) => setEventFormData(prev => ({ ...prev, event_datetime: e.target.value }))}
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  min={new Date().toISOString().slice(0, 16)}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6 pt-4 border-t border-border">
+              <button
+                onClick={() => {
+                  setShowCreateEventModal(false);
+                  setEventFormData({ title: '', description: '', event_datetime: '' });
+                  setEventError('');
+                }}
+                className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateEvent}
+                disabled={creatingEvent || !eventFormData.title.trim() || !eventFormData.description.trim() || !eventFormData.event_datetime.trim()}
+                className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {creatingEvent ? 'Creating...' : 'Create Event'}
               </button>
             </div>
           </div>
