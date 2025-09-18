@@ -49,8 +49,8 @@ export const SideBarLeft: React.FC<SideBarLeftProps> = ({
       {navigationItems.map(({ icon: Icon, label, href }) => {
         const isActive = pathname === href;
         const baseStyle = isActive
-          ? 'text-blue-600 font-medium'
-          : 'text-gray-600 hover:text-blue-500';
+          ? 'text-purple-600 font-medium'
+          : 'text-gray-600 hover:text-purple-500';
 
         return (
           <Link
@@ -58,12 +58,12 @@ export const SideBarLeft: React.FC<SideBarLeftProps> = ({
             href={href}
             className={
               variant === 'bottom'
-                ? `${baseStyle} flex flex-col items-center justify-center text-xs`
-                : `w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${baseStyle}`
+                ? `${baseStyle} flex flex-col items-center justify-center text-sm`
+                : `w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-colors ${baseStyle}`
             }
           >
-            <Icon className="w-5 h-5" />
-            {variant !== 'bottom' && <span className="text-sm">{label}</span>}
+            <Icon className="w-6 h-6" />
+            {variant !== 'bottom' && <span className="text-base">{label}</span>}
           </Link>
         );
       })}

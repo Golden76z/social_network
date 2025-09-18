@@ -140,12 +140,12 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="modal-title" className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <h2 id="modal-title" className="text-lg font-semibold">Post Details</h2>
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h2 id="modal-title" className="text-xl font-semibold">Post Details</h2>
           <button
             onClick={onClose}
             aria-label="Close modal"
-            className="p-1 hover:bg-gray-100 rounded-full"
+            className="p-1 hover:bg-accent rounded-full"
           >
             <X className="w-5 h-5" />
           </button>
@@ -154,7 +154,7 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
         {/* Content */}
         <div className="overflow-y-auto max-h-[calc(90vh-120px)]">
           {/* Post Content */}
-          <div className="p-4 border-b border-gray-200">
+          <div className="p-4 border-b border-border">
             <div className="flex items-center space-x-3 mb-3">
               <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
                 {(post as Post & { author_nickname?: string }).author_nickname?.charAt(0) || 'U'}
@@ -163,7 +163,7 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
                 <p className="font-semibold text-sm">
                   {(post as Post & { author_nickname?: string }).author_nickname || 'Unknown User'}
                 </p>
-                <p className="text-xs text-gray-500">{formatDate(post.created_at)}</p>
+                <p className="text-sm text-muted-foreground">{formatDate(post.created_at)}</p>
               </div>
             </div>
 
@@ -171,7 +171,7 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
               <h3 className="font-semibold text-lg mb-2">{post.title}</h3>
             )}
 
-            <p className="text-gray-700 mb-3 whitespace-pre-wrap">{post.body}</p>
+            <p className="text-foreground mb-3 whitespace-pre-wrap text-base">{post.body}</p>
 
             {/* Images */}
             {post.images && post.images.length > 0 && (
@@ -202,9 +202,9 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
             )}
 
             {/* Actions */}
-            <div className="flex items-center space-x-6 pt-3 border-t border-gray-100">
+            <div className="flex items-center space-x-6 pt-3 border-t border-border">
               {disableInteractions ? (
-                <div className="flex items-center space-x-2 text-sm text-gray-500">
+                <div className="flex items-center space-x-2 text-base text-muted-foreground">
                   <Heart className="w-4 h-4" />
                   <span>{likeCount}</span>
                 </div>
@@ -213,8 +213,8 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
                   onClick={handleLike}
                   disabled={isLiking}
                   aria-label={isLiked ? 'Unlike post' : 'Like post'}
-                  className={`flex items-center space-x-2 text-sm transition-colors ${
-                    isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
+                  className={`flex items-center space-x-2 text-base transition-colors ${
+                    isLiked ? 'text-red-500' : 'text-muted-foreground hover:text-red-500'
                   } ${isLiking ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
@@ -222,7 +222,7 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
                 </button>
               )}
 
-              <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <div className="flex items-center space-x-2 text-base text-muted-foreground">
                 <MessageCircle className="w-4 h-4" />
                 <span>{comments.length} comments</span>
               </div>
@@ -242,13 +242,13 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                     placeholder="Write a comment..."
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-base"
                     onKeyPress={(e) => e.key === 'Enter' && handleSubmitComment()}
                   />
                   <button
                     onClick={handleSubmitComment}
                     disabled={!newComment.trim() || isSubmittingComment}
-                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 text-base"
                   >
                     <Send className="w-4 h-4" />
                     <span>{isSubmittingComment ? 'Sending...' : 'Send'}</span>
@@ -259,18 +259,18 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
 
             {/* Sign in prompt for unauthenticated users */}
             {!isAuthenticated && (
-              <div className="mb-4 p-3 bg-gray-50 rounded-lg text-center">
-                <p className="text-sm text-gray-600 mb-2">Sign in to view and add comments</p>
+              <div className="mb-4 p-3 bg-muted rounded-lg text-center">
+                <p className="text-base text-muted-foreground mb-2">Sign in to view and add comments</p>
                 <div className="space-x-2">
                   <a
                     href="/login"
-                    className="inline-block px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors"
+                    className="inline-block px-3 py-1 bg-primary text-primary-foreground text-base rounded hover:bg-primary/90 transition-colors"
                   >
                     Sign In
                   </a>
                   <a
                     href="/register"
-                    className="inline-block px-3 py-1 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 transition-colors"
+                    className="inline-block px-3 py-1 border border-border text-foreground text-base rounded hover:bg-accent transition-colors"
                   >
                     Sign Up
                   </a>
@@ -281,11 +281,11 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
             {/* Comments List */}
             <div className="space-y-3">
               {!isAuthenticated ? (
-                <p className="text-gray-500 text-center py-4">Sign in to view comments</p>
+                <p className="text-muted-foreground text-center py-4 text-base">Sign in to view comments</p>
               ) : isLoadingComments ? (
-                <p className="text-gray-500 text-center py-4">Loading comments...</p>
+                <p className="text-muted-foreground text-center py-4 text-base">Loading comments...</p>
               ) : comments.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No comments yet. Be the first to comment!</p>
+                <p className="text-muted-foreground text-center py-4 text-base">No comments yet. Be the first to comment!</p>
               ) : (
                 comments.map((comment) => (
                   <CommentItem key={comment.id} comment={comment} />

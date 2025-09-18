@@ -28,25 +28,29 @@ export default function Header() {
 
   return (
     <header className="w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-      <div className="container mx-auto flex items-center justify-between px-4 py-3">
-        {/* Logo + Search */}
-        <div className="flex items-center gap-4">
-          <Link href="/" className="font-semibold text-xl">
-            Deustagram
-          </Link>
+      <div className="container mx-auto px-4 py-3">
+        <div className="flex items-center justify-between">
+          {/* Left side - empty for centering */}
+          <div className="flex-1"></div>
 
-          {/* Search - hidden on small screens */}
-          <div className="hidden md:block">
-            <input
-              type="text"
-              placeholder="Search..."
-              className="px-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
+          {/* Center - Logo and Search bar */}
+          <div className="flex-1 flex flex-col items-center gap-3">
+            <Link href="/" className="font-bold text-3xl text-purple-600">
+              Deustagram
+            </Link>
+            <div className="hidden md:block w-full max-w-md">
+              <input
+                type="text"
+                placeholder="Search..."
+                className="w-full px-4 py-1.5 border border-border rounded-md bg-background text-base focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
           </div>
-        </div>
 
-        {/* Desktop menu */}
-        <div className="hidden md:flex items-center gap-3" ref={dropdownRef}>
+          {/* Right side - Menu */}
+          <div className="flex-1 flex justify-end">
+            {/* Desktop menu */}
+            <div className="hidden md:flex items-center gap-3" ref={dropdownRef}>
           {isAuthenticated ? (
             <>
               <Link
@@ -97,6 +101,8 @@ export default function Header() {
               🔐 Sign In
             </button>
           )}
+            </div>
+          </div>
         </div>
 
         {/* Mobile hamburger */}
