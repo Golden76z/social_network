@@ -38,7 +38,7 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
     setIsLoadingComments(true);
     try {
       const commentsData = await commentApi.getComments(post.id);
-      setComments(commentsData);
+      setComments(commentsData || []); // Ensure it's always an array
     } catch (error) {
       console.error('Error loading comments:', error);
       setComments([]); // Set empty array on error
@@ -224,7 +224,7 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
 
               <div className="flex items-center space-x-2 text-base text-muted-foreground">
                 <MessageCircle className="w-4 h-4" />
-                <span>{comments.length} comments</span>
+                <span>{comments?.length || 0} comments</span>
               </div>
             </div>
           </div>
@@ -284,7 +284,7 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
                 <p className="text-muted-foreground text-center py-4 text-base">Sign in to view comments</p>
               ) : isLoadingComments ? (
                 <p className="text-muted-foreground text-center py-4 text-base">Loading comments...</p>
-              ) : comments.length === 0 ? (
+              ) : !comments || comments.length === 0 ? (
                 <p className="text-muted-foreground text-center py-4 text-base">No comments yet. Be the first to comment!</p>
               ) : (
                 comments.map((comment) => (
