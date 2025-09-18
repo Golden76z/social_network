@@ -116,14 +116,6 @@ const HomePage: React.FC = () => {
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h3 className="font-semibold mb-4">Recent Posts</h3>
           
-          {/* Debug info - remove this in production */}
-          <div className="mb-4 p-2 bg-gray-100 rounded text-xs">
-            <p>Debug: User logged in: {user ? 'Yes' : 'No'}</p>
-            <p>Debug: Feed type: {user ? 'User Feed (personalized)' : 'Public Posts'}</p>
-            <p>Debug: Posts count: {posts.length}</p>
-            <p>Debug: Loading: {loadingPosts ? 'Yes' : 'No'}</p>
-            {error && <p className="text-red-500">Error: {error}</p>}
-          </div>
           
           {loadingPosts ? (
             <div className="flex items-center justify-center py-8">
