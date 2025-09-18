@@ -11,9 +11,10 @@ interface PostModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLike?: (postId: number) => void;
+  disableInteractions?: boolean; // New prop to disable likes and comments
 }
 
-export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onLike }) => {
+export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onLike, disableInteractions = false }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isLiked, setIsLiked] = useState(false);
@@ -128,12 +129,13 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div ref={modalRef} className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+      <div ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="modal-title" className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold">Post Details</h2>
+          <h2 id="modal-title" className="text-lg font-semibold">Post Details</h2>
           <button
             onClick={onClose}
+            aria-label="Close modal"
             className="p-1 hover:bg-gray-100 rounded-full"
           >
             <X className="w-5 h-5" />
@@ -192,16 +194,24 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
 
             {/* Actions */}
             <div className="flex items-center space-x-6 pt-3 border-t border-gray-100">
-              <button
-                onClick={handleLike}
-                disabled={isLiking}
-                className={`flex items-center space-x-2 text-sm transition-colors ${
-                  isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
-                } ${isLiking ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
-                <span>{likeCount}</span>
-              </button>
+              {disableInteractions ? (
+                <div className="flex items-center space-x-2 text-sm text-gray-500">
+                  <Heart className="w-4 h-4" />
+                  <span>{likeCount}</span>
+                </div>
+              ) : (
+                <button
+                  onClick={handleLike}
+                  disabled={isLiking}
+                  aria-label={isLiked ? 'Unlike post' : 'Like post'}
+                  className={`flex items-center space-x-2 text-sm transition-colors ${
+                    isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
+                  } ${isLiking ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+                  <span>{likeCount}</span>
+                </button>
+              )}
 
               <div className="flex items-center space-x-2 text-sm text-gray-500">
                 <MessageCircle className="w-4 h-4" />
@@ -215,26 +225,28 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
             <h3 className="font-semibold mb-3">Comments</h3>
             
             {/* Add Comment */}
-            <div className="mb-4">
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Write a comment..."
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onKeyPress={(e) => e.key === 'Enter' && handleSubmitComment()}
-                />
-                <button
-                  onClick={handleSubmitComment}
-                  disabled={!newComment.trim() || isSubmittingComment}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-                >
-                  <Send className="w-4 h-4" />
-                  <span>{isSubmittingComment ? 'Sending...' : 'Send'}</span>
-                </button>
+            {!disableInteractions && (
+              <div className="mb-4">
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Write a comment..."
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onKeyPress={(e) => e.key === 'Enter' && handleSubmitComment()}
+                  />
+                  <button
+                    onClick={handleSubmitComment}
+                    disabled={!newComment.trim() || isSubmittingComment}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>{isSubmittingComment ? 'Sending...' : 'Send'}</span>
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Comments List */}
             <div className="space-y-3">

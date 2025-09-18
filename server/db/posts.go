@@ -705,3 +705,74 @@ func (s *Service) PostExists(postID int64) (bool, error) {
 	err := s.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM posts WHERE id = ?)", postID).Scan(&exists)
 	return exists, err
 }
+
+// GetPublicPosts retrieves only public posts for unauthenticated users
+func (s *Service) GetPublicPosts() ([]*models.Post, error) {
+	query := `
+		SELECT 
+			p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
+			u.nickname, u.first_name, u.last_name,
+			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
+			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
+			0 AS user_liked,
+			0 AS user_disliked
+		FROM posts p
+		JOIN users u ON p.user_id = u.id
+		WHERE p.visibility = 'public'
+		ORDER BY p.created_at DESC
+		LIMIT 50
+	`
+
+	rows, err := s.DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []*models.Post
+	for rows.Next() {
+		var post models.Post
+		var userLikedInt, userDislikedInt int
+		var authorNickname, authorFirstName, authorLastName string
+
+		err := rows.Scan(
+			&post.ID, &post.UserID, &post.Title, &post.Body, &post.Visibility,
+			&post.CreatedAt, &post.UpdatedAt,
+			&authorNickname, &authorFirstName, &authorLastName,
+			&post.Likes, &post.Dislikes, &userLikedInt, &userDislikedInt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		post.UserLiked = userLikedInt == 1
+		post.UserDisliked = userDislikedInt == 1
+		post.AuthorNickname = authorNickname
+		post.AuthorFirstName = authorFirstName
+		post.AuthorLastName = authorLastName
+
+		// Get images for this post
+		imageRows, err := s.DB.Query(`
+			SELECT image_url FROM post_images
+			WHERE post_id = ? AND is_group_post = 0`, post.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		var images []string
+		for imageRows.Next() {
+			var url string
+			if err := imageRows.Scan(&url); err != nil {
+				imageRows.Close()
+				return nil, err
+			}
+			images = append(images, url)
+		}
+		imageRows.Close()
+		post.Images = images
+
+		posts = append(posts, &post)
+	}
+
+	return posts, nil
+}
