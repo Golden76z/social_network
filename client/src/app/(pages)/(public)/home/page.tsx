@@ -166,6 +166,7 @@ const HomePage: React.FC = () => {
         onClose={handleCloseModal}
         onLike={handleLike}
         disableInteractions={!user}
+        isAuthenticated={!!user}
       />
     </div>
   );

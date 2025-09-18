@@ -12,9 +12,10 @@ interface PostModalProps {
   onClose: () => void;
   onLike?: (postId: number) => void;
   disableInteractions?: boolean; // New prop to disable likes and comments
+  isAuthenticated?: boolean; // New prop to indicate if user is authenticated
 }
 
-export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onLike, disableInteractions = false }) => {
+export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onLike, disableInteractions = false, isAuthenticated = true }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isLiked, setIsLiked] = useState(false);
@@ -27,16 +28,24 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
   const loadComments = useCallback(async () => {
     if (!post) return;
     
+    // Don't load comments if user is not authenticated
+    if (!isAuthenticated) {
+      setComments([]);
+      setIsLoadingComments(false);
+      return;
+    }
+    
     setIsLoadingComments(true);
     try {
       const commentsData = await commentApi.getComments(post.id);
       setComments(commentsData);
     } catch (error) {
       console.error('Error loading comments:', error);
+      setComments([]); // Set empty array on error
     } finally {
       setIsLoadingComments(false);
     }
-  }, [post]);
+  }, [post, isAuthenticated]);
 
   useEffect(() => {
     if (post && isOpen) {
@@ -225,7 +234,7 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
             <h3 className="font-semibold mb-3">Comments</h3>
             
             {/* Add Comment */}
-            {!disableInteractions && (
+            {!disableInteractions && isAuthenticated && (
               <div className="mb-4">
                 <div className="flex space-x-2">
                   <input
@@ -248,9 +257,32 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
               </div>
             )}
 
+            {/* Sign in prompt for unauthenticated users */}
+            {!isAuthenticated && (
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg text-center">
+                <p className="text-sm text-gray-600 mb-2">Sign in to view and add comments</p>
+                <div className="space-x-2">
+                  <a
+                    href="/login"
+                    className="inline-block px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition-colors"
+                  >
+                    Sign In
+                  </a>
+                  <a
+                    href="/register"
+                    className="inline-block px-3 py-1 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 transition-colors"
+                  >
+                    Sign Up
+                  </a>
+                </div>
+              </div>
+            )}
+
             {/* Comments List */}
             <div className="space-y-3">
-              {isLoadingComments ? (
+              {!isAuthenticated ? (
+                <p className="text-gray-500 text-center py-4">Sign in to view comments</p>
+              ) : isLoadingComments ? (
                 <p className="text-gray-500 text-center py-4">Loading comments...</p>
               ) : comments.length === 0 ? (
                 <p className="text-gray-500 text-center py-4">No comments yet. Be the first to comment!</p>
