@@ -13,9 +13,9 @@ export const userApi = {
     return apiClient.put<User>(userRoutes.profile, data);
   },
   
-  // GET /api/user/profile?userId=123
+  // GET /api/user/profile?id=123
   getUserById: (userId: number): Promise<UserProfile> => {
-    return apiClient.get<UserProfile>(`${userRoutes.profile}?userId=${userId}`);
+    return apiClient.get<UserProfile>(`${userRoutes.profile}?id=${userId}`);
   },
   
   // GET /api/user/follower?userId=123

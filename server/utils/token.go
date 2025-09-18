@@ -178,6 +178,15 @@ func GetUserIDFromJWT(r *http.Request) (int, error) {
 	return claims.UserID, nil
 }
 
+// GetUserIDFromTokenString extracts user ID from a JWT token string
+func GetUserIDFromTokenString(tokenString string) (int, error) {
+	claims, err := ValidateToken(tokenString)
+	if err != nil {
+		return 0, err
+	}
+	return claims.UserID, nil
+}
+
 // Helper function to get config (avoiding circular imports)
 func getConfig() configInterface {
 	return globalConfig

@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/middleware"
@@ -87,16 +88,31 @@ func CreateFollowHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"message": "Follow request sent"}`))
 }
 
-// GetFollowerHandler returns the list of users who follow the current user (followers)
+// GetFollowerHandler returns the list of users who follow the specified user (followers)
 func GetFollowerHandler(w http.ResponseWriter, r *http.Request) {
 	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	userID := int64(currentUserID)
 
-	followers, err := db.DBService.GetFollowers(userID)
+	// Get target user ID from query parameter
+	targetUserIDStr := r.URL.Query().Get("userId")
+	var targetUserID int64
+	var err error
+
+	if targetUserIDStr == "" {
+		// No userId parameter, return current user's followers
+		targetUserID = int64(currentUserID)
+	} else {
+		targetUserID, err = strconv.ParseInt(targetUserIDStr, 10, 64)
+		if err != nil {
+			http.Error(w, "Invalid user ID format", http.StatusBadRequest)
+			return
+		}
+	}
+
+	followers, err := db.DBService.GetFollowers(targetUserID)
 	if err != nil {
 		http.Error(w, "Error fetching followers", http.StatusInternalServerError)
 		return
@@ -105,16 +121,31 @@ func GetFollowerHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(followers)
 }
 
-// GetFollowingHandler returns the list of users the current user is following
+// GetFollowingHandler returns the list of users the specified user is following
 func GetFollowingHandler(w http.ResponseWriter, r *http.Request) {
 	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	userID := int64(currentUserID)
 
-	following, err := db.DBService.GetFollowing(userID)
+	// Get target user ID from query parameter
+	targetUserIDStr := r.URL.Query().Get("userId")
+	var targetUserID int64
+	var err error
+
+	if targetUserIDStr == "" {
+		// No userId parameter, return current user's following
+		targetUserID = int64(currentUserID)
+	} else {
+		targetUserID, err = strconv.ParseInt(targetUserIDStr, 10, 64)
+		if err != nil {
+			http.Error(w, "Invalid user ID format", http.StatusBadRequest)
+			return
+		}
+	}
+
+	following, err := db.DBService.GetFollowing(targetUserID)
 	if err != nil {
 		http.Error(w, "Error fetching following", http.StatusInternalServerError)
 		return
@@ -224,6 +255,12 @@ func DeleteFollowHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Error deleting follow request", http.StatusInternalServerError)
 		return
+	}
+
+	// If the relationship was accepted, decrement counters
+	if followReq.Status == "accepted" {
+		_ = db.DBService.DecrementFollowingCount(followReq.RequesterID)
+		_ = db.DBService.DecrementFollowersCount(followReq.TargetID)
 	}
 
 	w.WriteHeader(http.StatusOK)
