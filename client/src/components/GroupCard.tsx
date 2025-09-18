@@ -7,6 +7,7 @@ interface GroupCardProps {
   group: GroupResponse;
   isMember?: boolean;
   memberCount?: number;
+  hasPendingRequest?: boolean;
   onJoin?: (groupId: number) => void;
   onLeave?: (groupId: number) => void;
   onView?: (groupId: number) => void;
@@ -16,6 +17,7 @@ export const GroupCard: React.FC<GroupCardProps> = ({
   group,
   isMember = false,
   memberCount = 0,
+  hasPendingRequest = false,
   onJoin,
   onLeave,
   onView,
@@ -24,13 +26,15 @@ export const GroupCard: React.FC<GroupCardProps> = ({
   const { user } = useAuth();
 
   const handleJoin = async () => {
-    if (isLoading) return;
+    if (isLoading || hasPendingRequest) return;
     try {
       setIsLoading(true);
-      await groupApi.joinGroup(group.id);
+      await groupApi.createGroupRequest(group.id);
       onJoin?.(group.id);
     } catch (error) {
-      console.error('Failed to join group:', error);
+      console.error('Failed to request join group:', error);
+      // Show user-friendly error message
+      alert((error as Error).message || 'Failed to send join request. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -119,13 +123,25 @@ export const GroupCard: React.FC<GroupCardProps> = ({
               </button>
             </>
           ) : (
-            <button 
-              onClick={handleJoin}
-              disabled={isLoading}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              {isLoading ? 'Joining...' : 'Join'}
-            </button>
+            <>
+              <button 
+                onClick={handleView}
+                className="px-4 py-2 border border-border rounded text-sm hover:bg-accent transition-colors"
+              >
+                View
+              </button>
+              <button 
+                onClick={handleJoin}
+                disabled={isLoading || hasPendingRequest}
+                className={`px-4 py-2 rounded text-sm transition-colors disabled:opacity-50 ${
+                  hasPendingRequest 
+                    ? 'bg-gray-300 text-gray-600 cursor-not-allowed' 
+                    : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                }`}
+              >
+                {isLoading ? 'Requesting...' : hasPendingRequest ? 'Request Sent' : 'Request Join'}
+              </button>
+            </>
           )}
         </div>
       </div>

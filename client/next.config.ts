@@ -2,7 +2,8 @@ import type { NextConfig } from 'next';
 import type { Configuration } from 'webpack';
 
 const nextConfig: NextConfig = {
-  output: 'export',
+  // Only use static export in production builds
+  ...(process.env.NODE_ENV === 'production' ? { output: 'export' } : {}),
   trailingSlash: true,
   images: {
     unoptimized: true,
