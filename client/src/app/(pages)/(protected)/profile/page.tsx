@@ -4,8 +4,11 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import { userApi } from '@/lib/api/user';
-import { UpdateUserRequest, UserProfile, UserDisplayInfo } from '@/lib/types';
+import { postApi } from '@/lib/api/post';
+import { UpdateUserRequest, UserProfile, UserDisplayInfo, Post } from '@/lib/types';
 import { Lock, Unlock, UserMinus, UserPlus } from 'lucide-react';
+import { PostCard } from '@/components/PostCard';
+import { PostModal } from '@/components/PostModal';
 
 interface FollowersModalProps {
   isOpen: boolean;
@@ -110,6 +113,15 @@ function ProfilePageContent() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Posts sections state
+  const [userPosts, setUserPosts] = useState<Post[]>([]);
+  const [likedPosts, setLikedPosts] = useState<Post[]>([]);
+  const [commentedPosts, setCommentedPosts] = useState<Post[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'commented'>('posts');
+
   // Load profile data
   useEffect(() => {
     const loadProfile = async () => {
@@ -141,6 +153,99 @@ function ProfilePageContent() {
       loadProfile();
     }
   }, [user, hasCheckedAuth, isLoading, userId]);
+
+  // Load posts after profile data is loaded
+  useEffect(() => {
+    const loadPosts = async () => {
+      if (!user || !profileUser) return;
+      
+      setLoadingPosts(true);
+      try {
+        const targetUserId = userId ? parseInt(userId) : user.id;
+        
+        // Check if we should load posts based on privacy settings
+        const shouldLoadPosts = () => {
+          if (!profileUser) return false;
+          
+          // If viewing own profile, always load posts
+          if (!userId) return true;
+          
+          // If viewing other user's profile
+          if (userId && user) {
+            // If profile is private and user is not following, don't load posts
+            if (profileUser.is_private && !isFollowing) {
+              return false;
+            }
+            // If profile is public or user is following, load posts
+            return true;
+          }
+          
+          // If not logged in and viewing private profile, don't load posts
+          if (!user && profileUser.is_private) {
+            return false;
+          }
+          
+          // Default: load posts for public profiles
+          return !profileUser.is_private;
+        };
+
+        if (!shouldLoadPosts()) {
+          setUserPosts([]);
+          setLikedPosts([]);
+          setCommentedPosts([]);
+          setLoadingPosts(false);
+          return;
+        }
+        
+        // Load user's posts
+        const postsData = await postApi.getPostsByUser(targetUserId);
+        setUserPosts(postsData || []);
+        
+        // Load liked posts (only for own profile or if viewing other user's profile)
+        if (!userId || userId === user.id.toString()) {
+          const likedData = await postApi.getLikedPosts();
+          setLikedPosts(likedData || []);
+          
+          // Load commented posts (only for own profile)
+          if (!userId) {
+            const commentedData = await postApi.getCommentedPosts();
+            setCommentedPosts(commentedData || []);
+          } else {
+            setCommentedPosts([]);
+          }
+        } else {
+          // For other users, try to get their liked posts if API supports it
+          try {
+            const likedData = await postApi.getLikedPostsByUser(targetUserId);
+            setLikedPosts(likedData || []);
+          } catch (error) {
+            console.log('Cannot load liked posts for other users');
+            setLikedPosts([]);
+          }
+          
+          // For other users, try to get their commented posts if API supports it
+          try {
+            const commentedData = await postApi.getCommentedPostsByUser(targetUserId);
+            setCommentedPosts(commentedData || []);
+          } catch (error) {
+            console.log('Cannot load commented posts for other users');
+            setCommentedPosts([]);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading posts:', error);
+        setUserPosts([]);
+        setLikedPosts([]);
+        setCommentedPosts([]);
+      } finally {
+        setLoadingPosts(false);
+      }
+    };
+
+    if (profileUser && hasCheckedAuth && !isLoading && user) {
+      loadPosts();
+    }
+  }, [profileUser, isFollowing, user, hasCheckedAuth, isLoading, userId]);
 
 
   if (!hasCheckedAuth || isLoading) {
@@ -265,6 +370,102 @@ function ProfilePageContent() {
     } finally {
       setIsFollowLoading(false);
     }
+  };
+
+  // Post interaction handlers
+  const handleViewDetails = (postId: number) => {
+    const allPosts = [...userPosts, ...likedPosts, ...commentedPosts];
+    const post = allPosts.find(p => p.id === postId);
+    if (post) {
+      setSelectedPost(post);
+      setIsModalOpen(true);
+    }
+  };
+
+  const handleCloseModal = async () => {
+    setIsModalOpen(false);
+    setSelectedPost(null);
+    
+    // Refresh posts when closing modal
+    try {
+      const targetUserId = userId ? parseInt(userId) : user?.id;
+      if (!targetUserId) return;
+      
+      const postsData = await postApi.getPostsByUser(targetUserId);
+      setUserPosts(postsData || []);
+      
+      if (!userId || userId === user?.id?.toString()) {
+        const likedData = await postApi.getLikedPosts();
+        setLikedPosts(likedData || []);
+        
+        if (!userId) {
+          const commentedData = await postApi.getCommentedPosts();
+          setCommentedPosts(commentedData || []);
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing posts after modal close:', error);
+    }
+  };
+
+  const handleLike = async (postId: number) => {
+    try {
+      const targetUserId = userId ? parseInt(userId) : user?.id;
+      if (!targetUserId) return;
+      
+      const postsData = await postApi.getPostsByUser(targetUserId);
+      setUserPosts(postsData || []);
+      
+      if (!userId || userId === user?.id?.toString()) {
+        const likedData = await postApi.getLikedPosts();
+        setLikedPosts(likedData || []);
+        
+        if (!userId) {
+          const commentedData = await postApi.getCommentedPosts();
+          setCommentedPosts(commentedData || []);
+        }
+      }
+      
+      if (selectedPost?.id === postId) {
+        const allPosts = [...userPosts, ...likedPosts, ...commentedPosts];
+        const updatedPost = allPosts.find(p => p.id === postId);
+        if (updatedPost) {
+          setSelectedPost(updatedPost);
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing posts after like:', error);
+    }
+  };
+
+  const handleComment = (postId: number) => {
+    handleViewDetails(postId);
+  };
+
+  // Check if user can view posts sections
+  const canViewPosts = () => {
+    if (!profileUser) return false;
+    
+    // If viewing own profile, always show posts
+    if (!userId) return true;
+    
+    // If viewing other user's profile
+    if (userId && user) {
+      // If profile is private and user is not following, don't show posts
+      if (profileUser.is_private && !isFollowing) {
+        return false;
+      }
+      // If profile is public or user is following, show posts
+      return true;
+    }
+    
+    // If not logged in and viewing private profile, don't show posts
+    if (!user && profileUser.is_private) {
+      return false;
+    }
+    
+    // Default: show posts for public profiles
+    return !profileUser.is_private;
   };
 
   return (
@@ -436,6 +637,167 @@ function ProfilePageContent() {
               </div>
             </div>
 
+            {/* Posts Tabs Section - Only show if user can view posts */}
+            {canViewPosts() ? (
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                {/* Tab Buttons */}
+                <div className="flex space-x-1 mb-6 bg-gray-100 p-1 rounded-lg">
+                  <button
+                    onClick={() => setActiveTab('posts')}
+                    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                      activeTab === 'posts'
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Posts
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('liked')}
+                    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                      activeTab === 'liked'
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Liked
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('commented')}
+                    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                      activeTab === 'commented'
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Commented
+                  </button>
+                </div>
+
+                {/* Tab Content */}
+                {activeTab === 'posts' && (
+                  <>
+                    {loadingPosts ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                        <span className="ml-2 text-gray-500">Loading posts...</span>
+                      </div>
+                    ) : userPosts.length === 0 ? (
+                      <div className="text-center py-8">
+                        <p className="text-gray-500 text-lg">No posts yet.</p>
+                        <p className="text-gray-400 text-sm mt-2">
+                          {userId ? "This user hasn't posted anything yet." : "Create your first post to get started!"}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {userPosts.map((post) => (
+                          <PostCard
+                            key={post.id}
+                            post={post}
+                            onLike={handleLike}
+                            onComment={handleComment}
+                            onViewDetails={handleViewDetails}
+                            onUserClick={handleUserClick}
+                            disableLikes={!user}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {activeTab === 'liked' && (
+                  <>
+                    {loadingPosts ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                        <span className="ml-2 text-gray-500">Loading liked posts...</span>
+                      </div>
+                    ) : likedPosts.length === 0 ? (
+                      <div className="text-center py-8">
+                        <p className="text-gray-500 text-lg">No liked posts yet.</p>
+                        <p className="text-gray-400 text-sm mt-2">
+                          {userId ? "This user hasn't liked any posts yet." : "Like some posts to see them here!"}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {likedPosts.map((post) => (
+                          <PostCard
+                            key={post.id}
+                            post={post}
+                            onLike={handleLike}
+                            onComment={handleComment}
+                            onViewDetails={handleViewDetails}
+                            onUserClick={handleUserClick}
+                            disableLikes={!user}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {activeTab === 'commented' && (
+                  <>
+                    {loadingPosts ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                        <span className="ml-2 text-gray-500">Loading commented posts...</span>
+                      </div>
+                    ) : commentedPosts.length === 0 ? (
+                      <div className="text-center py-8">
+                        <p className="text-gray-500 text-lg">No commented posts yet.</p>
+                        <p className="text-gray-400 text-sm mt-2">
+                          {userId ? "This user hasn't commented on any posts yet." : "Comment on some posts to see them here!"}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {commentedPosts.map((post) => (
+                          <PostCard
+                            key={post.id}
+                            post={post}
+                            onLike={handleLike}
+                            onComment={handleComment}
+                            onViewDetails={handleViewDetails}
+                            onUserClick={handleUserClick}
+                            disableLikes={!user}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            ) : (
+              /* Private Profile Message */
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Lock className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-700 mb-2">This profile is private</h3>
+                  <p className="text-gray-500 text-sm mb-4">
+                    {userId ? 
+                      "Follow this user to see their posts, liked content, and comments." : 
+                      "This user's posts are only visible to their followers."
+                    }
+                  </p>
+                  {userId && user && parseInt(userId) !== user.id && !isFollowing && (
+                    <button
+                      onClick={handleFollowToggle}
+                      disabled={isFollowLoading}
+                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                    >
+                      {isFollowLoading ? 'Loading...' : 'Follow to see content'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
       </div>
 
 
@@ -446,6 +808,15 @@ function ProfilePageContent() {
         users={followersModal.type === 'followers' ? followers : following}
         title={followersModal.type === 'followers' ? 'Followers' : 'Following'}
         onUserClick={handleUserClick}
+      />
+
+      {/* Post Modal */}
+      <PostModal
+        post={selectedPost}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onLike={handleLike}
+        disableInteractions={!user}
       />
     </div>
   );
