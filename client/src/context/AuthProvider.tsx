@@ -245,6 +245,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       document.cookie = 'jwt_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
       
       console.log('✅ Logout completed');
+      
+      // Redirect to home page after logout
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
     }
   };
 

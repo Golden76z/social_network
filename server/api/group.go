@@ -33,9 +33,21 @@ func CreateGroupHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate request fields
-	if validationErrors := utils.ValidateStringLength(&req, 3, 100); len(validationErrors) > 0 {
+	// Title: required, 3-50 characters
+	// Bio: optional, if provided, 3-500 characters
+	// Avatar: optional, if provided, validate URL format
+	if validationErrors := utils.ValidateStringLength(&req, 3, 50); len(validationErrors) > 0 {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(validationErrors)
+		return
+	}
+
+	// Additional validation for bio length (if provided)
+	if req.Bio != "" && len(req.Bio) > 500 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode([]utils.ValidationError{
+			{Field: "Bio", Message: "must be at most 500 characters"},
+		})
 		return
 	}
 
