@@ -19,54 +19,64 @@ export default function GroupsPage() {
   const [activeTab, setActiveTab] = useState<'my-groups' | 'all-groups'>('my-groups');
 
   // Load groups data
-  useEffect(() => {
-    const loadGroups = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  const loadGroups = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        // Fetch all groups and user groups in parallel
-        const [allGroupsData, userGroupsData] = await Promise.all([
-          groupApi.getAllGroups(),
-          groupApi.getUserGroups()
-        ]);
-        
-        setAllGroups(allGroupsData);
-        setMyGroups(userGroupsData);
+      // Fetch all groups and user groups in parallel
+      const [allGroupsData, userGroupsData] = await Promise.all([
+        groupApi.getAllGroups(),
+        groupApi.getUserGroups()
+      ]);
+      
+      setAllGroups(allGroupsData);
+      setMyGroups(userGroupsData);
 
-        // Fetch member counts for all groups
-        const memberCounts: Record<number, number> = {};
-        const memberships = new Set<number>();
-        
-        // Add user groups to memberships set
-        userGroupsData.forEach(group => {
-          memberships.add(group.id);
-        });
-        
-        // Get member counts for all groups
-        for (const group of allGroupsData) {
-          try {
-            const membersResponse = await groupApi.getGroupMembers(group.id);
-            const members = Array.isArray(membersResponse) ? membersResponse : [];
-            memberCounts[group.id] = members.length;
-          } catch (err) {
-            console.warn(`Failed to get member count for group ${group.id}:`, err);
-            memberCounts[group.id] = 0;
-          }
+      // Fetch member counts for all groups
+      const memberCounts: Record<number, number> = {};
+      const memberships = new Set<number>();
+      
+      // Add user groups to memberships set
+      userGroupsData.forEach(group => {
+        memberships.add(group.id);
+      });
+      
+      // Get member counts for all groups
+      for (const group of allGroupsData) {
+        try {
+          const membersResponse = await groupApi.getGroupMembers(group.id);
+          const members = Array.isArray(membersResponse) ? membersResponse : [];
+          memberCounts[group.id] = members.length;
+        } catch (err) {
+          console.warn(`Failed to get member count for group ${group.id}:`, err);
+          memberCounts[group.id] = 0;
         }
-        
-        setGroupMemberCounts(memberCounts);
-        setUserMemberships(memberships);
-
-      } catch (err) {
-        console.error('Failed to load groups:', err);
-        setError('Failed to load groups. Please try again.');
-      } finally {
-        setLoading(false);
       }
+      
+      setGroupMemberCounts(memberCounts);
+      setUserMemberships(memberships);
+
+    } catch (err) {
+      console.error('Failed to load groups:', err);
+      setError('Failed to load groups. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadGroups();
+  }, []);
+
+  // Refresh data when page regains focus (e.g., returning from group creation)
+  useEffect(() => {
+    const handleFocus = () => {
+      loadGroups();
     };
 
-    loadGroups();
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
   const handleJoinGroup = (groupId: number) => {
@@ -96,7 +106,7 @@ export default function GroupsPage() {
   };
 
   const handleViewGroup = (groupId: number) => {
-    router.push(`/groups/${groupId}`);
+    router.push(`/groups/${groupId}/info`);
   };
 
   const handleCreateGroup = () => {
