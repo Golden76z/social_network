@@ -27,6 +27,10 @@ export const groupApi = {
     return apiClient.get(`${groupRoutes.base}${query}`);
   },
 
+  getUserGroups: (): Promise<GroupResponse[]> => {
+    return apiClient.get(`${groupRoutes.base}/user/mine`);
+  },
+
   getGroupById: (groupId: string | number): Promise<GroupResponse> => {
     return apiClient.get(`${groupRoutes.base}/${groupId}`);
   },
@@ -123,6 +127,14 @@ export const groupApi = {
     return apiClient.delete('/api/group/member', {
       body: JSON.stringify(data),
     });
+  },
+
+  getGroupMembers: (groupId: string | number, offset?: number) => {
+    const params = new URLSearchParams();
+    params.append('id', groupId.toString());
+    if (offset !== undefined) params.append('offset', offset.toString());
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return apiClient.get(`/api/group/members${query}`);
   },
 
   updateGroupMember: (data: UpdateGroupMemberRequest) => {
