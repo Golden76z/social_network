@@ -1,8 +1,8 @@
 'use client';
 
-import Header from '../header';
-import { SideBarLeft } from '../SideBarLeft';
-import { SideBarRight } from '../SideBarRight';
+import Header from '../page_components/Header';
+import { SideBarLeft } from '../page_components/SideBarLeft';
+import { SideBarRight } from '../page_components/SideBarRight';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({
   children,

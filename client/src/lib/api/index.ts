@@ -31,6 +31,8 @@ export class ApiClient {
     };
 
     console.log('🌐 API request:', url);
+    console.log('📋 Request headers:', headers);
+    console.log('🍪 Current cookies:', document.cookie);
 
     const response = await fetch(url, {
       ...options,
@@ -38,10 +40,22 @@ export class ApiClient {
       credentials: 'include',
     });
 
+    console.log('📡 Response status:', response.status);
+    console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
       // Read text first (body can be read only once), then try to parse JSON
       const raw = await response.text().catch(() => '');
       let message = raw || `API Error: ${response.status}`;
+      
+      console.error('❌ API Error Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        url: url,
+        rawResponse: raw,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
       try {
         const parsed = raw ? JSON.parse(raw) : null;
         if (parsed) {
@@ -60,7 +74,8 @@ export class ApiClient {
 
   private async fetchCSRFToken(): Promise<void> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/posts`, {
+      console.log('🔐 Fetching CSRF token from:', `${this.baseUrl}/api/post`);
+      const response = await fetch(`${this.baseUrl}/api/post`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -68,13 +83,18 @@ export class ApiClient {
         },
       });
       
+      console.log('🔐 CSRF response status:', response.status);
+      console.log('🔐 CSRF response headers:', Object.fromEntries(response.headers.entries()));
+      
       const token = response.headers.get('X-CSRF-Token');
       if (token) {
         this.csrfToken = token;
         console.log('🔐 CSRF token fetched:', token.substring(0, 10) + '...');
+      } else {
+        console.warn('⚠️ No CSRF token found in response headers');
       }
     } catch (error) {
-      console.error('Failed to fetch CSRF token:', error);
+      console.error('❌ Failed to fetch CSRF token:', error);
     }
   }
 
@@ -125,23 +145,48 @@ export class ApiClient {
     if (typeof document === 'undefined') return null;
     
     try {
+      console.log('🔍 Looking for JWT token in cookies...');
       const cookies = document.cookie.split(';');
+      console.log('🍪 All cookies:', cookies);
+      
       const jwtCookie = cookies.find(c => c.trim().startsWith('jwt_token='));
-      if (!jwtCookie) return null;
+      console.log('🔑 JWT cookie found:', jwtCookie);
+      
+      if (!jwtCookie) {
+        console.log('❌ No JWT cookie found');
+        return null;
+      }
 
-      const token = jwtCookie.split('=')[1];
-      if (!token) return null;
+      const token = jwtCookie.substring('jwt_token='.length);
+      console.log('🎫 Token value:', token ? `${token.substring(0, 20)}...` : 'empty');
+      
+      if (!token) {
+        console.log('❌ Token value is empty');
+        return null;
+      }
 
-      const base64Url = token.split('.')[1];
+      const parts = token.split('.');
+      console.log('📦 Token parts:', parts.length);
+      
+      if (parts.length !== 3) {
+        console.log('❌ Invalid JWT format - expected 3 parts, got', parts.length);
+        return null;
+      }
+
+      const base64Url = parts[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
       const payload = JSON.parse(atob(base64));
+      console.log('📋 Token payload:', payload);
 
-      return {
+      const result = {
         userid: payload.userid || payload.id || payload.user_id,
         username: payload.username || payload.user || payload.name,
       };
+      
+      console.log('✅ Extracted user info:', result);
+      return result;
     } catch (err) {
-      console.error('Error decoding JWT:', err);
+      console.error('❌ Error parsing JWT token:', err);
       return null;
     }
   }

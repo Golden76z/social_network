@@ -32,20 +32,28 @@ func (s *Service) GetUserByID(userID int64) (*models.User, error) {
 	return &user, nil
 }
 
-// IncrementFollowingCount increments the number of users this user is following (dummy, to be implemented if you have a counter column)
+// IncrementFollowingCount increments the number of users this user is following
 func (s *Service) IncrementFollowingCount(userID int64) error {
-	// If you have a following_count column in users table, uncomment below:
-	// _, err := s.DB.Exec(`UPDATE users SET following_count = following_count + 1 WHERE id = ?`, userID)
-	// return err
-	return nil
+	_, err := s.DB.Exec(`UPDATE users SET followed = followed + 1 WHERE id = ?`, userID)
+	return err
 }
 
-// IncrementFollowersCount increments the number of followers for a user (dummy, to be implemented if you have a counter column)
+// IncrementFollowersCount increments the number of followers for a user
 func (s *Service) IncrementFollowersCount(userID int64) error {
-	// If you have a followers_count column in users table, uncomment below:
-	// _, err := s.DB.Exec(`UPDATE users SET followers_count = followers_count + 1 WHERE id = ?`, userID)
-	// return err
-	return nil
+	_, err := s.DB.Exec(`UPDATE users SET followers = followers + 1 WHERE id = ?`, userID)
+	return err
+}
+
+// DecrementFollowingCount decrements the number of users this user is following
+func (s *Service) DecrementFollowingCount(userID int64) error {
+	_, err := s.DB.Exec(`UPDATE users SET followed = followed - 1 WHERE id = ?`, userID)
+	return err
+}
+
+// DecrementFollowersCount decrements the number of followers for a user
+func (s *Service) DecrementFollowersCount(userID int64) error {
+	_, err := s.DB.Exec(`UPDATE users SET followers = followers - 1 WHERE id = ?`, userID)
+	return err
 }
 
 func (s *Service) CreateUser(req models.User) error {
