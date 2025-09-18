@@ -92,14 +92,14 @@ export const PostCard: React.FC<PostCardProps> = ({
         <div className="flex items-center space-x-3">
           <div 
             className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={() => post.author_id && onUserClick?.(post.author_id)}
+            onClick={() => (post.author_id || post.user_id) && onUserClick?.(post.author_id || post.user_id)}
           >
             {(post as Post & { author_nickname?: string }).author_nickname?.charAt(0) || 'U'}
           </div>
           <div>
             <p 
               className="font-semibold text-sm cursor-pointer hover:text-blue-500 transition-colors"
-              onClick={() => post.author_id && onUserClick?.(post.author_id)}
+              onClick={() => (post.author_id || post.user_id) && onUserClick?.(post.author_id || post.user_id)}
             >
               {(post as Post & { author_nickname?: string }).author_nickname || 'Unknown User'}
             </p>

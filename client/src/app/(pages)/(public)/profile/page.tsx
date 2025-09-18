@@ -122,19 +122,32 @@ function ProfilePageContent() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'commented'>('posts');
 
+  // Helper function to determine if viewing own profile
+  const isOwnProfile = () => {
+    if (!user) return false; // Must be authenticated to view own profile
+    if (!userId) return true; // No userId means own profile (only if authenticated)
+    return parseInt(userId) === user.id; // userId matches current user
+  };
+
   // Load profile data
   useEffect(() => {
     const loadProfile = async () => {
-      if (!user) return;
-      
       try {
         let profileData;
-        if (userId) {
-          // Load other user's profile
-          profileData = await userApi.getUserById(parseInt(userId));
-        } else {
-          // Load own profile
+        
+        // If no userId and no user, redirect to login (trying to access own profile without auth)
+        if (!userId && !user) {
+          router.push('/login');
+          return;
+        }
+        
+        if (isOwnProfile()) {
+          // Load own profile (requires authentication)
           profileData = await userApi.getProfile();
+        } else {
+          // Load other user's profile (works for both authenticated and unauthenticated users)
+          if (!userId) return; // Need userId to load other user's profile
+          profileData = await userApi.getUserById(parseInt(userId));
         }
         setProfileUser(profileData);
         setFormState({
@@ -144,31 +157,36 @@ function ProfilePageContent() {
           bio: profileData.bio || '',
           is_private: profileData.is_private,
         });
-      } catch (error) {
-        console.error('Error loading profile:', error);
-      }
+    } catch {
+      console.error('Error loading profile');
+    }
     };
 
-    if (hasCheckedAuth && !isLoading && user) {
+    // Load profile if:
+    // 1. We have a userId (viewing someone else's profile) - works for both authenticated and unauthenticated
+    // 2. We're authenticated and viewing our own profile (no userId)
+    if (userId || (hasCheckedAuth && !isLoading && user)) {
       loadProfile();
     }
-  }, [user, hasCheckedAuth, isLoading, userId]);
+    }, [user, hasCheckedAuth, isLoading, userId, router]);
 
   // Load posts after profile data is loaded
   useEffect(() => {
     const loadPosts = async () => {
-      if (!user || !profileUser) return;
+      if (!profileUser) return;
       
       setLoadingPosts(true);
       try {
-        const targetUserId = userId ? parseInt(userId) : user.id;
+        const targetUserId = userId ? parseInt(userId) : (user?.id || 0);
         
         // Check if we should load posts based on privacy settings
         const shouldLoadPosts = () => {
           if (!profileUser) return false;
           
-          // If viewing own profile, always load posts
-          if (!userId) return true;
+          // If viewing own profile, always load posts (requires authentication)
+          if (isOwnProfile()) {
+            return !!user; // Only if authenticated
+          }
           
           // If viewing other user's profile
           if (userId && user) {
@@ -185,7 +203,7 @@ function ProfilePageContent() {
             return false;
           }
           
-          // Default: load posts for public profiles
+          // Default: load posts for public profiles (even if not logged in)
           return !profileUser.is_private;
         };
 
@@ -201,36 +219,42 @@ function ProfilePageContent() {
         const postsData = await postApi.getPostsByUser(targetUserId);
         setUserPosts(postsData || []);
         
-        // Load liked posts (only for own profile or if viewing other user's profile)
-        if (!userId || userId === user.id.toString()) {
-          const likedData = await postApi.getLikedPosts();
-          setLikedPosts(likedData || []);
-          
-          // Load commented posts (only for own profile)
-          if (!userId) {
-            const commentedData = await postApi.getCommentedPosts();
-            setCommentedPosts(commentedData || []);
+        // Load liked posts (only for authenticated users)
+        if (user) {
+          if (!userId || userId === user.id.toString()) {
+            const likedData = await postApi.getLikedPosts();
+            setLikedPosts(likedData || []);
+            
+            // Load commented posts (only for own profile)
+            if (!userId) {
+              const commentedData = await postApi.getCommentedPosts();
+              setCommentedPosts(commentedData || []);
+            } else {
+              setCommentedPosts([]);
+            }
           } else {
-            setCommentedPosts([]);
+            // For other users, try to get their liked posts if API supports it
+            try {
+              const likedData = await postApi.getLikedPostsByUser(targetUserId);
+              setLikedPosts(likedData || []);
+            } catch (error) {
+              console.log('Cannot load liked posts for other users');
+              setLikedPosts([]);
+            }
+            
+            // For other users, try to get their commented posts if API supports it
+            try {
+              const commentedData = await postApi.getCommentedPostsByUser(targetUserId);
+              setCommentedPosts(commentedData || []);
+            } catch (error) {
+              console.log('Cannot load commented posts for other users');
+              setCommentedPosts([]);
+            }
           }
         } else {
-          // For other users, try to get their liked posts if API supports it
-          try {
-            const likedData = await postApi.getLikedPostsByUser(targetUserId);
-            setLikedPosts(likedData || []);
-          } catch (error) {
-            console.log('Cannot load liked posts for other users');
-            setLikedPosts([]);
-          }
-          
-          // For other users, try to get their commented posts if API supports it
-          try {
-            const commentedData = await postApi.getCommentedPostsByUser(targetUserId);
-            setCommentedPosts(commentedData || []);
-          } catch (error) {
-            console.log('Cannot load commented posts for other users');
-            setCommentedPosts([]);
-          }
+          // Not logged in - can only see user's posts, not liked/commented
+          setLikedPosts([]);
+          setCommentedPosts([]);
         }
       } catch (error) {
         console.error('Error loading posts:', error);
@@ -242,16 +266,26 @@ function ProfilePageContent() {
       }
     };
 
-    if (profileUser && hasCheckedAuth && !isLoading && user) {
+    // Load posts if we have profile data and either:
+    // 1. We're viewing someone else's profile (userId exists)
+    // 2. We're authenticated and viewing our own profile
+    if (profileUser && (userId || (hasCheckedAuth && !isLoading && user))) {
       loadPosts();
     }
   }, [profileUser, isFollowing, user, hasCheckedAuth, isLoading, userId]);
 
+  // Set isFollowing to true when viewing own profile
+  useEffect(() => {
+    if (isOwnProfile() && profileUser) {
+      setIsFollowing(true); // You always "follow" yourself
+    }
+  }, [user, userId, profileUser]);
 
-  if (!hasCheckedAuth || isLoading) {
+  // Show loading only if we're authenticated and still checking auth, or if we're loading
+  if ((user && (!hasCheckedAuth || isLoading)) || (!user && isLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-500 text-lg">Loading your profile...</p>
+        <p className="text-gray-500 text-lg">Loading profile...</p>
       </div>
     );
   }
@@ -320,10 +354,12 @@ function ProfilePageContent() {
       const targetUserId = userId ? parseInt(userId) : (user?.id || 0);
       if (!targetUserId) return;
       const followersData = await userApi.getFollowers(targetUserId);
-      setFollowers(followersData);
+      setFollowers(followersData || []);
       setFollowersModal({isOpen: true, type: 'followers'});
     } catch (error) {
       console.error('Error loading followers:', error);
+      setFollowers([]);
+      setFollowersModal({isOpen: true, type: 'followers'});
     }
   };
 
@@ -332,10 +368,12 @@ function ProfilePageContent() {
       const targetUserId = userId ? parseInt(userId) : (user?.id || 0);
       if (!targetUserId) return;
       const followingData = await userApi.getFollowing(targetUserId);
-      setFollowing(followingData);
+      setFollowing(followingData || []);
       setFollowersModal({isOpen: true, type: 'following'});
     } catch (error) {
       console.error('Error loading following:', error);
+      setFollowing([]);
+      setFollowersModal({isOpen: true, type: 'following'});
     }
   };
 
@@ -446,8 +484,8 @@ function ProfilePageContent() {
   const canViewPosts = () => {
     if (!profileUser) return false;
     
-    // If viewing own profile, always show posts
-    if (!userId) return true;
+    // If viewing own profile, always show posts (requires authentication)
+    if (isOwnProfile()) return !!user;
     
     // If viewing other user's profile
     if (userId && user) {
@@ -464,14 +502,14 @@ function ProfilePageContent() {
       return false;
     }
     
-    // Default: show posts for public profiles
+    // Default: show posts for public profiles (even if not logged in)
     return !profileUser.is_private;
   };
 
   return (
     <div className="w-full">
       <h1 className="text-2xl font-bold mb-6">
-        {userId ? `${profileUser?.nickname || 'User'}'s Profile` : 'Your Profile'}
+        {isOwnProfile() ? 'Your Profile' : `${profileUser?.nickname || 'User'}'s Profile`}
       </h1>
 
       <div className="space-y-6">
@@ -553,7 +591,7 @@ function ProfilePageContent() {
                   )}
                 </div>
 
-                {!userId && (
+                {isOwnProfile() && (
                   <>
                     {isEditing ? (
                       <div className="flex gap-2">
@@ -640,39 +678,44 @@ function ProfilePageContent() {
             {/* Posts Tabs Section - Only show if user can view posts */}
             {canViewPosts() ? (
               <div className="bg-white rounded-lg border border-gray-200 p-6">
-                {/* Tab Buttons */}
-                <div className="flex space-x-1 mb-6 bg-gray-100 p-1 rounded-lg">
-                  <button
-                    onClick={() => setActiveTab('posts')}
-                    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                      activeTab === 'posts'
-                        ? 'bg-white text-blue-600 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    Posts
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('liked')}
-                    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                      activeTab === 'liked'
-                        ? 'bg-white text-blue-600 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    Liked
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('commented')}
-                    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                      activeTab === 'commented'
-                        ? 'bg-white text-blue-600 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    Commented
-                  </button>
-                </div>
+              {/* Tab Buttons */}
+              <div className="flex space-x-1 mb-6 bg-gray-100 p-1 rounded-lg">
+                <button
+                  onClick={() => setActiveTab('posts')}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                    activeTab === 'posts'
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Posts
+                </button>
+                {/* Only show Liked and Commented tabs for authenticated users */}
+                {user && (
+                  <>
+                    <button
+                      onClick={() => setActiveTab('liked')}
+                      className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                        activeTab === 'liked'
+                          ? 'bg-white text-blue-600 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      Liked
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('commented')}
+                      className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                        activeTab === 'commented'
+                          ? 'bg-white text-blue-600 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      Commented
+                    </button>
+                  </>
+                )}
+              </div>
 
                 {/* Tab Content */}
                 {activeTab === 'posts' && (
@@ -707,7 +750,8 @@ function ProfilePageContent() {
                   </>
                 )}
 
-                {activeTab === 'liked' && (
+                {/* Only show Liked and Commented tabs for authenticated users */}
+                {user && activeTab === 'liked' && (
                   <>
                     {loadingPosts ? (
                       <div className="flex items-center justify-center py-8">
@@ -739,7 +783,7 @@ function ProfilePageContent() {
                   </>
                 )}
 
-                {activeTab === 'commented' && (
+                {user && activeTab === 'commented' && (
                   <>
                     {loadingPosts ? (
                       <div className="flex items-center justify-center py-8">
@@ -780,12 +824,30 @@ function ProfilePageContent() {
                   </div>
                   <h3 className="text-lg font-semibold text-gray-700 mb-2">This profile is private</h3>
                   <p className="text-gray-500 text-sm mb-4">
-                    {userId ? 
-                      "Follow this user to see their posts, liked content, and comments." : 
-                      "This user's posts are only visible to their followers."
+                    {!user ? 
+                      "Sign in to follow this user and see their posts, liked content, and comments." :
+                      userId ? 
+                        "Follow this user to see their posts, liked content, and comments." : 
+                        "This user's posts are only visible to their followers."
                     }
                   </p>
-                  {userId && user && parseInt(userId) !== user.id && !isFollowing && (
+                  {!user ? (
+                    <div className="space-y-2">
+                      <a
+                        href="/login"
+                        className="inline-block px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                      >
+                        Sign In
+                      </a>
+                      <p className="text-xs text-gray-400">or</p>
+                      <a
+                        href="/register"
+                        className="inline-block px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        Create Account
+                      </a>
+                    </div>
+                  ) : !isOwnProfile() && user && !isFollowing && (
                     <button
                       onClick={handleFollowToggle}
                       disabled={isFollowLoading}
@@ -817,6 +879,7 @@ function ProfilePageContent() {
         onClose={handleCloseModal}
         onLike={handleLike}
         disableInteractions={!user}
+        isAuthenticated={!!user}
       />
     </div>
   );
