@@ -100,7 +100,7 @@ export function RegisterForm({
   };
 
   return (
-    <div className={cn('flex flex-col gap-6', className)} {...props}>
+    <div className={cn('flex flex-col gap-6 max-w-md mx-auto', className)} {...props}>
       <Card>
         <CardHeader>
           <CardTitle>Register your account</CardTitle>
@@ -128,6 +128,7 @@ export function RegisterForm({
                   value={form.nickname}
                   onChange={handleChange}
                   disabled={isLoading}
+                  className="h-12"
                 />
               </div>
 
@@ -143,6 +144,7 @@ export function RegisterForm({
                     value={form.first_name}
                     onChange={handleChange}
                     disabled={isLoading}
+                    className="h-12"
                   />
                 </div>
                 <div className="grid gap-3">
@@ -156,6 +158,7 @@ export function RegisterForm({
                     value={form.last_name}
                     onChange={handleChange}
                     disabled={isLoading}
+                    className="h-12"
                   />
                 </div>
               </div>
@@ -171,6 +174,7 @@ export function RegisterForm({
                   value={form.email}
                   onChange={handleChange}
                   disabled={isLoading}
+                  className="h-12"
                 />
               </div>
 
@@ -185,6 +189,7 @@ export function RegisterForm({
                   onChange={handleChange}
                   disabled={isLoading}
                   max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                  className="h-12"
                 />
               </div>
 
@@ -199,7 +204,7 @@ export function RegisterForm({
                     value={form.password}
                     onChange={handleChange}
                     disabled={isLoading}
-                    className="pr-10"
+                    className="pr-10 h-12"
                     placeholder="At least 8 characters"
                   />
                   <button
@@ -223,7 +228,7 @@ export function RegisterForm({
                     value={form.confirm_password}
                     onChange={handleChange}
                     disabled={isLoading}
-                    className="pr-10"
+                    className="pr-10 h-12"
                   />
                   <button
                     type="button"
@@ -241,7 +246,7 @@ export function RegisterForm({
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full h-12" disabled={isLoading}>
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -267,19 +272,19 @@ export function RegisterForm({
 
               <Button
                 variant="outline"
-                className="w-full hover:bg-destructive hover:text-white"
+                className="w-full h-12 hover:bg-destructive hover:text-white"
                 type="button"
               >
                 Login with Google
               </Button>
               <Button
                 variant="outline"
-                className="w-full hover:bg-chart-3 hover:text-white"
+                className="w-full h-12 hover:bg-chart-3 hover:text-white"
                 type="button"
               >
                 Login with Facebook
               </Button>
-              <Button variant="outline" className="w-full mb-8" type="button">
+              <Button variant="outline" className="w-full h-12 mb-8" type="button">
                 Login with Apple
               </Button>
             </div>

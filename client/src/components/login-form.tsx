@@ -50,7 +50,7 @@ export function LoginForm({
   }
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
+    <div className={cn("flex flex-col gap-6 max-w-md mx-auto", className)} {...props}>
       <Card>
         <CardHeader>
           <CardTitle>Login to your account</CardTitle>
@@ -62,19 +62,19 @@ export function LoginForm({
           <div className="flex flex-col gap-3">
             <Button
               variant="outline"
-              className="w-full hover:bg-destructive hover:text-white"
+              className="w-full h-12 hover:bg-destructive hover:text-white"
               type="button"
             >
               Login with Google
             </Button>
             <Button
               variant="outline"
-              className="w-full hover:bg-chart-3 hover:text-white"
+              className="w-full h-12 hover:bg-chart-3 hover:text-white"
               type="button"
             >
               Login with Facebook
             </Button>
-            <Button variant="outline" className="w-full mb-8" type="button">
+            <Button variant="outline" className="w-full h-12 mb-8" type="button">
               Login with Apple
             </Button>
           </div>
@@ -98,6 +98,7 @@ export function LoginForm({
                   value={form.email}
                   onChange={handleChange}
                   disabled={isLoading}
+                  className="h-12"
                 />
               </div>
               
@@ -120,7 +121,7 @@ export function LoginForm({
                     value={form.password}
                     onChange={handleChange}
                     disabled={isLoading}
-                    className="pr-10"
+                    className="pr-10 h-12"
                   />
                   <button
                     type="button"
@@ -133,7 +134,7 @@ export function LoginForm({
               </div>
               
               <div className="flex flex-col gap-3">
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="w-full h-12" disabled={isLoading}>
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
