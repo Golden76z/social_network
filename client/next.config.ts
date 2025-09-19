@@ -2,8 +2,8 @@ import type { NextConfig } from 'next';
 import type { Configuration } from 'webpack';
 
 const nextConfig: NextConfig = {
-  // Only use static export in production builds
-  ...(process.env.NODE_ENV === 'production' ? { output: 'export' } : {}),
+  // Disable static export for social network app (needs server-side functionality)
+  // ...(process.env.NODE_ENV === 'production' ? { output: 'export' } : {}),
   trailingSlash: true,
   images: {
     unoptimized: true,

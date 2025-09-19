@@ -38,18 +38,22 @@ type CreateGroupPostRequest struct {
 }
 
 type GroupPost struct {
-	ID           int64    `json:"id"`
-	UserID       int64    `json:"user_id"`
-	Title        string   `json:"title"`
-	Body         string   `json:"body"`
-	CreatedAt    string   `json:"created_at"`
-	UpdatedAt    string   `json:"updated_at"`
-	Visibility   string   `json:"visibility"`
-	Images       []string `json:"images"`
-	Likes        int      `json:"likes"`
-	Dislikes     int      `json:"dislikes"`
-	UserLiked    bool     `json:"user_liked"`
-	UserDisliked bool     `json:"user_disliked"`
+	ID              int64    `json:"id"`
+	UserID          int64    `json:"user_id"`
+	Title           string   `json:"title"`
+	Body            string   `json:"body"`
+	CreatedAt       string   `json:"created_at"`
+	UpdatedAt       string   `json:"updated_at"`
+	Visibility      string   `json:"visibility"`
+	Images          []string `json:"images"`
+	Likes           int      `json:"likes"`
+	Dislikes        int      `json:"dislikes"`
+	UserLiked       bool     `json:"user_liked"`
+	UserDisliked    bool     `json:"user_disliked"`
+	AuthorNickname  string   `json:"author_nickname,omitempty"`
+	AuthorFirstName string   `json:"author_first_name,omitempty"`
+	AuthorLastName  string   `json:"author_last_name,omitempty"`
+	AuthorAvatar    string   `json:"author_avatar,omitempty"`
 }
 
 type UpdateGroupPostRequest struct {
