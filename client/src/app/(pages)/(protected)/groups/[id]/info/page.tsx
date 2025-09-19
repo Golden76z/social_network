@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { GroupResponse, UpdateGroupRequest, GroupPost, GroupEvent } from '@/lib/types/group';
 import { groupApi } from '@/lib/api/group';
+import { reactionApi } from '@/lib/api/reaction';
 import { userApi } from '@/lib/api/user';
 import { useAuth } from '@/context/AuthProvider';
 import { UserPlus, Settings, Users, UserCheck, Calendar, MessageSquare, Plus, Edit, Trash2 } from 'lucide-react';
@@ -66,11 +67,21 @@ export default function GroupPage() {
   const [showCreatePostModal, setShowCreatePostModal] = useState(false);
   const [showCreateEventModal, setShowCreateEventModal] = useState(false);
   const [postFormData, setPostFormData] = useState({ title: '', body: '' });
-  const [eventFormData, setEventFormData] = useState({ title: '', description: '', event_datetime: '' });
+  const [eventFormData, setEventFormData] = useState({ title: '', description: '', event_date: '', event_time: '' });
   const [creatingPost, setCreatingPost] = useState(false);
   const [creatingEvent, setCreatingEvent] = useState(false);
   const [postError, setPostError] = useState('');
   const [eventError, setEventError] = useState('');
+  const [editingEvent, setEditingEvent] = useState<GroupEvent | null>(null);
+  const [deletingEvent, setDeletingEvent] = useState<number | null>(null);
+  const [showRemoveMemberModal, setShowRemoveMemberModal] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<GroupMemberWithUser | null>(null);
+  const [removingMember, setRemovingMember] = useState(false);
+  const [editingPost, setEditingPost] = useState<GroupPost | null>(null);
+  const [deletingPost, setDeletingPost] = useState<number | null>(null);
+  const [showDeletePostModal, setShowDeletePostModal] = useState(false);
+  const [postToDelete, setPostToDelete] = useState<GroupPost | null>(null);
+  const [userReactions, setUserReactions] = useState<{[postId: number]: 'like' | 'dislike' | null}>({});
 
   const [formState, setFormState] = useState({
     title: '',
@@ -161,22 +172,32 @@ export default function GroupPage() {
         }
         if (showCreatePostModal) {
           setShowCreatePostModal(false);
+          setEditingPost(null);
           setPostFormData({ title: '', body: '' });
           setPostError('');
         }
         if (showCreateEventModal) {
           setShowCreateEventModal(false);
-          setEventFormData({ title: '', description: '', event_datetime: '' });
+          setEditingEvent(null);
+          setEventFormData({ title: '', description: '', event_date: '', event_time: '' });
           setEventError('');
+        }
+        if (showRemoveMemberModal) {
+          setShowRemoveMemberModal(false);
+          setMemberToRemove(null);
+        }
+        if (showDeletePostModal) {
+          setShowDeletePostModal(false);
+          setPostToDelete(null);
         }
       }
     };
 
-    if (showInviteModal || showRequestsModal || showLeaveConfirm || showCreatePostModal || showCreateEventModal) {
+    if (showInviteModal || showRequestsModal || showLeaveConfirm || showCreatePostModal || showCreateEventModal || showRemoveMemberModal || showDeletePostModal) {
       document.addEventListener('keydown', handleEscape);
       return () => document.removeEventListener('keydown', handleEscape);
     }
-  }, [showInviteModal, showRequestsModal, showLeaveConfirm, showCreatePostModal, showCreateEventModal]);
+  }, [showInviteModal, showRequestsModal, showLeaveConfirm, showCreatePostModal, showCreateEventModal, showRemoveMemberModal, showDeletePostModal]);
 
   const handleJoinGroup = async () => {
     if (!group || hasPendingRequest) return;
@@ -473,7 +494,7 @@ export default function GroupPage() {
   };
 
   const handleCreateEvent = async () => {
-    if (!group || !eventFormData.title.trim() || !eventFormData.description.trim() || !eventFormData.event_datetime.trim()) {
+    if (!group || !eventFormData.title.trim() || !eventFormData.description.trim() || !eventFormData.event_date.trim() || !eventFormData.event_time.trim()) {
       setEventError('Please fill in all fields');
       return;
     }
@@ -482,22 +503,217 @@ export default function GroupPage() {
       setCreatingEvent(true);
       setEventError('');
       
+      // Format datetime as "YYYY-MM-DD HH:MM:SS"
+      const eventDateTime = `${eventFormData.event_date} ${eventFormData.event_time}:00`;
+      
       await groupApi.createGroupEvent({
         group_id: group.id,
         title: eventFormData.title.trim(),
         description: eventFormData.description.trim(),
-        event_date_time: eventFormData.event_datetime
+        event_date_time: eventDateTime
       });
 
       // Close modal and refresh events
       setShowCreateEventModal(false);
-      setEventFormData({ title: '', description: '', event_datetime: '' });
+      setEventFormData({ title: '', description: '', event_date: '', event_time: '' });
       await loadEvents();
     } catch (error) {
       console.error('Failed to create event:', error);
       setEventError((error as Error).message || 'Failed to create event. Please try again.');
     } finally {
       setCreatingEvent(false);
+    }
+  };
+
+  const handleEditEvent = (event: GroupEvent) => {
+    // Parse the datetime to separate date and time
+    const eventDate = new Date(event.event_datetime);
+    const dateStr = eventDate.toISOString().slice(0, 10);
+    const timeStr = eventDate.toTimeString().slice(0, 5);
+    
+    setEventFormData({
+      title: event.title,
+      description: event.description,
+      event_date: dateStr,
+      event_time: timeStr
+    });
+    setEditingEvent(event);
+    setShowCreateEventModal(true);
+  };
+
+  const handleUpdateEvent = async () => {
+    if (!editingEvent || !eventFormData.title.trim() || !eventFormData.description.trim() || !eventFormData.event_date.trim() || !eventFormData.event_time.trim()) {
+      setEventError('Please fill in all fields');
+      return;
+    }
+
+    try {
+      setCreatingEvent(true);
+      setEventError('');
+      
+      // Format datetime as "YYYY-MM-DD HH:MM:SS"
+      const eventDateTime = `${eventFormData.event_date} ${eventFormData.event_time}:00`;
+      
+      await groupApi.updateGroupEvent(editingEvent.id, {
+        title: eventFormData.title.trim(),
+        description: eventFormData.description.trim(),
+        event_date_time: eventDateTime
+      });
+
+      // Close modal and refresh events
+      setShowCreateEventModal(false);
+      setEditingEvent(null);
+      setEventFormData({ title: '', description: '', event_date: '', event_time: '' });
+      await loadEvents();
+    } catch (error) {
+      console.error('Failed to update event:', error);
+      setEventError((error as Error).message || 'Failed to update event. Please try again.');
+    } finally {
+      setCreatingEvent(false);
+    }
+  };
+
+  const handleDeleteEvent = async (eventId: number) => {
+    if (!confirm('Are you sure you want to delete this event? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setDeletingEvent(eventId);
+      await groupApi.deleteGroupEvent(eventId);
+      await loadEvents();
+    } catch (error) {
+      console.error('Failed to delete event:', error);
+      alert('Failed to delete event. Please try again.');
+    } finally {
+      setDeletingEvent(null);
+    }
+  };
+
+  const handleRemoveMember = (member: GroupMemberWithUser) => {
+    setMemberToRemove(member);
+    setShowRemoveMemberModal(true);
+  };
+
+  const handleConfirmRemoveMember = async () => {
+    if (!memberToRemove || !group) return;
+
+    try {
+      setRemovingMember(true);
+      await groupApi.removeGroupMember(group.id, memberToRemove.user_id);
+      
+      // Refresh members list
+      const membersData = await groupApi.getGroupMembers(group.id);
+      const membersArray = Array.isArray(membersData) ? membersData : [];
+      setMembers(membersArray);
+      setShowRemoveMemberModal(false);
+      setMemberToRemove(null);
+    } catch (error) {
+      console.error('Failed to remove member:', error);
+      alert('Failed to remove member. Please try again.');
+    } finally {
+      setRemovingMember(false);
+    }
+  };
+
+  const handleEditPost = (post: GroupPost) => {
+    setPostFormData({
+      title: post.title,
+      body: post.body
+    });
+    setEditingPost(post);
+    setShowCreatePostModal(true);
+  };
+
+  const handleUpdatePost = async () => {
+    if (!editingPost || !postFormData.title.trim() || !postFormData.body.trim()) {
+      setPostError('Please fill in all fields');
+      return;
+    }
+
+    try {
+      setCreatingPost(true);
+      setPostError('');
+      
+      await groupApi.updateGroupPost(editingPost.id, {
+        title: postFormData.title.trim(),
+        body: postFormData.body.trim()
+      });
+
+      // Close modal and refresh posts
+      setShowCreatePostModal(false);
+      setEditingPost(null);
+      setPostFormData({ title: '', body: '' });
+      await loadPosts();
+    } catch (error) {
+      console.error('Failed to update post:', error);
+      setPostError((error as Error).message || 'Failed to update post. Please try again.');
+    } finally {
+      setCreatingPost(false);
+    }
+  };
+
+  const handleDeletePost = (post: GroupPost) => {
+    setPostToDelete(post);
+    setShowDeletePostModal(true);
+  };
+
+  const handleConfirmDeletePost = async () => {
+    if (!postToDelete) return;
+
+    try {
+      setDeletingPost(postToDelete.id);
+      await groupApi.deleteGroupPost(postToDelete.id);
+      await loadPosts();
+      setShowDeletePostModal(false);
+      setPostToDelete(null);
+    } catch (error) {
+      console.error('Failed to delete post:', error);
+      alert('Failed to delete post. Please try again.');
+    } finally {
+      setDeletingPost(null);
+    }
+  };
+
+  const handleLikePost = async (postId: number) => {
+    try {
+      const currentReaction = userReactions[postId];
+      
+      if (currentReaction === 'like') {
+        // Remove like
+        await reactionApi.deleteReaction({ id: postId });
+        setUserReactions(prev => ({ ...prev, [postId]: null }));
+      } else {
+        // Add or change to like
+        await reactionApi.createReaction({ group_post_id: postId, type: 'like' });
+        setUserReactions(prev => ({ ...prev, [postId]: 'like' }));
+      }
+      
+      // Refresh posts to update counts
+      await loadPosts();
+    } catch (error) {
+      console.error('Failed to like post:', error);
+    }
+  };
+
+  const handleDislikePost = async (postId: number) => {
+    try {
+      const currentReaction = userReactions[postId];
+      
+      if (currentReaction === 'dislike') {
+        // Remove dislike
+        await reactionApi.deleteReaction({ id: postId });
+        setUserReactions(prev => ({ ...prev, [postId]: null }));
+      } else {
+        // Add or change to dislike
+        await reactionApi.createReaction({ group_post_id: postId, type: 'dislike' });
+        setUserReactions(prev => ({ ...prev, [postId]: 'dislike' }));
+      }
+      
+      // Refresh posts to update counts
+      await loadPosts();
+    } catch (error) {
+      console.error('Failed to dislike post:', error);
     }
   };
 
@@ -755,12 +971,21 @@ export default function GroupPage() {
                       <div key={post.id} className="border border-border rounded-lg p-4">
                         <div className="flex items-start justify-between mb-2">
                           <h4 className="font-semibold text-foreground">{post.title}</h4>
-                          {isAdmin && (
+                          {(isAdmin || (user && post.creator_id === user.id)) && (
                             <div className="flex gap-2">
-                              <button className="p-1 text-muted-foreground hover:text-foreground">
+                              <button 
+                                onClick={() => handleEditPost(post)}
+                                className="p-1 text-muted-foreground hover:text-foreground"
+                                title="Edit post"
+                              >
                                 <Edit className="w-4 h-4" />
                               </button>
-                              <button className="p-1 text-muted-foreground hover:text-red-500">
+                              <button 
+                                onClick={() => handleDeletePost(post)}
+                                disabled={deletingPost === post.id}
+                                className="p-1 text-muted-foreground hover:text-red-500 disabled:opacity-50"
+                                title="Delete post"
+                              >
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
@@ -770,8 +995,24 @@ export default function GroupPage() {
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <span>{new Date(post.created_at).toLocaleDateString()}</span>
                           <div className="flex gap-4">
-                            <span>{post.likes} likes</span>
-                            <span>{post.dislikes} dislikes</span>
+                            <button
+                              onClick={() => handleLikePost(post.id)}
+                              className={`flex items-center gap-1 hover:text-green-500 transition-colors ${
+                                userReactions[post.id] === 'like' ? 'text-green-500' : 'text-muted-foreground'
+                              }`}
+                            >
+                              <span>👍</span>
+                              <span>{post.likes}</span>
+                            </button>
+                            <button
+                              onClick={() => handleDislikePost(post.id)}
+                              className={`flex items-center gap-1 hover:text-red-500 transition-colors ${
+                                userReactions[post.id] === 'dislike' ? 'text-red-500' : 'text-muted-foreground'
+                              }`}
+                            >
+                              <span>👎</span>
+                              <span>{post.dislikes}</span>
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -830,12 +1071,21 @@ export default function GroupPage() {
                         <div key={event.id} className="border border-border rounded-lg p-4">
                           <div className="flex items-start justify-between mb-2">
                             <h4 className="font-semibold text-foreground">{event.title}</h4>
-                            {isAdmin && (
+                            {(isAdmin || (user && event.creator_id === user.id)) && (
                               <div className="flex gap-2">
-                                <button className="p-1 text-muted-foreground hover:text-foreground">
+                                <button 
+                                  onClick={() => handleEditEvent(event)}
+                                  className="p-1 text-muted-foreground hover:text-foreground"
+                                  title="Edit event"
+                                >
                                   <Edit className="w-4 h-4" />
                                 </button>
-                                <button className="p-1 text-muted-foreground hover:text-red-500">
+                                <button 
+                                  onClick={() => handleDeleteEvent(event.id)}
+                                  disabled={deletingEvent === event.id}
+                                  className="p-1 text-muted-foreground hover:text-red-500 disabled:opacity-50"
+                                  title="Delete event"
+                                >
                                   <Trash2 className="w-4 h-4" />
                                 </button>
                               </div>
@@ -853,7 +1103,7 @@ export default function GroupPage() {
                               <div className="flex gap-2">
                                 <span className="px-3 py-1 bg-primary/10 text-primary rounded text-xs">
                                   {userRSVP.status === 'come' ? 'Going' : 
-                                   userRSVP.status === 'maybe' ? 'Maybe' : 'Not Going'}
+                                   userRSVP.status === 'interested' ? 'Maybe' : 'Not Going'}
                                 </span>
                                 <button 
                                   onClick={() => handleUpdateRSVP(userRSVP.id, 'come')}
@@ -862,13 +1112,13 @@ export default function GroupPage() {
                                   Going
                                 </button>
                                 <button 
-                                  onClick={() => handleUpdateRSVP(userRSVP.id, 'maybe')}
+                                  onClick={() => handleUpdateRSVP(userRSVP.id, 'interested')}
                                   className="px-3 py-1 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 transition-colors"
                                 >
                                   Maybe
                                 </button>
                                 <button 
-                                  onClick={() => handleUpdateRSVP(userRSVP.id, 'cant_come')}
+                                  onClick={() => handleUpdateRSVP(userRSVP.id, 'not_come')}
                                   className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-colors"
                                 >
                                   Not Going
@@ -877,7 +1127,7 @@ export default function GroupPage() {
                                   onClick={() => handleCancelRSVP(userRSVP.id)}
                                   className="px-3 py-1 border border-border rounded text-xs hover:bg-accent transition-colors"
                                 >
-                                  Cancel RSVP
+                                  Cancel
                                 </button>
                               </div>
                             ) : (
@@ -889,13 +1139,13 @@ export default function GroupPage() {
                                   Going
                                 </button>
                                 <button 
-                                  onClick={() => handleRSVP(event.id, 'maybe')}
+                                  onClick={() => handleRSVP(event.id, 'interested')}
                                   className="px-3 py-1 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 transition-colors"
                                 >
                                   Maybe
                                 </button>
                                 <button 
-                                  onClick={() => handleRSVP(event.id, 'cant_come')}
+                                  onClick={() => handleRSVP(event.id, 'not_come')}
                                   className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-colors"
                                 >
                                   Not Going
@@ -953,9 +1203,20 @@ export default function GroupPage() {
                     </p>
                     <p className="text-sm text-muted-foreground">Member since {new Date().toLocaleDateString()}</p>
                   </div>
-                  {member.role === 'admin' && (
-                    <span className="px-2 py-1 bg-primary/10 text-primary rounded text-xs">Admin</span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {member.role === 'admin' && (
+                      <span className="px-2 py-1 bg-primary/10 text-primary rounded text-xs">Admin</span>
+                    )}
+                    {isAdmin && member.role !== 'admin' && (
+                      <button
+                        onClick={() => handleRemoveMember(member)}
+                        className="p-1 text-muted-foreground hover:text-red-500 transition-colors"
+                        title="Remove member"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -1222,6 +1483,7 @@ export default function GroupPage() {
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowCreatePostModal(false);
+              setEditingPost(null);
               setPostFormData({ title: '', body: '' });
               setPostError('');
             }
@@ -1231,7 +1493,7 @@ export default function GroupPage() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
                 <MessageSquare className="w-5 h-5" />
-                Create Post
+                {editingPost ? 'Edit Post' : 'Create Post'}
               </h3>
               <button
                 onClick={() => {
@@ -1292,11 +1554,11 @@ export default function GroupPage() {
                 Cancel
               </button>
               <button
-                onClick={handleCreatePost}
+                onClick={editingPost ? handleUpdatePost : handleCreatePost}
                 disabled={creatingPost || !postFormData.title.trim() || !postFormData.body.trim()}
                 className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {creatingPost ? 'Creating...' : 'Create Post'}
+                {creatingPost ? (editingPost ? 'Updating...' : 'Creating...') : (editingPost ? 'Update Post' : 'Create Post')}
               </button>
             </div>
           </div>
@@ -1310,7 +1572,8 @@ export default function GroupPage() {
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowCreateEventModal(false);
-              setEventFormData({ title: '', description: '', event_datetime: '' });
+              setEditingEvent(null);
+              setEventFormData({ title: '', description: '', event_date: '', event_time: '' });
               setEventError('');
             }
           }}
@@ -1319,12 +1582,12 @@ export default function GroupPage() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
                 <Calendar className="w-5 h-5" />
-                Create Event
+                {editingEvent ? 'Edit Event' : 'Create Event'}
               </h3>
               <button
                 onClick={() => {
                   setShowCreateEventModal(false);
-                  setEventFormData({ title: '', description: '', event_datetime: '' });
+                  setEventFormData({ title: '', description: '', event_date: '', event_time: '' });
                   setEventError('');
                 }}
                 className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-accent transition-colors"
@@ -1363,15 +1626,29 @@ export default function GroupPage() {
                 />
               </div>
               
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Date & Time *</label>
-                <input
-                  type="datetime-local"
-                  value={eventFormData.event_datetime}
-                  onChange={(e) => setEventFormData(prev => ({ ...prev, event_datetime: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                  min={new Date().toISOString().slice(0, 16)}
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Date *</label>
+                  <input
+                    type="date"
+                    value={eventFormData.event_date}
+                    onChange={(e) => setEventFormData(prev => ({ ...prev, event_date: e.target.value }))}
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    min={new Date().toISOString().slice(0, 10)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Time *</label>
+                  <input
+                    type="time"
+                    value={eventFormData.event_time}
+                    onChange={(e) => setEventFormData(prev => ({ ...prev, event_time: e.target.value }))}
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    min="00:00"
+                    max="05:00"
+                    step="1800"
+                  />
+                </div>
               </div>
             </div>
 
@@ -1379,7 +1656,7 @@ export default function GroupPage() {
               <button
                 onClick={() => {
                   setShowCreateEventModal(false);
-                  setEventFormData({ title: '', description: '', event_datetime: '' });
+                  setEventFormData({ title: '', description: '', event_date: '', event_time: '' });
                   setEventError('');
                 }}
                 className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
@@ -1387,11 +1664,144 @@ export default function GroupPage() {
                 Cancel
               </button>
               <button
-                onClick={handleCreateEvent}
-                disabled={creatingEvent || !eventFormData.title.trim() || !eventFormData.description.trim() || !eventFormData.event_datetime.trim()}
+                onClick={editingEvent ? handleUpdateEvent : handleCreateEvent}
+                disabled={creatingEvent || !eventFormData.title.trim() || !eventFormData.description.trim() || !eventFormData.event_date.trim() || !eventFormData.event_time.trim()}
                 className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {creatingEvent ? 'Creating...' : 'Create Event'}
+                {creatingEvent ? (editingEvent ? 'Updating...' : 'Creating...') : (editingEvent ? 'Update Event' : 'Create Event')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Member Confirmation Modal */}
+      {showRemoveMemberModal && memberToRemove && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowRemoveMemberModal(false);
+              setMemberToRemove(null);
+            }
+          }}
+        >
+          <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <Trash2 className="w-5 h-5 text-red-500" />
+                Remove Member
+              </h3>
+              <button
+                onClick={() => {
+                  setShowRemoveMemberModal(false);
+                  setMemberToRemove(null);
+                }}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-accent transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-3 border border-border rounded-lg bg-muted/50">
+                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
+                  {memberToRemove.nickname?.charAt(0) || memberToRemove.first_name?.charAt(0) || 'U'}
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium">
+                    {memberToRemove.nickname || 
+                     (memberToRemove.first_name && memberToRemove.last_name ? `${memberToRemove.first_name} ${memberToRemove.last_name}` : memberToRemove.first_name) || 
+                     'Unknown User'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Group Member</p>
+                </div>
+              </div>
+
+              <div className="rounded-md bg-red-50 p-4 text-red-700 text-sm border border-red-200">
+                <p className="font-medium mb-1">⚠️ Warning</p>
+                <p>Are you sure you want to remove this member from the group? This action cannot be undone and they will lose access to all group content.</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6 pt-4 border-t border-border">
+              <button
+                onClick={() => {
+                  setShowRemoveMemberModal(false);
+                  setMemberToRemove(null);
+                }}
+                className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmRemoveMember}
+                disabled={removingMember}
+                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {removingMember ? 'Removing...' : 'Remove Member'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Post Confirmation Modal */}
+      {showDeletePostModal && postToDelete && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowDeletePostModal(false);
+              setPostToDelete(null);
+            }
+          }}
+        >
+          <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <Trash2 className="w-5 h-5 text-red-500" />
+                Delete Post
+              </h3>
+              <button
+                onClick={() => {
+                  setShowDeletePostModal(false);
+                  setPostToDelete(null);
+                }}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-accent transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-3 border border-border rounded-lg bg-muted/50">
+                <h4 className="font-medium text-foreground mb-2">{postToDelete.title}</h4>
+                <p className="text-sm text-muted-foreground line-clamp-3">{postToDelete.body}</p>
+              </div>
+
+              <div className="rounded-md bg-red-50 p-4 text-red-700 text-sm border border-red-200">
+                <p className="font-medium mb-1">⚠️ Warning</p>
+                <p>Are you sure you want to delete this post? This action cannot be undone and all comments and reactions will be lost.</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6 pt-4 border-t border-border">
+              <button
+                onClick={() => {
+                  setShowDeletePostModal(false);
+                  setPostToDelete(null);
+                }}
+                className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDeletePost}
+                disabled={deletingPost === postToDelete.id}
+                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deletingPost === postToDelete.id ? 'Deleting...' : 'Delete Post'}
               </button>
             </div>
           </div>
