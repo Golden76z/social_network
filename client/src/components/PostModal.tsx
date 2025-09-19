@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { X, Heart, MessageCircle, Send } from 'lucide-react';
 import { Post, Comment } from '@/lib/types';
 import { commentApi } from '@/lib/api/comment';
+import { groupApi } from '@/lib/api/group';
 import { reactionApi } from '@/lib/api/reaction';
 import { CommentItem } from './CommentItem';
 
@@ -13,9 +14,10 @@ interface PostModalProps {
   onLike?: (postId: number) => void;
   disableInteractions?: boolean; // New prop to disable likes and comments
   isAuthenticated?: boolean; // New prop to indicate if user is authenticated
+  isGroupPost?: boolean; // New prop to indicate if this is a group post
 }
 
-export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onLike, disableInteractions = false, isAuthenticated = true }) => {
+export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onLike, disableInteractions = false, isAuthenticated = true, isGroupPost = false }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isLiked, setIsLiked] = useState(false);
@@ -37,7 +39,14 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
     
     setIsLoadingComments(true);
     try {
-      const commentsData = await commentApi.getComments(post.id);
+      let commentsData: Comment[];
+      if (isGroupPost) {
+        // For group posts, use group comment API
+        commentsData = await groupApi.getGroupComments(post.id) as Comment[];
+      } else {
+        // For regular posts, use regular comment API
+        commentsData = await commentApi.getComments(post.id);
+      }
       setComments(commentsData || []); // Ensure it's always an array
     } catch (error) {
       console.error('Error loading comments:', error);
@@ -45,7 +54,7 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
     } finally {
       setIsLoadingComments(false);
     }
-  }, [post, isAuthenticated]);
+  }, [post, isAuthenticated, isGroupPost]);
 
   useEffect(() => {
     if (post && isOpen) {
@@ -85,10 +94,19 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
 
     setIsSubmittingComment(true);
     try {
-      await commentApi.createComment({
-        post_id: post.id,
-        body: newComment.trim(),
-      });
+      if (isGroupPost) {
+        // For group posts, use group comment API
+        await groupApi.createGroupComment({
+          group_post_id: post.id,
+          body: newComment.trim(),
+        });
+      } else {
+        // For regular posts, use regular comment API
+        await commentApi.createComment({
+          post_id: post.id,
+          body: newComment.trim(),
+        });
+      }
       setNewComment('');
       loadComments(); // Reload comments
     } catch (error) {
@@ -104,10 +122,19 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
     setIsLiking(true);
     try {
       // Always send a like request - the backend will handle toggle logic
-      await reactionApi.createReaction({
-        post_id: post.id,
-        type: 'like'
-      });
+      if (isGroupPost) {
+        // For group posts, use group_post_id
+        await reactionApi.createReaction({
+          group_post_id: post.id,
+          type: 'like'
+        });
+      } else {
+        // For regular posts, use post_id
+        await reactionApi.createReaction({
+          post_id: post.id,
+          type: 'like'
+        });
+      }
       
       // Notify parent component to refresh
       onLike?.(post.id);

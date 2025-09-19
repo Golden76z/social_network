@@ -48,6 +48,10 @@ export interface GroupPost {
   dislikes: number;
   user_liked: boolean;
   user_disliked: boolean;
+  author_nickname?: string;
+  author_first_name?: string;
+  author_last_name?: string;
+  author_avatar?: string;
 }
 
 export interface UpdateGroupPostRequest {
@@ -94,6 +98,20 @@ export interface DeleteGroupEventRequest {
   id: number;
 }
 
+export interface GroupEvent {
+  id: number;
+  group_id: number;
+  creator_id: number;
+  title: string;
+  description: string;
+  event_datetime: string;
+  created_at: string;
+  creator_nickname?: string;
+  creator_first_name?: string;
+  creator_last_name?: string;
+  creator_avatar?: string;
+}
+
 // ===== GROUP MEMBER / INVITATION =====
 export interface InviteToGroupRequest {
   group_id: number;
@@ -109,6 +127,31 @@ export interface UpdateGroupMemberRequest {
   groupID: number;
   memberID: number;
   role: string;
+}
+
+export interface GroupMemberWithUser {
+  id: number;
+  group_id: number;
+  user_id: number;
+  role: string;
+  invited_by?: number;
+  created_at: string;
+  nickname?: string;
+  first_name?: string;
+  last_name?: string;
+  avatar?: string;
+}
+
+export interface GroupRequestWithUser {
+  id: number;
+  group_id: number;
+  user_id: number;
+  status: string;
+  created_at: string;
+  nickname?: string;
+  first_name?: string;
+  last_name?: string;
+  avatar?: string;
 }
 
 // ===== RSVP =====

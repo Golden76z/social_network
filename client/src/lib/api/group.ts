@@ -27,6 +27,10 @@ export const groupApi = {
     return apiClient.get(`${groupRoutes.base}${query}`);
   },
 
+  getUserGroups: (): Promise<GroupResponse[]> => {
+    return apiClient.get(`${groupRoutes.base}/user/mine`);
+  },
+
   getGroupById: (groupId: string | number): Promise<GroupResponse> => {
     return apiClient.get(`${groupRoutes.base}/${groupId}`);
   },
@@ -48,7 +52,8 @@ export const groupApi = {
   getGroupPosts: (groupId: string | number, offset?: number): Promise<GroupPost[]> => {
     const params = new URLSearchParams();
     params.append('groupId', groupId.toString());
-    if (offset !== undefined) params.append('offset', offset.toString());
+    // Always provide offset parameter (default to 0 if not specified)
+    params.append('offset', (offset ?? 0).toString());
     const query = params.toString() ? `?${params.toString()}` : '';
     return apiClient.get(`/api/group/post${query}`);
   },
@@ -125,11 +130,38 @@ export const groupApi = {
     });
   },
 
+  getGroupMembers: async (groupId: string | number, offset?: number) => {
+    const params = new URLSearchParams();
+    params.append('id', groupId.toString());
+    // Always provide offset parameter (default to 0 if not specified)
+    params.append('offset', (offset ?? 0).toString());
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const response = await apiClient.get(`/api/group/members${query}`) as any;
+    // Server returns { response: string, members: array }
+    return response.members || [];
+  },
+
   updateGroupMember: (data: UpdateGroupMemberRequest) => {
     return apiClient.put('/api/group/member', data);
   },
 
+  removeGroupMember: (groupId: string | number, userId: string | number) => {
+    return apiClient.delete('/api/group/member', {
+      body: JSON.stringify({
+        group_id: Number(groupId),
+        user_id: Number(userId)
+      }),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+  },
+
   // ===== GROUP REQUESTS =====
+
+  createGroupRequest: (groupId: string | number) => {
+    return apiClient.post('/api/group/request', { group_id: Number(groupId) });
+  },
 
   getGroupRequests: (groupId: string | number, status?: string) => {
     const params = new URLSearchParams();
@@ -137,6 +169,10 @@ export const groupApi = {
     if (status) params.append('status', status);
     const query = params.toString() ? `?${params.toString()}` : '';
     return apiClient.get(`/api/group/request${query}`);
+  },
+
+  getUserPendingRequests: () => {
+    return apiClient.get('/api/group/request/user');
   },
 
   approveGroupRequest: (requestId: string | number) => {
