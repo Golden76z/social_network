@@ -4,6 +4,8 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"github.com/Golden76z/social-network/utils"
 	"github.com/joho/godotenv"
@@ -76,8 +78,8 @@ func Load() error {
 			fmt.Println("[WARNING] .env file not found")
 			return
 		}
-		// Generate ECDSA key pair for JWT
-		privateKey, keyErr := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		// Load or generate ECDSA key pair for JWT
+		privateKey, keyErr := loadOrGenerateJWTKeys()
 		if keyErr != nil {
 			err = keyErr
 			return
@@ -198,4 +200,53 @@ func getEnvAsSlice(key string, defaultValue []string) []string {
 func isEnvSet(key string) bool {
 	_, exists := os.LookupEnv(key)
 	return exists
+}
+
+// loadOrGenerateJWTKeys loads JWT keys from environment variables or generates new ones
+func loadOrGenerateJWTKeys() (*ecdsa.PrivateKey, error) {
+	// Try to load from environment variables first
+	privateKeyPEM := os.Getenv("JWT_PRIVATE_KEY")
+	publicKeyPEM := os.Getenv("JWT_PUBLIC_KEY")
+	
+	if privateKeyPEM != "" && publicKeyPEM != "" {
+		// Load private key from PEM
+		block, _ := pem.Decode([]byte(privateKeyPEM))
+		if block == nil {
+			return nil, fmt.Errorf("failed to decode private key PEM")
+		}
+		
+		privateKey, err := x509.ParseECPrivateKey(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse private key: %v", err)
+		}
+		
+		fmt.Println("✅ Loaded JWT keys from environment variables")
+		return privateKey, nil
+	}
+	
+	// Generate new keys if not found in environment
+	fmt.Println("🔑 Generating new JWT keys (add JWT_PRIVATE_KEY and JWT_PUBLIC_KEY to .env for persistence)")
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate JWT keys: %v", err)
+	}
+	
+	// Print the keys so they can be added to .env
+	privateKeyBytes, _ := x509.MarshalECPrivateKey(privateKey)
+	privateKeyPEM = string(pem.EncodeToMemory(&pem.Block{
+		Type:  "EC PRIVATE KEY",
+		Bytes: privateKeyBytes,
+	}))
+	
+	publicKeyBytes, _ := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
+	publicKeyPEM = string(pem.EncodeToMemory(&pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: publicKeyBytes,
+	}))
+	
+	fmt.Printf("Add these to your .env file for persistent JWT keys:\n")
+	fmt.Printf("JWT_PRIVATE_KEY=\"%s\"\n", privateKeyPEM)
+	fmt.Printf("JWT_PUBLIC_KEY=\"%s\"\n", publicKeyPEM)
+	
+	return privateKey, nil
 }

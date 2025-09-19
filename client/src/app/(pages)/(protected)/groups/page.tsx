@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation';
 import { GroupResponse } from '@/lib/types/group';
 import { groupApi } from '@/lib/api/group';
 import { useAuth } from '@/context/AuthProvider';
+import { useAuthReady } from '@/hooks/useAuthGuard';
 import { GroupCard } from '@/components/GroupCard';
 import { UserCheck } from 'lucide-react';
 
 export default function GroupsPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const isAuthReady = useAuthReady();
   const [allGroups, setAllGroups] = useState<GroupResponse[]>([]);
   const [myGroups, setMyGroups] = useState<GroupResponse[]>([]);
   const [groupMemberCounts, setGroupMemberCounts] = useState<Record<number, number>>({});
@@ -110,18 +112,23 @@ export default function GroupsPage() {
   };
 
   useEffect(() => {
-    loadGroups();
-  }, []);
+    // Only load groups when auth is ready
+    if (isAuthReady) {
+      loadGroups();
+    }
+  }, [isAuthReady]);
 
   // Refresh data when page regains focus (e.g., returning from group creation)
   useEffect(() => {
     const handleFocus = () => {
-      loadGroups();
+      if (isAuthReady) {
+        loadGroups();
+      }
     };
 
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, []);
+  }, [isAuthReady]);
 
   const handleJoinGroup = async (groupId: number) => {
     try {

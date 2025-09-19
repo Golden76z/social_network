@@ -149,31 +149,70 @@ export class ApiClient {
   }
 
   isAuthenticated(): boolean {
-    if (typeof document === 'undefined') return false;
-    return document.cookie.includes('jwt_token=');
+    if (typeof window === 'undefined') return false;
+    return !!localStorage.getItem('jwt_token');
+  }
+
+  // NEW METHOD: Check if token is expired
+  isTokenExpired(): boolean {
+    if (typeof window === 'undefined') return true;
+    
+    try {
+      const token = localStorage.getItem('jwt_token');
+      
+      if (!token) {
+        console.log('❌ No JWT token found for expiration check');
+        return true;
+      }
+
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        console.log('❌ Invalid JWT format for expiration check');
+        return true;
+      }
+
+      const base64Url = parts[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      
+      // Add padding if needed
+      const paddedBase64 = base64 + '='.repeat((4 - base64.length % 4) % 4);
+      
+      const payload = JSON.parse(atob(paddedBase64));
+      
+      // Check if token has exp claim and if it's expired
+      if (payload.exp) {
+        const currentTime = Math.floor(Date.now() / 1000);
+        const isExpired = currentTime >= payload.exp;
+        console.log('⏰ Token expiration check:', {
+          current: currentTime,
+          expires: payload.exp,
+          expired: isExpired
+        });
+        return isExpired;
+      }
+      
+      console.log('⚠️ No expiration claim in token');
+      return false; // If no exp claim, assume valid
+    } catch (err) {
+      console.error('❌ Error checking token expiration:', err);
+      return true; // If error, assume expired
+    }
   }
 
   getUserFromToken(): { userid?: string; username?: string } | null {
-    if (typeof document === 'undefined') return null;
+    if (typeof window === 'undefined') {
+      console.log('❌ Window is undefined (SSR)');
+      return null;
+    }
     
     try {
-      console.log('🔍 Looking for JWT token in cookies...');
-      const cookies = document.cookie.split(';');
-      console.log('🍪 All cookies:', cookies);
+      console.log('🔍 Looking for JWT token in localStorage...');
       
-      const jwtCookie = cookies.find(c => c.trim().startsWith('jwt_token='));
-      console.log('🔑 JWT cookie found:', jwtCookie);
-      
-      if (!jwtCookie) {
-        console.log('❌ No JWT cookie found');
-        return null;
-      }
-
-      const token = jwtCookie.substring('jwt_token='.length);
-      console.log('🎫 Token value:', token ? `${token.substring(0, 20)}...` : 'empty');
+      const token = localStorage.getItem('jwt_token');
+      console.log('🔑 JWT token found:', token ? `${token.substring(0, 20)}...` : 'null');
       
       if (!token) {
-        console.log('❌ Token value is empty');
+        console.log('❌ No JWT token found in localStorage');
         return null;
       }
 
@@ -187,11 +226,16 @@ export class ApiClient {
 
       const base64Url = parts[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const payload = JSON.parse(atob(base64));
+      
+      // Add padding if needed
+      const paddedBase64 = base64 + '='.repeat((4 - base64.length % 4) % 4);
+      console.log('🔧 Base64 padding applied');
+      
+      const payload = JSON.parse(atob(paddedBase64));
       console.log('📋 Token payload:', payload);
 
       const result = {
-        userid: payload.userid || payload.id || payload.user_id,
+        userid: payload.user_id || payload.userid || payload.id,
         username: payload.username || payload.user || payload.name,
       };
       
@@ -199,6 +243,10 @@ export class ApiClient {
       return result;
     } catch (err) {
       console.error('❌ Error parsing JWT token:', err);
+      console.error('❌ Error details:', {
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
       return null;
     }
   }

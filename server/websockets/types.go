@@ -22,6 +22,8 @@ const (
 	MessageTypeLeaveGroup      = "leave_group"
 	MessageTypeGetGroupMembers = "get_group_members"
 	MessageTypeGroupMembers    = "group_members"
+	MessageTypePrivateMessage  = "private_message"
+	MessageTypeGroupMessage    = "group_message"
 )
 
 // Message represents a WebSocket message
