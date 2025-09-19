@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"fmt"
 	"net/http"
 	"path"
 	"strings"
@@ -59,6 +60,7 @@ func (r *Router) Group(fn func(*Router)) {
 	// Merge routes back to parent router
 	for method, routes := range subRouter.routes {
 		for pattern, handler := range routes {
+			fmt.Printf("Registering route: %s %s\n", method, pattern)
 			r.routes[method][pattern] = r.wrapWithMiddlewares(handler, subRouter.middlewares).(http.HandlerFunc)
 		}
 	}
@@ -90,11 +92,14 @@ func (r *Router) addRoute(method, pattern string, handler http.HandlerFunc) {
 	if fullPattern == "" {
 		fullPattern = "/"
 	}
+	fmt.Printf("Adding route: %s %s -> %s\n", method, pattern, fullPattern)
 	r.routes[method][fullPattern] = handler
 }
 
 // ServeHTTP implements http.Handler interface
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	fmt.Printf("Request: %s %s\n", req.Method, req.URL.Path)
+
 	// Handle CORS preflight requests
 	if req.Method == "OPTIONS" {
 		// Apply middleware to OPTIONS handler
