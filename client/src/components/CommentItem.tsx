@@ -1,10 +1,12 @@
 import { Comment } from '@/lib/types';
+import { ProfileThumbnail } from './ProfileThumbnail';
 
 interface CommentItemProps {
   comment: Comment;
+  src?: string | null; // optional avatar src if available
 }
 
-export function CommentItem({ comment }: CommentItemProps) {
+export function CommentItem({ comment, src }: CommentItemProps) {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -24,9 +26,12 @@ export function CommentItem({ comment }: CommentItemProps) {
 
   return (
     <div className="flex space-x-3">
-      <div className="mt-3 w-10 h-10 bg-muted rounded-full flex items-center justify-center text-base font-medium flex-shrink-0">
-        {comment.username?.charAt(0) || comment.first_name?.charAt(0) || 'U'}
-      </div>
+      <ProfileThumbnail
+        src={src || (comment.avatar as string | undefined)}
+        size="md"
+        initials={(comment.username || comment.first_name || 'U') as string}
+        className="mt-3 flex-shrink-0"
+      />
       <div className="flex-1">
         <div className="bg-muted rounded-lg p-3">
           <div className="flex items-center space-x-2">

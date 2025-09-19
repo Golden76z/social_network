@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import Image from 'next/image';
+// We use <img src="/uploads/..."/> per project choice; disable next/image here.
 import { Heart, MessageCircle, MoreHorizontal } from 'lucide-react';
 import { Post } from '@/lib/types';
 import { reactionApi } from '@/lib/api/reaction';
+import { ProfileThumbnail } from './ProfileThumbnail';
 
 interface PostCardProps {
   post: Post;
@@ -25,6 +26,27 @@ export const PostCard: React.FC<PostCardProps> = ({
   const [likeCount, setLikeCount] = useState(post.likes || 0);
   const [isLoading, setIsLoading] = useState(false);
 
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    'http://localhost:8080';
+
+  const getAuthorAvatarUrl = (): string => {
+    const raw = (post as Post & { author_avatar?: unknown })
+      .author_avatar as unknown;
+    let s = '' as string;
+    if (typeof raw === 'string') s = raw;
+    else if (raw && typeof raw === 'object') {
+      const anyRaw = raw as Record<string, unknown>;
+      const candidate = (anyRaw.String ??
+        anyRaw.string ??
+        anyRaw.value) as unknown;
+      if (typeof candidate === 'string') s = candidate;
+    }
+    if (!s) return '';
+    return s.startsWith('http') ? s : `${apiBase}${s}`;
+  };
+
   // Format date
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -33,7 +55,7 @@ export const PostCard: React.FC<PostCardProps> = ({
     const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
     const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
     const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-    
+
     if (diffInMinutes < 1) return 'Just now';
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
     if (diffInHours < 24) return `${diffInHours}h ago`;
@@ -49,29 +71,29 @@ export const PostCard: React.FC<PostCardProps> = ({
 
   const handleLike = async () => {
     if (isLoading) return;
-    
+
     setIsLoading(true);
-    
+
     // Update local state immediately for instant UI feedback
     const newLiked = !isLiked;
     setIsLiked(newLiked);
-    setLikeCount(prev => newLiked ? prev + 1 : Math.max(0, prev - 1));
-    
+    setLikeCount((prev) => (newLiked ? prev + 1 : Math.max(0, prev - 1)));
+
     try {
       // Always send a like request - the backend will handle toggle logic
       await reactionApi.createReaction({
         post_id: post.id,
-        type: 'like'
+        type: 'like',
       });
-      
+
       // Notify parent component
       onLike?.(post.id);
     } catch (error) {
       console.error('Error toggling like:', error);
-      
+
       // Revert local state on error
       setIsLiked(!newLiked);
-      setLikeCount(prev => newLiked ? Math.max(0, prev - 1) : prev + 1);
+      setLikeCount((prev) => (newLiked ? Math.max(0, prev - 1) : prev + 1));
     } finally {
       setIsLoading(false);
     }
@@ -90,20 +112,32 @@ export const PostCard: React.FC<PostCardProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-3">
-          <div 
-            className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={() => (post.author_id || post.user_id) && onUserClick?.(post.author_id || post.user_id)}
-          >
-            {(post as Post & { author_nickname?: string }).author_nickname?.charAt(0) || 'U'}
-          </div>
+          <ProfileThumbnail
+            src={getAuthorAvatarUrl()}
+            alt="avatar"
+            size="md"
+            rounded
+            className="cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() =>
+              (post.author_id || post.user_id) &&
+              onUserClick?.(post.author_id || post.user_id)
+            }
+            initials={(post as Post & { author_nickname?: string }).author_nickname || 'U'}
+          />
           <div>
-            <p 
+            <p
               className="font-semibold text-base cursor-pointer hover:text-primary transition-colors"
-              onClick={() => (post.author_id || post.user_id) && onUserClick?.(post.author_id || post.user_id)}
+              onClick={() =>
+                (post.author_id || post.user_id) &&
+                onUserClick?.(post.author_id || post.user_id)
+              }
             >
-              {(post as Post & { author_nickname?: string }).author_nickname || 'Unknown User'}
+              {(post as Post & { author_nickname?: string }).author_nickname ||
+                'Unknown User'}
             </p>
-            <p className="text-sm text-muted-foreground">{formatDate(post.created_at)}</p>
+            <p className="text-sm text-muted-foreground">
+              {formatDate(post.created_at)}
+            </p>
           </div>
         </div>
         <button className="p-1 hover:bg-accent rounded-full">
@@ -125,23 +159,35 @@ export const PostCard: React.FC<PostCardProps> = ({
       {post.images && post.images.length > 0 && (
         <div className="mb-3">
           {post.images.length === 1 ? (
-            <Image
-              src={post.images[0]}
+            <img
+              src={
+                post.images[0].startsWith('http')
+                  ? post.images[0]
+                  : `${
+                      process.env.NEXT_PUBLIC_API_URL ||
+                      process.env.NEXT_PUBLIC_API_BASE_URL ||
+                      'http://localhost:8080'
+                    }${post.images[0]}`
+              }
               alt="Post image"
-              width={400}
-              height={192}
               className="w-full max-h-48 object-cover rounded-lg cursor-pointer"
               onClick={handleViewDetails}
             />
           ) : (
             <div className="grid grid-cols-2 gap-2">
               {post.images.slice(0, 4).map((image, index) => (
-                <Image
+                <img
                   key={index}
-                  src={image}
+                  src={
+                    image.startsWith('http')
+                      ? image
+                      : `${
+                          process.env.NEXT_PUBLIC_API_URL ||
+                          process.env.NEXT_PUBLIC_API_BASE_URL ||
+                          'http://localhost:8080'
+                        }${image}`
+                  }
                   alt={`Post image ${index + 1}`}
-                  width={200}
-                  height={96}
                   className="w-full h-24 object-cover rounded-lg cursor-pointer"
                   onClick={handleViewDetails}
                 />
@@ -154,24 +200,26 @@ export const PostCard: React.FC<PostCardProps> = ({
       {/* Actions */}
       <div className="flex items-center justify-between pt-3 border-t border-border">
         <div className="flex items-center space-x-6">
-            {disableLikes ? (
-              <div className="flex items-center space-x-2 text-base text-muted-foreground">
-                <Heart className="w-4 h-4" />
-                <span>{likeCount}</span>
-              </div>
-            ) : (
-              <button
-                onClick={handleLike}
-                disabled={isLoading}
-                aria-label={isLiked ? 'Unlike post' : 'Like post'}
-                className={`flex items-center space-x-2 text-base transition-colors ${
-                  isLiked ? 'text-red-500' : 'text-muted-foreground hover:text-red-500'
-                } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
-                <span>{likeCount}</span>
-              </button>
-            )}
+          {disableLikes ? (
+            <div className="flex items-center space-x-2 text-base text-muted-foreground">
+              <Heart className="w-4 h-4" />
+              <span>{likeCount}</span>
+            </div>
+          ) : (
+            <button
+              onClick={handleLike}
+              disabled={isLoading}
+              aria-label={isLiked ? 'Unlike post' : 'Like post'}
+              className={`flex items-center space-x-2 text-base transition-colors ${
+                isLiked
+                  ? 'text-red-500'
+                  : 'text-muted-foreground hover:text-red-500'
+              } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+              <span>{likeCount}</span>
+            </button>
+          )}
 
           <button
             onClick={handleComment}

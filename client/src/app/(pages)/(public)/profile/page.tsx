@@ -5,7 +5,13 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import { userApi } from '@/lib/api/user';
 import { postApi } from '@/lib/api/post';
-import { UpdateUserRequest, UserProfile, UserDisplayInfo, Post } from '@/lib/types';
+import {
+  UpdateUserRequest,
+  UserProfile,
+  UserDisplayInfo,
+  Post,
+} from '@/lib/types';
+import { uploadAvatar } from '@/lib/api/upload';
 import { Lock, Unlock, UserMinus, UserPlus } from 'lucide-react';
 import { PostCard } from '@/components/PostCard';
 import { PostModal } from '@/components/PostModal';
@@ -18,7 +24,13 @@ interface FollowersModalProps {
   onUserClick: (userId: number) => void;
 }
 
-const FollowersModal: React.FC<FollowersModalProps> = ({ isOpen, onClose, users, title, onUserClick }) => {
+const FollowersModal: React.FC<FollowersModalProps> = ({
+  isOpen,
+  onClose,
+  users,
+  title,
+  onUserClick,
+}) => {
   const modalRef = React.useRef<HTMLDivElement>(null);
 
   // Handle escape key and click outside
@@ -30,7 +42,11 @@ const FollowersModal: React.FC<FollowersModalProps> = ({ isOpen, onClose, users,
     };
 
     const handleClickOutside = (e: MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(e.target as Node) && isOpen) {
+      if (
+        modalRef.current &&
+        !modalRef.current.contains(e.target as Node) &&
+        isOpen
+      ) {
         onClose();
       }
     };
@@ -50,7 +66,10 @@ const FollowersModal: React.FC<FollowersModalProps> = ({ isOpen, onClose, users,
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div ref={modalRef} className="bg-white rounded-lg max-w-md w-full max-h-[80vh] overflow-hidden">
+      <div
+        ref={modalRef}
+        className="bg-white rounded-lg max-w-md w-full max-h-[80vh] overflow-hidden"
+      >
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold">{title}</h2>
           <button
@@ -60,10 +79,12 @@ const FollowersModal: React.FC<FollowersModalProps> = ({ isOpen, onClose, users,
             ✕
           </button>
         </div>
-        
+
         <div className="overflow-y-auto max-h-[60vh] p-4">
           {users.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">No {title.toLowerCase()} yet.</p>
+            <p className="text-gray-500 text-center py-4">
+              No {title.toLowerCase()} yet.
+            </p>
           ) : (
             <div className="space-y-3">
               {users.map((user) => (
@@ -96,7 +117,10 @@ function ProfilePageContent() {
   const userId = searchParams.get('userId');
   const [profileUser, setProfileUser] = useState<UserProfile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [followersModal, setFollowersModal] = useState<{isOpen: boolean, type: 'followers' | 'following'}>({isOpen: false, type: 'followers'});
+  const [followersModal, setFollowersModal] = useState<{
+    isOpen: boolean;
+    type: 'followers' | 'following';
+  }>({ isOpen: false, type: 'followers' });
   const [followers, setFollowers] = useState<UserDisplayInfo[]>([]);
   const [following, setFollowing] = useState<UserDisplayInfo[]>([]);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -113,6 +137,11 @@ function ProfilePageContent() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Avatar change state
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
   // Posts sections state
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [likedPosts, setLikedPosts] = useState<Post[]>([]);
@@ -120,7 +149,9 @@ function ProfilePageContent() {
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'commented'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'commented'>(
+    'posts',
+  );
 
   // Helper function to determine if viewing own profile
   const isOwnProfile = () => {
@@ -134,13 +165,13 @@ function ProfilePageContent() {
     const loadProfile = async () => {
       try {
         let profileData;
-        
+
         // If no userId and no user, redirect to login (trying to access own profile without auth)
         if (!userId && !user) {
           router.push('/login');
           return;
         }
-        
+
         if (isOwnProfile()) {
           // Load own profile (requires authentication)
           profileData = await userApi.getProfile();
@@ -157,9 +188,9 @@ function ProfilePageContent() {
           bio: profileData.bio || '',
           is_private: profileData.is_private,
         });
-    } catch {
-      console.error('Error loading profile');
-    }
+      } catch {
+        console.error('Error loading profile');
+      }
     };
 
     // Load profile if:
@@ -168,26 +199,53 @@ function ProfilePageContent() {
     if (userId || (hasCheckedAuth && !isLoading && user)) {
       loadProfile();
     }
-    }, [user, hasCheckedAuth, isLoading, userId, router]);
+  }, [user, hasCheckedAuth, isLoading, userId, router]);
 
   // Load posts after profile data is loaded
+  // Normalize posts to ensure author_* fields are always present
+  const normalizePosts = (posts: Post[], fallback?: UserProfile): Post[] => {
+    return (posts || []).map((p) => {
+      const anyP: any = p as any;
+      // Common locations where author info might be attached depending on endpoint
+      const author = anyP.author || anyP.user || anyP.owner || {};
+      // Some endpoints may return flat fields referencing the post author
+      const flatNickname = anyP.author_nickname || anyP.user_nickname || anyP.nickname;
+      const flatFirst = anyP.author_first_name || anyP.user_first_name || anyP.first_name;
+      const flatLast = anyP.author_last_name || anyP.user_last_name || anyP.last_name;
+      const flatAvatar = anyP.author_avatar || anyP.user_avatar || anyP.avatar;
+
+      return {
+        ...p,
+        author_id: p.author_id || p.user_id || author.id,
+        author_nickname:
+          p.author_nickname || author.nickname || flatNickname || fallback?.nickname || p.author_nickname,
+        author_first_name:
+          p.author_first_name || author.first_name || flatFirst || fallback?.first_name || p.author_first_name,
+        author_last_name:
+          p.author_last_name || author.last_name || flatLast || fallback?.last_name || p.author_last_name,
+        author_avatar:
+          p.author_avatar || author.avatar || flatAvatar || fallback?.avatar || p.author_avatar,
+      } as Post;
+    });
+  };
+
   useEffect(() => {
     const loadPosts = async () => {
       if (!profileUser) return;
-      
+
       setLoadingPosts(true);
       try {
-        const targetUserId = userId ? parseInt(userId) : (user?.id || 0);
-        
+        const targetUserId = userId ? parseInt(userId) : user?.id || 0;
+
         // Check if we should load posts based on privacy settings
         const shouldLoadPosts = () => {
           if (!profileUser) return false;
-          
+
           // If viewing own profile, always load posts (requires authentication)
           if (isOwnProfile()) {
             return !!user; // Only if authenticated
           }
-          
+
           // If viewing other user's profile
           if (userId && user) {
             // If profile is private and user is not following, don't load posts
@@ -197,12 +255,12 @@ function ProfilePageContent() {
             // If profile is public or user is following, load posts
             return true;
           }
-          
+
           // If not logged in and viewing private profile, don't load posts
           if (!user && profileUser.is_private) {
             return false;
           }
-          
+
           // Default: load posts for public profiles (even if not logged in)
           return !profileUser.is_private;
         };
@@ -214,21 +272,21 @@ function ProfilePageContent() {
           setLoadingPosts(false);
           return;
         }
-        
+
         // Load user's posts
         const postsData = await postApi.getPostsByUser(targetUserId);
-        setUserPosts(postsData || []);
-        
+        setUserPosts(normalizePosts(postsData || [], profileUser));
+
         // Load liked posts (only for authenticated users)
         if (user) {
           if (!userId || userId === user.id.toString()) {
             const likedData = await postApi.getLikedPosts();
-            setLikedPosts(likedData || []);
-            
-            // Load commented posts (only for own profile)
-            if (!userId) {
+            setLikedPosts(normalizePosts(likedData || []));
+
+            // Load commented posts (only for own profile – with or without explicit userId matching current user)
+            if (!userId || userId === user.id.toString()) {
               const commentedData = await postApi.getCommentedPosts();
-              setCommentedPosts(commentedData || []);
+              setCommentedPosts(normalizePosts(commentedData || []));
             } else {
               setCommentedPosts([]);
             }
@@ -236,16 +294,18 @@ function ProfilePageContent() {
             // For other users, try to get their liked posts if API supports it
             try {
               const likedData = await postApi.getLikedPostsByUser(targetUserId);
-              setLikedPosts(likedData || []);
+              setLikedPosts(normalizePosts(likedData || []));
             } catch (error) {
               console.log('Cannot load liked posts for other users');
               setLikedPosts([]);
             }
-            
+
             // For other users, try to get their commented posts if API supports it
             try {
-              const commentedData = await postApi.getCommentedPostsByUser(targetUserId);
-              setCommentedPosts(commentedData || []);
+              const commentedData = await postApi.getCommentedPostsByUser(
+                targetUserId,
+              );
+              setCommentedPosts(normalizePosts(commentedData || []));
             } catch (error) {
               console.log('Cannot load commented posts for other users');
               setCommentedPosts([]);
@@ -281,6 +341,13 @@ function ProfilePageContent() {
     }
   }, [user, userId, profileUser]);
 
+  // Initialize isFollowing from profile data when viewing someone else
+  useEffect(() => {
+    if (profileUser && !isOwnProfile() && typeof (profileUser as any).isFollowing !== 'undefined') {
+      setIsFollowing(!!(profileUser as any).isFollowing);
+    }
+  }, [profileUser, userId]);
+
   // Show loading only if we're authenticated and still checking auth, or if we're loading
   if ((user && (!hasCheckedAuth || isLoading)) || (!user && isLoading)) {
     return (
@@ -295,7 +362,9 @@ function ProfilePageContent() {
   if (!user && !userId) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-red-500 text-lg">You must be logged in to view your profile.</p>
+        <p className="text-red-500 text-lg">
+          You must be logged in to view your profile.
+        </p>
       </div>
     );
   }
@@ -308,7 +377,10 @@ function ProfilePageContent() {
     );
   }
 
-  const handleChange = (field: keyof UpdateUserRequest, value: string | boolean) => {
+  const handleChange = (
+    field: keyof UpdateUserRequest,
+    value: string | boolean,
+  ) => {
     setFormState((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -326,7 +398,20 @@ function ProfilePageContent() {
       };
 
       await userApi.updateProfile(payload);
-      await checkAuth(); // refresh context state
+      // Rafraîchir uniquement le profil local sans toucher à l'état d'auth global
+      try {
+        const refreshed = await userApi.getProfile();
+        setProfileUser(refreshed);
+        setFormState({
+          first_name: refreshed.first_name,
+          last_name: refreshed.last_name,
+          nickname: refreshed.nickname,
+          bio: refreshed.bio || '',
+          is_private: refreshed.is_private,
+        });
+      } catch (e) {
+        // fallback silencieux: on ne casse pas la session même si la requête échoue
+      }
       setIsEditing(false);
     } catch (err) {
       console.error('Update failed:', err);
@@ -346,46 +431,49 @@ function ProfilePageContent() {
     });
     setIsEditing(false);
     setError(null);
+    // reset avatar selection
+    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    setAvatarPreview(null);
+    setAvatarFile(null);
   };
-
 
   const handleFollowersClick = async () => {
     try {
-      const targetUserId = userId ? parseInt(userId) : (user?.id || 0);
+      const targetUserId = userId ? parseInt(userId) : user?.id || 0;
       if (!targetUserId) return;
       const followersData = await userApi.getFollowers(targetUserId);
       setFollowers(followersData || []);
-      setFollowersModal({isOpen: true, type: 'followers'});
+      setFollowersModal({ isOpen: true, type: 'followers' });
     } catch (error) {
       console.error('Error loading followers:', error);
       setFollowers([]);
-      setFollowersModal({isOpen: true, type: 'followers'});
+      setFollowersModal({ isOpen: true, type: 'followers' });
     }
   };
 
   const handleFollowingClick = async () => {
     try {
-      const targetUserId = userId ? parseInt(userId) : (user?.id || 0);
+      const targetUserId = userId ? parseInt(userId) : user?.id || 0;
       if (!targetUserId) return;
       const followingData = await userApi.getFollowing(targetUserId);
       setFollowing(followingData || []);
-      setFollowersModal({isOpen: true, type: 'following'});
+      setFollowersModal({ isOpen: true, type: 'following' });
     } catch (error) {
       console.error('Error loading following:', error);
       setFollowing([]);
-      setFollowersModal({isOpen: true, type: 'following'});
+      setFollowersModal({ isOpen: true, type: 'following' });
     }
   };
 
   const handleUserClick = (userId: number) => {
     // Navigate to user profile
     router.push(`/profile?userId=${userId}`);
-    setFollowersModal({isOpen: false, type: 'followers'});
+    setFollowersModal({ isOpen: false, type: 'followers' });
   };
 
   const handleFollowToggle = async () => {
     if (!userId || !user) return;
-    
+
     setIsFollowLoading(true);
     try {
       if (isFollowing) {
@@ -393,14 +481,20 @@ function ProfilePageContent() {
         setIsFollowing(false);
         // Update followers count
         if (profileUser) {
-          setProfileUser({...profileUser, followers: profileUser.followers - 1});
+          setProfileUser({
+            ...profileUser,
+            followers: profileUser.followers - 1,
+          });
         }
       } else {
         await userApi.followUser(parseInt(userId));
         setIsFollowing(true);
         // Update followers count
         if (profileUser) {
-          setProfileUser({...profileUser, followers: profileUser.followers + 1});
+          setProfileUser({
+            ...profileUser,
+            followers: profileUser.followers + 1,
+          });
         }
       }
     } catch (error) {
@@ -413,7 +507,7 @@ function ProfilePageContent() {
   // Post interaction handlers
   const handleViewDetails = (postId: number) => {
     const allPosts = [...userPosts, ...likedPosts, ...commentedPosts];
-    const post = allPosts.find(p => p.id === postId);
+    const post = allPosts.find((p) => p.id === postId);
     if (post) {
       setSelectedPost(post);
       setIsModalOpen(true);
@@ -423,22 +517,22 @@ function ProfilePageContent() {
   const handleCloseModal = async () => {
     setIsModalOpen(false);
     setSelectedPost(null);
-    
+
     // Refresh posts when closing modal
     try {
       const targetUserId = userId ? parseInt(userId) : user?.id;
       if (!targetUserId) return;
-      
+
       const postsData = await postApi.getPostsByUser(targetUserId);
-      setUserPosts(postsData || []);
-      
+      setUserPosts(normalizePosts(postsData || [], profileUser));
+
       if (!userId || userId === user?.id?.toString()) {
         const likedData = await postApi.getLikedPosts();
-        setLikedPosts(likedData || []);
-        
-        if (!userId) {
+        setLikedPosts(normalizePosts(likedData || []));
+
+        if (!userId || userId === user?.id?.toString()) {
           const commentedData = await postApi.getCommentedPosts();
-          setCommentedPosts(commentedData || []);
+          setCommentedPosts(normalizePosts(commentedData || []));
         }
       }
     } catch (error) {
@@ -450,23 +544,23 @@ function ProfilePageContent() {
     try {
       const targetUserId = userId ? parseInt(userId) : user?.id;
       if (!targetUserId) return;
-      
+
       const postsData = await postApi.getPostsByUser(targetUserId);
-      setUserPosts(postsData || []);
-      
+      setUserPosts(normalizePosts(postsData || [], profileUser));
+
       if (!userId || userId === user?.id?.toString()) {
         const likedData = await postApi.getLikedPosts();
-        setLikedPosts(likedData || []);
-        
-        if (!userId) {
+        setLikedPosts(normalizePosts(likedData || []));
+
+        if (!userId || userId === user?.id?.toString()) {
           const commentedData = await postApi.getCommentedPosts();
-          setCommentedPosts(commentedData || []);
+          setCommentedPosts(normalizePosts(commentedData || []));
         }
       }
-      
+
       if (selectedPost?.id === postId) {
         const allPosts = [...userPosts, ...likedPosts, ...commentedPosts];
-        const updatedPost = allPosts.find(p => p.id === postId);
+        const updatedPost = allPosts.find((p) => p.id === postId);
         if (updatedPost) {
           setSelectedPost(updatedPost);
         }
@@ -483,10 +577,10 @@ function ProfilePageContent() {
   // Check if user can view posts sections
   const canViewPosts = () => {
     if (!profileUser) return false;
-    
+
     // If viewing own profile, always show posts (requires authentication)
     if (isOwnProfile()) return !!user;
-    
+
     // If viewing other user's profile
     if (userId && user) {
       // If profile is private and user is not following, don't show posts
@@ -496,12 +590,12 @@ function ProfilePageContent() {
       // If profile is public or user is following, show posts
       return true;
     }
-    
+
     // If not logged in and viewing private profile, don't show posts
     if (!user && profileUser.is_private) {
       return false;
     }
-    
+
     // Default: show posts for public profiles (even if not logged in)
     return !profileUser.is_private;
   };
@@ -509,364 +603,465 @@ function ProfilePageContent() {
   return (
     <div className="w-full">
       <h1 className="text-2xl font-bold mb-6">
-        {isOwnProfile() ? 'Your Profile' : `${profileUser?.nickname || 'User'}'s Profile`}
+        {isOwnProfile()
+          ? 'Your Profile'
+          : `${profileUser?.nickname || 'User'}'s Profile`}
       </h1>
 
       <div className="space-y-6">
-            {/* Profile Header */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="flex items-start gap-4">
-                <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-medium">
-                  {profileUser.nickname?.charAt(0) || 'U'}
-                </div>
-                <div className="flex-1 space-y-2">
-                  {isEditing ? (
-                    <>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          className="flex-1 border border-gray-300 rounded px-3 py-2 text-lg font-semibold"
-                          value={formState.first_name}
-                          onChange={(e) => handleChange('first_name', e.target.value)}
-                          placeholder="First Name"
-                        />
-                        <input
-                          type="text"
-                          className="flex-1 border border-gray-300 rounded px-3 py-2 text-lg font-semibold"
-                          value={formState.last_name}
-                          onChange={(e) => handleChange('last_name', e.target.value)}
-                          placeholder="Last Name"
-                        />
-                      </div>
-                      <input
-                        type="text"
-                        className="w-full border border-gray-300 rounded px-3 py-2 text-gray-600"
-                        value={formState.nickname}
-                        onChange={(e) => handleChange('nickname', e.target.value)}
-                        placeholder="Nickname"
-                      />
-                      <textarea
-                        rows={3}
-                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                        value={formState.bio}
-                        onChange={(e) => handleChange('bio', e.target.value)}
-                        placeholder="Bio"
-                      />
-                      <div className="flex items-center gap-2">
-                        <label className="flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={formState.is_private}
-                            onChange={(e) => handleChange('is_private', e.target.checked)}
-                            className="rounded"
-                          />
-                          <span className="flex items-center gap-1">
-                            {formState.is_private ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-                            Private Profile
-                          </span>
-                        </label>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <h2 className="text-xl font-semibold">
-                        {profileUser.first_name} {profileUser.last_name}
-                      </h2>
-                      <p className="text-gray-600">@{profileUser.nickname}</p>
-                      <p className="text-sm text-gray-700">{profileUser.bio || 'No bio yet.'}</p>
-                      <div className="flex items-center gap-2 text-sm">
-                        {profileUser.is_private ? (
-                          <span className="flex items-center gap-1 text-orange-600">
-                            <Lock className="w-4 h-4" />
-                            Private Profile
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1 text-green-600">
-                            <Unlock className="w-4 h-4" />
-                            Public Profile
-                          </span>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                {isOwnProfile() && (
-                  <>
-                    {isEditing ? (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleSave}
-                          disabled={saving}
-                          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
-                        >
-                          {saving ? 'Saving...' : 'Save'}
-                        </button>
-                        <button
-                          onClick={handleCancel}
-                          className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                        onClick={() => setIsEditing(true)}
-                      >
-                        Edit Profile
-                      </button>
-                    )}
-                  </>
-                )}
-                
-                {userId && user && parseInt(userId) !== user.id && (
-                  <button
-                    onClick={handleFollowToggle}
-                    disabled={isFollowLoading}
-                    className={`px-4 py-2 rounded-lg transition-colors flex items-center space-x-2 ${
-                      isFollowing
-                        ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                        : 'bg-blue-500 text-white hover:bg-blue-600'
-                    } ${isFollowLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    {isFollowLoading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
-                        <span>Loading...</span>
-                      </>
-                    ) : isFollowing ? (
-                      <>
-                        <UserMinus className="w-4 h-4" />
-                        <span>Unfollow</span>
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus className="w-4 h-4" />
-                        <span>Follow</span>
-                      </>
-                    )}
-                  </button>
-                )}
+        {/* Profile Header */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-start gap-4">
+            {/* Avatar */}
+            {avatarPreview || profileUser.avatar ? (
+              <img
+                src={
+                  (avatarPreview || profileUser.avatar)!.startsWith('http')
+                    ? (avatarPreview || profileUser.avatar)!
+                    : `${
+                        process.env.NEXT_PUBLIC_API_URL ||
+                        process.env.NEXT_PUBLIC_API_BASE_URL ||
+                        'http://localhost:8080'
+                      }${avatarPreview || profileUser.avatar}`
+                }
+                alt="Avatar"
+                className="w-20 h-20 rounded-full object-cover border"
+              />
+            ) : (
+              <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-medium">
+                {profileUser.nickname?.charAt(0) || 'U'}
               </div>
-
-              {error && (
-                <p className="text-sm text-red-500 mt-2">{error}</p>
+            )}
+            <div className="flex-1 space-y-2">
+              {isEditing ? (
+                <>
+                  {/* Avatar change controls */}
+                  <div className="flex items-center gap-2">
+                    <label className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer">
+                      Changer la photo
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/gif"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] || null;
+                          if (!f) return;
+                          if (!/^image\/(jpeg|jpg|png|gif)$/i.test(f.type)) {
+                            alert('Format non supporté');
+                            return;
+                          }
+                          if (f.size > 5 * 1024 * 1024) {
+                            alert('Fichier trop volumineux (max 5 Mo)');
+                            return;
+                          }
+                          if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+                          setAvatarPreview(URL.createObjectURL(f));
+                          setAvatarFile(f);
+                        }}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      disabled={!avatarFile || avatarUploading}
+                      onClick={async () => {
+                        if (!avatarFile) return;
+                        try {
+                          setAvatarUploading(true);
+                          const { url } = await uploadAvatar(avatarFile);
+                          setProfileUser((prev) =>
+                            prev ? { ...prev, avatar: url } : prev,
+                          );
+                          if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+                          setAvatarPreview(null);
+                          setAvatarFile(null);
+                        } catch (e: any) {
+                          alert(
+                            e?.message ||
+                              "Erreur lors de la mise à jour de l'avatar",
+                          );
+                        } finally {
+                          setAvatarUploading(false);
+                        }
+                      }}
+                      className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg disabled:opacity-50"
+                    >
+                      {avatarUploading ? 'Envoi...' : 'Mettre à jour la photo'}
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      className="flex-1 border border-gray-300 rounded px-3 py-2 text-lg font-semibold"
+                      value={formState.first_name}
+                      onChange={(e) =>
+                        handleChange('first_name', e.target.value)
+                      }
+                      placeholder="First Name"
+                    />
+                    <input
+                      type="text"
+                      className="flex-1 border border-gray-300 rounded px-3 py-2 text-lg font-semibold"
+                      value={formState.last_name}
+                      onChange={(e) =>
+                        handleChange('last_name', e.target.value)
+                      }
+                      placeholder="Last Name"
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-gray-600"
+                    value={formState.nickname}
+                    onChange={(e) => handleChange('nickname', e.target.value)}
+                    placeholder="Nickname"
+                  />
+                  <textarea
+                    rows={3}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                    value={formState.bio}
+                    onChange={(e) => handleChange('bio', e.target.value)}
+                    placeholder="Bio"
+                  />
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={formState.is_private}
+                        onChange={(e) =>
+                          handleChange('is_private', e.target.checked)
+                        }
+                        className="rounded"
+                      />
+                      <span className="flex items-center gap-1">
+                        {formState.is_private ? (
+                          <Lock className="w-4 h-4" />
+                        ) : (
+                          <Unlock className="w-4 h-4" />
+                        )}
+                        Private Profile
+                      </span>
+                    </label>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-xl font-semibold">
+                    {profileUser.first_name} {profileUser.last_name}
+                  </h2>
+                  <p className="text-gray-600">@{profileUser.nickname}</p>
+                  <p className="text-sm text-gray-700">
+                    {profileUser.bio || 'No bio yet.'}
+                  </p>
+                  <div className="flex items-center gap-2 text-sm">
+                    {profileUser.is_private ? (
+                      <span className="flex items-center gap-1 text-orange-600">
+                        <Lock className="w-4 h-4" />
+                        Private Profile
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-green-600">
+                        <Unlock className="w-4 h-4" />
+                        Public Profile
+                      </span>
+                    )}
+                  </div>
+                </>
               )}
             </div>
 
-            {/* Profile Stats */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div 
-                  className="text-center cursor-pointer hover:text-blue-500 transition-colors"
-                  onClick={handleFollowingClick}
-                >
-                  <div className="text-2xl font-bold">{profileUser?.followed || 0}</div>
-                  <div className="text-sm text-gray-500">Following</div>
-                </div>
-                <div 
-                  className="text-center cursor-pointer hover:text-blue-500 transition-colors"
-                  onClick={handleFollowersClick}
-                >
-                  <div className="text-2xl font-bold">{profileUser?.followers || 0}</div>
-                  <div className="text-sm text-gray-500">Followers</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Posts Tabs Section - Only show if user can view posts */}
-            {canViewPosts() ? (
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-              {/* Tab Buttons */}
-              <div className="flex space-x-1 mb-6 bg-gray-100 p-1 rounded-lg">
-                <button
-                  onClick={() => setActiveTab('posts')}
-                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === 'posts'
-                      ? 'bg-white text-blue-600 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Posts
-                </button>
-                {/* Only show Liked and Commented tabs for authenticated users */}
-                {user && (
-                  <>
+            {isOwnProfile() && (
+              <>
+                {isEditing ? (
+                  <div className="flex gap-2">
                     <button
-                      onClick={() => setActiveTab('liked')}
-                      className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                        activeTab === 'liked'
-                          ? 'bg-white text-blue-600 shadow-sm'
-                          : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                    >
-                      Liked
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('commented')}
-                      className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                        activeTab === 'commented'
-                          ? 'bg-white text-blue-600 shadow-sm'
-                          : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                    >
-                      Commented
-                    </button>
-                  </>
-                )}
-              </div>
-
-                {/* Tab Content */}
-                {activeTab === 'posts' && (
-                  <>
-                    {loadingPosts ? (
-                      <div className="flex items-center justify-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                        <span className="ml-2 text-gray-500">Loading posts...</span>
-                      </div>
-                    ) : userPosts.length === 0 ? (
-                      <div className="text-center py-8">
-                        <p className="text-gray-500 text-lg">No posts yet.</p>
-                        <p className="text-gray-400 text-sm mt-2">
-                          {userId ? "This user hasn't posted anything yet." : "Create your first post to get started!"}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {userPosts.map((post) => (
-                          <PostCard
-                            key={post.id}
-                            post={post}
-                            onLike={handleLike}
-                            onComment={handleComment}
-                            onViewDetails={handleViewDetails}
-                            onUserClick={handleUserClick}
-                            disableLikes={!user}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* Only show Liked and Commented tabs for authenticated users */}
-                {user && activeTab === 'liked' && (
-                  <>
-                    {loadingPosts ? (
-                      <div className="flex items-center justify-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                        <span className="ml-2 text-gray-500">Loading liked posts...</span>
-                      </div>
-                    ) : likedPosts.length === 0 ? (
-                      <div className="text-center py-8">
-                        <p className="text-gray-500 text-lg">No liked posts yet.</p>
-                        <p className="text-gray-400 text-sm mt-2">
-                          {userId ? "This user hasn't liked any posts yet." : "Like some posts to see them here!"}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {likedPosts.map((post) => (
-                          <PostCard
-                            key={post.id}
-                            post={post}
-                            onLike={handleLike}
-                            onComment={handleComment}
-                            onViewDetails={handleViewDetails}
-                            onUserClick={handleUserClick}
-                            disableLikes={!user}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {user && activeTab === 'commented' && (
-                  <>
-                    {loadingPosts ? (
-                      <div className="flex items-center justify-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                        <span className="ml-2 text-gray-500">Loading commented posts...</span>
-                      </div>
-                    ) : commentedPosts.length === 0 ? (
-                      <div className="text-center py-8">
-                        <p className="text-gray-500 text-lg">No commented posts yet.</p>
-                        <p className="text-gray-400 text-sm mt-2">
-                          {userId ? "This user hasn't commented on any posts yet." : "Comment on some posts to see them here!"}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {commentedPosts.map((post) => (
-                          <PostCard
-                            key={post.id}
-                            post={post}
-                            onLike={handleLike}
-                            onComment={handleComment}
-                            onViewDetails={handleViewDetails}
-                            onUserClick={handleUserClick}
-                            disableLikes={!user}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            ) : (
-              /* Private Profile Message */
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Lock className="w-8 h-8 text-gray-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-700 mb-2">This profile is private</h3>
-                  <p className="text-gray-500 text-sm mb-4">
-                    {!user ? 
-                      "Sign in to follow this user and see their posts, liked content, and comments." :
-                      userId ? 
-                        "Follow this user to see their posts, liked content, and comments." : 
-                        "This user's posts are only visible to their followers."
-                    }
-                  </p>
-                  {!user ? (
-                    <div className="space-y-2">
-                      <a
-                        href="/login"
-                        className="inline-block px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                      >
-                        Sign In
-                      </a>
-                      <p className="text-xs text-gray-400">or</p>
-                      <a
-                        href="/register"
-                        className="inline-block px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        Create Account
-                      </a>
-                    </div>
-                  ) : !isOwnProfile() && user && !isFollowing && (
-                    <button
-                      onClick={handleFollowToggle}
-                      disabled={isFollowLoading}
+                      onClick={handleSave}
+                      disabled={saving}
                       className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
                     >
-                      {isFollowLoading ? 'Loading...' : 'Follow to see content'}
+                      {saving ? 'Saving...' : 'Save'}
                     </button>
-                  )}
-                </div>
-              </div>
+                    <button
+                      onClick={handleCancel}
+                      className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    onClick={() => setIsEditing(true)}
+                  >
+                    Edit Profile
+                  </button>
+                )}
+              </>
             )}
 
-      </div>
+            {userId && user && parseInt(userId) !== user.id && (
+              <button
+                onClick={handleFollowToggle}
+                disabled={isFollowLoading}
+                className={`px-4 py-2 rounded-lg transition-colors flex items-center space-x-2 ${
+                  isFollowing
+                    ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    : 'bg-blue-500 text-white hover:bg-blue-600'
+                } ${isFollowLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {isFollowLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                    <span>Loading...</span>
+                  </>
+                ) : isFollowing ? (
+                  <>
+                    <UserMinus className="w-4 h-4" />
+                    <span>Unfollow</span>
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4" />
+                    <span>Follow</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
 
+          {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
+        </div>
+
+        {/* Profile Stats */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div
+              className="text-center cursor-pointer hover:text-blue-500 transition-colors"
+              onClick={handleFollowingClick}
+            >
+              <div className="text-2xl font-bold">
+                {profileUser?.followed || 0}
+              </div>
+              <div className="text-sm text-gray-500">Following</div>
+            </div>
+            <div
+              className="text-center cursor-pointer hover:text-blue-500 transition-colors"
+              onClick={handleFollowersClick}
+            >
+              <div className="text-2xl font-bold">
+                {profileUser?.followers || 0}
+              </div>
+              <div className="text-sm text-gray-500">Followers</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Posts Tabs Section - Only show if user can view posts */}
+        {canViewPosts() ? (
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            {/* Tab Buttons */}
+            <div className="flex space-x-1 mb-6 bg-gray-100 p-1 rounded-lg">
+              <button
+                onClick={() => setActiveTab('posts')}
+                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'posts'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Posts
+              </button>
+              {/* Only show Liked and Commented tabs for authenticated users */}
+              {user && (
+                <>
+                  <button
+                    onClick={() => setActiveTab('liked')}
+                    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                      activeTab === 'liked'
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Liked
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('commented')}
+                    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                      activeTab === 'commented'
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Commented
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Tab Content */}
+            {activeTab === 'posts' && (
+              <>
+                {loadingPosts ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                    <span className="ml-2 text-gray-500">Loading posts...</span>
+                  </div>
+                ) : userPosts.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500 text-lg">No posts yet.</p>
+                    <p className="text-gray-400 text-sm mt-2">
+                      {userId
+                        ? "This user hasn't posted anything yet."
+                        : 'Create your first post to get started!'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {userPosts.map((post) => (
+                      <PostCard
+                        key={post.id}
+                        post={post}
+                        onLike={handleLike}
+                        onComment={handleComment}
+                        onViewDetails={handleViewDetails}
+                        onUserClick={handleUserClick}
+                        disableLikes={!user}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Only show Liked and Commented tabs for authenticated users */}
+            {user && activeTab === 'liked' && (
+              <>
+                {loadingPosts ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                    <span className="ml-2 text-gray-500">
+                      Loading liked posts...
+                    </span>
+                  </div>
+                ) : likedPosts.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500 text-lg">No liked posts yet.</p>
+                    <p className="text-gray-400 text-sm mt-2">
+                      {userId
+                        ? "This user hasn't liked any posts yet."
+                        : 'Like some posts to see them here!'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {likedPosts.map((post) => (
+                      <PostCard
+                        key={post.id}
+                        post={post}
+                        onLike={handleLike}
+                        onComment={handleComment}
+                        onViewDetails={handleViewDetails}
+                        onUserClick={handleUserClick}
+                        disableLikes={!user}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {user && activeTab === 'commented' && (
+              <>
+                {loadingPosts ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                    <span className="ml-2 text-gray-500">
+                      Loading commented posts...
+                    </span>
+                  </div>
+                ) : commentedPosts.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500 text-lg">
+                      No commented posts yet.
+                    </p>
+                    <p className="text-gray-400 text-sm mt-2">
+                      {userId
+                        ? "This user hasn't commented on any posts yet."
+                        : 'Comment on some posts to see them here!'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {commentedPosts.map((post) => (
+                      <PostCard
+                        key={post.id}
+                        post={post}
+                        onLike={handleLike}
+                        onComment={handleComment}
+                        onViewDetails={handleViewDetails}
+                        onUserClick={handleUserClick}
+                        disableLikes={!user}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        ) : (
+          /* Private Profile Message */
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Lock className="w-8 h-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                This profile is private
+              </h3>
+              <p className="text-gray-500 text-sm mb-4">
+                {!user
+                  ? 'Sign in to follow this user and see their posts, liked content, and comments.'
+                  : userId
+                  ? 'Follow this user to see their posts, liked content, and comments.'
+                  : "This user's posts are only visible to their followers."}
+              </p>
+              {!user ? (
+                <div className="space-y-2">
+                  <a
+                    href="/login"
+                    className="inline-block px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  >
+                    Sign In
+                  </a>
+                  <p className="text-xs text-gray-400">or</p>
+                  <a
+                    href="/register"
+                    className="inline-block px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Create Account
+                  </a>
+                </div>
+              ) : (
+                !isOwnProfile() &&
+                user &&
+                !isFollowing && (
+                  <button
+                    onClick={handleFollowToggle}
+                    disabled={isFollowLoading}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                  >
+                    {isFollowLoading ? 'Loading...' : 'Follow to see content'}
+                  </button>
+                )
+              )}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Followers/Following Modal */}
       <FollowersModal
         isOpen={followersModal.isOpen}
-        onClose={() => setFollowersModal({isOpen: false, type: 'followers'})}
+        onClose={() => setFollowersModal({ isOpen: false, type: 'followers' })}
         users={followersModal.type === 'followers' ? followers : following}
         title={followersModal.type === 'followers' ? 'Followers' : 'Following'}
         onUserClick={handleUserClick}
@@ -887,7 +1082,13 @@ function ProfilePageContent() {
 
 export default function ProfilePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><p className="text-gray-500 text-lg">Loading...</p></div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <p className="text-gray-500 text-lg">Loading...</p>
+        </div>
+      }
+    >
       <ProfilePageContent />
     </Suspense>
   );

@@ -118,54 +118,38 @@ func TokenInformations(w http.ResponseWriter, r *http.Request) (*JWTClaims, erro
 // CookieSession creates JWT and stores in cookie + database
 func CookieSession(username string, w http.ResponseWriter) error {
 	config := getConfig()
-	fmt.Printf("CookieSession: Starting for user %s\n", username)
 
 	// Create JWT token
 	token, err := JWTGeneration(username, w)
 	if err != nil {
-		fmt.Printf("CookieSession: Error generating JWT: %v\n", err)
+		fmt.Println("Error generating JWT:", err)
 		return err
 	}
-	fmt.Printf("CookieSession: JWT token generated successfully\n")
 
 	// Get user_id
 	userID, err := db.DBService.GetUserIDByUsername(username)
 	if err != nil {
-		fmt.Printf("CookieSession: Error getting user ID: %v\n", err)
 		return err
 	}
-	fmt.Printf("CookieSession: User ID: %d\n", userID)
 
 	// Store session in database
 	err = db.DBService.CreateSession(int(userID), token, config.GetJwtExpiration())
 	if err != nil {
-		fmt.Printf("CookieSession: Error creating session in DB: %v\n", err)
 		return err
 	}
-	fmt.Printf("CookieSession: Session stored in database\n")
 
 	// Set cookie with environment-specific settings
 	secure := config.GetEnvironment() == "production"
-	sameSite := http.SameSiteLaxMode // Changed from StrictMode to LaxMode for better compatibility
-	if config.GetEnvironment() == "production" {
-		sameSite = http.SameSiteStrictMode // Use StrictMode only in production
-	}
 
-	fmt.Printf("CookieSession: Setting cookie (secure=%v, sameSite=%v, maxAge=%d)\n", secure, sameSite, int(config.GetJwtExpiration().Seconds()))
-
-	cookie := &http.Cookie{
+	http.SetCookie(w, &http.Cookie{
 		Name:     "jwt_token",
 		Value:    token,
 		HttpOnly: true,
 		Secure:   secure,
-		SameSite: sameSite,
+		SameSite: http.SameSiteStrictMode,
 		Path:     "/",
 		MaxAge:   int(config.GetJwtExpiration().Seconds()),
-		Domain:   "localhost", // Set domain to localhost to work across ports
-	}
-
-	http.SetCookie(w, cookie)
-	fmt.Printf("CookieSession: Cookie set successfully\n")
+	})
 
 	return nil
 }

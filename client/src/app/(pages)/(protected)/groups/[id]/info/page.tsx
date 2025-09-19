@@ -12,6 +12,7 @@ import { UserPlus, Settings, Users, UserCheck, Calendar, MessageSquare, Plus, Ed
 import { PostCard } from '@/components/PostCard';
 import { PostModal } from '@/components/PostModal';
 import { UserDisplayInfo } from '@/lib/types';
+import { ProfileThumbnail } from '@/components/ProfileThumbnail';
 
 interface GroupMember {
   id: number;
@@ -1265,9 +1266,13 @@ export default function GroupPage() {
             <div className="grid gap-4">
               {members.map((member) => (
                 <div key={member.id} className="flex items-center gap-3 p-3 border border-border rounded-lg">
-                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
-                    {member.nickname?.charAt(0) || member.first_name?.charAt(0) || 'U'}
-                  </div>
+                  <ProfileThumbnail
+                    src={member.avatar}
+                    alt="member avatar"
+                    size="md"
+                    rounded
+                    initials={member.nickname || member.first_name || 'U'}
+                  />
                   <div className="flex-1">
                     <p className="font-medium">
                       {member.nickname || 
@@ -1354,9 +1359,13 @@ export default function GroupPage() {
                         }`}
                         onClick={() => handleUserSelection(mutualUser.id)}
                       >
-                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                          {mutualUser.nickname?.charAt(0) || 'U'}
-                        </div>
+                        <ProfileThumbnail
+                          src={(mutualUser as any).avatar}
+                          alt="user avatar"
+                          size="sm"
+                          rounded
+                          initials={mutualUser.nickname || 'U'}
+                        />
                         <div className="flex-1">
                           <p className="font-medium text-sm">
                             {mutualUser.nickname || 'Unknown User'}
@@ -1496,9 +1505,13 @@ export default function GroupPage() {
               <div className="space-y-3">
                 {groupRequests.map((request) => (
                   <div key={request.id} className="flex items-center gap-4 p-4 border border-border rounded-lg">
-                    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
-                      {request.nickname?.charAt(0) || request.first_name?.charAt(0) || 'U'}
-                    </div>
+                    <ProfileThumbnail
+                      src={request.avatar}
+                      alt="request user avatar"
+                      size="md"
+                      rounded
+                      initials={request.nickname || request.first_name || 'U'}
+                    />
                     <div className="flex-1">
                       <p className="font-medium">
                         {request.nickname || 
@@ -1778,9 +1791,13 @@ export default function GroupPage() {
 
             <div className="space-y-4">
               <div className="flex items-center gap-3 p-3 border border-border rounded-lg bg-muted/50">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
-                  {memberToRemove.nickname?.charAt(0) || memberToRemove.first_name?.charAt(0) || 'U'}
-                </div>
+                <ProfileThumbnail
+                  src={memberToRemove.avatar}
+                  alt="member avatar"
+                  size="md"
+                  rounded
+                  initials={memberToRemove.nickname || memberToRemove.first_name || 'U'}
+                />
                 <div className="flex-1">
                   <p className="font-medium">
                     {memberToRemove.nickname || 

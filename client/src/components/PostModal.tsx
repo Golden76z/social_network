@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import Image from 'next/image';
+// import Image from 'next/image';
 import { X, Heart, MessageCircle, Send } from 'lucide-react';
 import { Post, Comment } from '@/lib/types';
 import { commentApi } from '@/lib/api/comment';
 import { groupApi } from '@/lib/api/group';
 import { reactionApi } from '@/lib/api/reaction';
 import { CommentItem } from './CommentItem';
+import { ProfileThumbnail } from './ProfileThumbnail';
 
 interface PostModalProps {
   post: Post | null;
@@ -17,7 +18,15 @@ interface PostModalProps {
   isGroupPost?: boolean; // New prop to indicate if this is a group post
 }
 
-export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onLike, disableInteractions = false, isAuthenticated = true, isGroupPost = false }) => {
+export const PostModal: React.FC<PostModalProps> = ({
+  post,
+  isOpen,
+  onClose,
+  onLike,
+  disableInteractions = false,
+  isAuthenticated = true,
+    isGroupPost = false,
+}) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isLiked, setIsLiked] = useState(false);
@@ -25,7 +34,28 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const modalRef = useRef<HTMLDivElement>(null);
+
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    'http://localhost:8080';
+
+  const getAuthorAvatarUrl = (): string => {
+    if (!post) return '';
+    const raw = (post as Post & { author_avatar?: unknown })
+      .author_avatar as unknown;
+    let s = '' as string;
+    if (typeof raw === 'string') s = raw;
+    else if (raw && typeof raw === 'object') {
+      const anyRaw = raw as Record<string, unknown>;
+      const candidate = (anyRaw.String ?? anyRaw.string ?? anyRaw.value) as unknown;
+      if (typeof candidate === 'string') s = candidate;
+    }
+    if (!s) return '';
+    return s.startsWith('http') ? s : `${apiBase}${s}`;
+  };
 
   const loadComments = useCallback(async () => {
     if (!post) return;
@@ -61,6 +91,7 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
       loadComments();
       setIsLiked(post.user_liked || false);
       setLikeCount(post.likes || 0);
+      setCurrentIndex(0);
     }
   }, [post, isOpen, loadComments]);
 
@@ -70,10 +101,21 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
       if (e.key === 'Escape' && isOpen) {
         onClose();
       }
+      const total = post?.images?.length || 0;
+      if (e.key === 'ArrowRight' && isOpen && total > 1) {
+        setCurrentIndex((idx) => (idx + 1) % total);
+      }
+      if (e.key === 'ArrowLeft' && isOpen && total > 1) {
+        setCurrentIndex((idx) => (idx - 1 + total) % total);
+      }
     };
 
     const handleClickOutside = (e: MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(e.target as Node) && isOpen) {
+      if (
+        modalRef.current &&
+        !modalRef.current.contains(e.target as Node) &&
+        isOpen
+      ) {
         onClose();
       }
     };
@@ -136,6 +178,11 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
         });
       }
       
+      await reactionApi.createReaction({
+        post_id: post.id,
+        type: 'like',
+      });
+
       // Notify parent component to refresh
       onLike?.(post.id);
     } catch (error) {
@@ -160,15 +207,39 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
     return date.toLocaleDateString() + ' at ' + date.toLocaleTimeString();
   };
 
+  // const apiBase =
+  //   process.env.NEXT_PUBLIC_API_URL ||
+  //   process.env.NEXT_PUBLIC_API_BASE_URL ||
+  //   'http://localhost:8080';
+  const resolveImage = (src: string) =>
+    src.startsWith('http') ? src : `${apiBase}${src}`;
+  const count = post?.images?.length || 0;
+  const hasMultiple = count > 1;
+  const onPrev = () => {
+    if (count < 1) return;
+    setCurrentIndex((idx) => (idx - 1 + count) % count);
+  };
+  const onNext = () => {
+    if (count < 1) return;
+    setCurrentIndex((idx) => (idx + 1) % count);
+  };
 
   if (!isOpen || !post) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div ref={modalRef} role="dialog" aria-modal="true" aria-labelledby="modal-title" className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+        className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden"
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 id="modal-title" className="text-xl font-semibold">Post Details</h2>
+          <h2 id="modal-title" className="text-xl font-semibold">
+            Post Details
+          </h2>
           <button
             onClick={onClose}
             aria-label="Close modal"
@@ -183,14 +254,21 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
           {/* Post Content */}
           <div className="p-4 border-b border-border">
             <div className="flex items-center space-x-3 mb-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
-                {(post as Post & { author_nickname?: string }).author_nickname?.charAt(0) || 'U'}
-              </div>
+              <ProfileThumbnail
+                src={getAuthorAvatarUrl()}
+                alt="avatar"
+                size="md"
+                rounded
+                initials={(post as Post & { author_nickname?: string }).author_nickname || 'U'}
+              />
               <div>
                 <p className="font-semibold text-sm">
-                  {(post as Post & { author_nickname?: string }).author_nickname || 'Unknown User'}
+                  {(post as Post & { author_nickname?: string })
+                    .author_nickname || 'Unknown User'}
                 </p>
-                <p className="text-sm text-muted-foreground">{formatDate(post.created_at)}</p>
+                <p className="text-sm text-muted-foreground">
+                  {formatDate(post.created_at)}
+                </p>
               </div>
             </div>
 
@@ -198,30 +276,65 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
               <h3 className="font-semibold text-lg mb-2">{post.title}</h3>
             )}
 
-            <p className="text-foreground mb-3 whitespace-pre-wrap text-base">{post.body}</p>
+            <p className="text-foreground mb-3 whitespace-pre-wrap text-base">
+              {post.body}
+            </p>
 
-            {/* Images */}
+            {/* Images with carousel */}
             {post.images && post.images.length > 0 && (
               <div className="mb-3">
-                {post.images.length === 1 ? (
-                  <Image
-                    src={post.images[0]}
-                    alt="Post image"
-                    width={800}
-                    height={384}
+                <div className="relative">
+                  <img
+                    src={resolveImage(
+                      post.images[hasMultiple ? currentIndex : 0],
+                    )}
+                    alt={`Post image ${hasMultiple ? currentIndex + 1 : 1}`}
                     className="w-full max-h-96 object-cover rounded-lg"
                   />
-                ) : (
-                  <div className="grid grid-cols-2 gap-2">
-                    {post.images.map((image, index) => (
-                      <Image
-                        key={index}
-                        src={image}
-                        alt={`Post image ${index + 1}`}
-                        width={400}
-                        height={128}
-                        className="w-full h-32 object-cover rounded-lg"
-                      />
+
+                  {hasMultiple && (
+                    <>
+                      <button
+                        type="button"
+                        aria-label="Previous image"
+                        onClick={onPrev}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white rounded-full w-8 h-8 flex items-center justify-center"
+                      >
+                        ‹
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Next image"
+                        onClick={onNext}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white rounded-full w-8 h-8 flex items-center justify-center"
+                      >
+                        ›
+                      </button>
+                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-2 py-0.5 rounded">
+                        {currentIndex + 1}/{post.images.length}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {hasMultiple && (
+                  <div className="mt-2 grid grid-cols-6 gap-2">
+                    {post.images.map((thumb, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setCurrentIndex(idx)}
+                        className={`border rounded overflow-hidden ${
+                          currentIndex === idx ? 'ring-2 ring-primary' : ''
+                        }`}
+                        aria-label={`Go to image ${idx + 1}`}
+                      >
+                        <img
+                          src={resolveImage(thumb)}
+                          alt={`thumb ${idx + 1}`}
+                          className="w-full h-12 object-cover"
+                        />
+                      </button>
                     ))}
                   </div>
                 )}
@@ -241,10 +354,14 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
                   disabled={isLiking}
                   aria-label={isLiked ? 'Unlike post' : 'Like post'}
                   className={`flex items-center space-x-2 text-base transition-colors ${
-                    isLiked ? 'text-red-500' : 'text-muted-foreground hover:text-red-500'
+                    isLiked
+                      ? 'text-red-500'
+                      : 'text-muted-foreground hover:text-red-500'
                   } ${isLiking ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
+                  <Heart
+                    className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`}
+                  />
                   <span>{likeCount}</span>
                 </button>
               )}
@@ -259,7 +376,7 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
           {/* Comments Section */}
           <div className="p-4">
             <h3 className="font-semibold mb-3">Comments</h3>
-            
+
             {/* Add Comment */}
             {!disableInteractions && isAuthenticated && (
               <div className="mb-4">
@@ -270,7 +387,9 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
                     onChange={(e) => setNewComment(e.target.value)}
                     placeholder="Write a comment..."
                     className="flex-1 px-3 py-2 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-base"
-                    onKeyPress={(e) => e.key === 'Enter' && handleSubmitComment()}
+                    onKeyPress={(e) =>
+                      e.key === 'Enter' && handleSubmitComment()
+                    }
                   />
                   <button
                     onClick={handleSubmitComment}
@@ -287,7 +406,9 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
             {/* Sign in prompt for unauthenticated users */}
             {!isAuthenticated && (
               <div className="mb-4 p-3 bg-muted rounded-lg text-center">
-                <p className="text-base text-muted-foreground mb-2">Sign in to view and add comments</p>
+                <p className="text-base text-muted-foreground mb-2">
+                  Sign in to view and add comments
+                </p>
                 <div className="space-x-2">
                   <a
                     href="/login"
@@ -308,14 +429,20 @@ export const PostModal: React.FC<PostModalProps> = ({ post, isOpen, onClose, onL
             {/* Comments List */}
             <div className="space-y-3">
               {!isAuthenticated ? (
-                <p className="text-muted-foreground text-center py-4 text-base">Sign in to view comments</p>
+                <p className="text-muted-foreground text-center py-4 text-base">
+                  Sign in to view comments
+                </p>
               ) : isLoadingComments ? (
-                <p className="text-muted-foreground text-center py-4 text-base">Loading comments...</p>
+                <p className="text-muted-foreground text-center py-4 text-base">
+                  Loading comments...
+                </p>
               ) : !comments || comments.length === 0 ? (
-                <p className="text-muted-foreground text-center py-4 text-base">No comments yet. Be the first to comment!</p>
+                <p className="text-muted-foreground text-center py-4 text-base">
+                  No comments yet. Be the first to comment!
+                </p>
               ) : (
                 comments.map((comment) => (
-                  <CommentItem key={comment.id} comment={comment} />
+                  <CommentItem key={comment.id} comment={comment} src={comment.avatar as string | undefined} />
                 ))
               )}
             </div>

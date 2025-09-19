@@ -1,6 +1,6 @@
 import { User } from './user';
 
-export { User };
+export type { User };
 
 // Backend API types
 export interface Conversation {

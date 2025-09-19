@@ -9,4 +9,7 @@ func setupPostRoutes(r *Router) {
 	r.GET("/api/post", api.GetPostHandler)
 	r.PUT("/api/post/{id}", api.UpdatePostHandler)
 	r.DELETE("/api/post/{id}", api.DeletePostHandler)
+
+	// Upload post image
+	r.POST("/api/upload/post-image", api.UploadPostImageHandler)
 }
