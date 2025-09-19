@@ -145,6 +145,18 @@ export const groupApi = {
     return apiClient.put('/api/group/member', data);
   },
 
+  removeGroupMember: (groupId: string | number, userId: string | number) => {
+    return apiClient.delete('/api/group/member', {
+      body: JSON.stringify({
+        group_id: Number(groupId),
+        user_id: Number(userId)
+      }),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+  },
+
   // ===== GROUP REQUESTS =====
 
   createGroupRequest: (groupId: string | number) => {
