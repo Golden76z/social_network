@@ -3,11 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { GroupResponse, UpdateGroupRequest, GroupPost, GroupEvent } from '@/lib/types/group';
+import { Post } from '@/lib/types';
 import { groupApi } from '@/lib/api/group';
 import { reactionApi } from '@/lib/api/reaction';
 import { userApi } from '@/lib/api/user';
 import { useAuth } from '@/context/AuthProvider';
 import { UserPlus, Settings, Users, UserCheck, Calendar, MessageSquare, Plus, Edit, Trash2 } from 'lucide-react';
+import { PostCard } from '@/components/PostCard';
+import { PostModal } from '@/components/PostModal';
 import { UserDisplayInfo } from '@/lib/types';
 
 interface GroupMember {
@@ -82,6 +85,30 @@ export default function GroupPage() {
   const [showDeletePostModal, setShowDeletePostModal] = useState(false);
   const [postToDelete, setPostToDelete] = useState<GroupPost | null>(null);
   const [userReactions, setUserReactions] = useState<{[postId: number]: 'like' | 'dislike' | null}>({});
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [showPostModal, setShowPostModal] = useState(false);
+
+  // Utility function to convert GroupPost to Post format
+  const convertGroupPostToPost = (groupPost: GroupPost): Post => {
+    return {
+      id: groupPost.id,
+      user_id: groupPost.user_id,
+      author_id: groupPost.user_id, // Map user_id to author_id for PostCard compatibility
+      title: groupPost.title,
+      body: groupPost.body,
+      visibility: 'public' as const, // Group posts are always visible to group members
+      created_at: groupPost.created_at,
+      updated_at: groupPost.updated_at,
+      images: groupPost.images || [],
+      likes: groupPost.likes || 0,
+      dislikes: groupPost.dislikes || 0,
+      user_liked: groupPost.user_liked || false,
+      user_disliked: groupPost.user_disliked || false,
+      author_nickname: 'Group Member', // Default nickname for group posts
+    };
+  };
+  const [showDeleteEventModal, setShowDeleteEventModal] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<GroupEvent | null>(null);
 
   const [formState, setFormState] = useState({
     title: '',
@@ -190,14 +217,18 @@ export default function GroupPage() {
           setShowDeletePostModal(false);
           setPostToDelete(null);
         }
+        if (showDeleteEventModal) {
+          setShowDeleteEventModal(false);
+          setEventToDelete(null);
+        }
       }
     };
 
-    if (showInviteModal || showRequestsModal || showLeaveConfirm || showCreatePostModal || showCreateEventModal || showRemoveMemberModal || showDeletePostModal) {
+    if (showInviteModal || showRequestsModal || showLeaveConfirm || showCreatePostModal || showCreateEventModal || showRemoveMemberModal || showDeletePostModal || showDeleteEventModal) {
       document.addEventListener('keydown', handleEscape);
       return () => document.removeEventListener('keydown', handleEscape);
     }
-  }, [showInviteModal, showRequestsModal, showLeaveConfirm, showCreatePostModal, showCreateEventModal, showRemoveMemberModal, showDeletePostModal]);
+  }, [showInviteModal, showRequestsModal, showLeaveConfirm, showCreatePostModal, showCreateEventModal, showRemoveMemberModal, showDeletePostModal, showDeleteEventModal]);
 
   const handleJoinGroup = async () => {
     if (!group || hasPendingRequest) return;
@@ -573,15 +604,20 @@ export default function GroupPage() {
     }
   };
 
-  const handleDeleteEvent = async (eventId: number) => {
-    if (!confirm('Are you sure you want to delete this event? This action cannot be undone.')) {
-      return;
-    }
+  const handleDeleteEvent = (event: GroupEvent) => {
+    setEventToDelete(event);
+    setShowDeleteEventModal(true);
+  };
+
+  const handleConfirmDeleteEvent = async () => {
+    if (!eventToDelete) return;
 
     try {
-      setDeletingEvent(eventId);
-      await groupApi.deleteGroupEvent(eventId);
+      setDeletingEvent(eventToDelete.id);
+      await groupApi.deleteGroupEvent(eventToDelete.id);
       await loadEvents();
+      setShowDeleteEventModal(false);
+      setEventToDelete(null);
     } catch (error) {
       console.error('Failed to delete event:', error);
       alert('Failed to delete event. Please try again.');
@@ -714,6 +750,27 @@ export default function GroupPage() {
       await loadPosts();
     } catch (error) {
       console.error('Failed to dislike post:', error);
+    }
+  };
+
+  const handleViewPostDetails = (postId: number) => {
+    const groupPost = posts.find(p => p.id === postId);
+    if (groupPost) {
+      const convertedPost = convertGroupPostToPost(groupPost);
+      setSelectedPost(convertedPost);
+      setShowPostModal(true);
+    }
+  };
+
+  const handleClosePostModal = async () => {
+    setShowPostModal(false);
+    setSelectedPost(null);
+    
+    // Refresh posts when closing modal
+    try {
+      await loadPosts();
+    } catch (error) {
+      console.error('Error refreshing posts after modal close:', error);
     }
   };
 
@@ -949,15 +1006,13 @@ export default function GroupPage() {
                     <MessageSquare className="w-5 h-5" />
                     Posts ({posts.length})
                   </h3>
-                  {isAdmin && (
-                    <button 
-                      onClick={() => setShowCreatePostModal(true)}
-                      className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Create Post
-                    </button>
-                  )}
+                  <button 
+                    onClick={() => setShowCreatePostModal(true)}
+                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Create Post
+                  </button>
                 </div>
                 
                 {loadingPosts ? (
@@ -967,56 +1022,47 @@ export default function GroupPage() {
                   </div>
                 ) : posts.length > 0 ? (
                   <div className="space-y-4">
-                    {posts.slice(0, 5).map((post) => (
-                      <div key={post.id} className="border border-border rounded-lg p-4">
-                        <div className="flex items-start justify-between mb-2">
-                          <h4 className="font-semibold text-foreground">{post.title}</h4>
-                          {(isAdmin || (user && post.creator_id === user.id)) && (
-                            <div className="flex gap-2">
-                              <button 
-                                onClick={() => handleEditPost(post)}
-                                className="p-1 text-muted-foreground hover:text-foreground"
-                                title="Edit post"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </button>
-                              <button 
-                                onClick={() => handleDeletePost(post)}
-                                disabled={deletingPost === post.id}
-                                className="p-1 text-muted-foreground hover:text-red-500 disabled:opacity-50"
-                                title="Delete post"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                    {posts.slice(0, 5).map((groupPost) => {
+                      const convertedPost = convertGroupPostToPost(groupPost);
+                      const canEdit = isAdmin || (user && groupPost.user_id === user.id);
+                      const canDelete = isAdmin || (user && groupPost.user_id === user.id);
+                      
+                      return (
+                        <div key={groupPost.id} className="relative">
+                          <PostCard
+                            post={convertedPost}
+                            onLike={handleLikePost}
+                            onComment={handleViewPostDetails}
+                            onViewDetails={handleViewPostDetails}
+                            onUserClick={() => {}} // Group posts don't have user profiles
+                          />
+                          {/* Edit/Delete buttons overlay */}
+                          {(canEdit || canDelete) && (
+                            <div className="absolute top-2 right-2 flex gap-1">
+                              {canEdit && (
+                                <button 
+                                  onClick={() => handleEditPost(groupPost)}
+                                  className="p-1 bg-card/80 backdrop-blur-sm text-muted-foreground hover:text-foreground rounded-full transition-colors"
+                                  title="Edit post"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </button>
+                              )}
+                              {canDelete && (
+                                <button 
+                                  onClick={() => handleDeletePost(groupPost)}
+                                  disabled={deletingPost === groupPost.id}
+                                  className="p-1 bg-card/80 backdrop-blur-sm text-muted-foreground hover:text-red-500 disabled:opacity-50 rounded-full transition-colors"
+                                  title="Delete post"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>
-                        <p className="text-muted-foreground text-sm mb-3 line-clamp-3">{post.body}</p>
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>{new Date(post.created_at).toLocaleDateString()}</span>
-                          <div className="flex gap-4">
-                            <button
-                              onClick={() => handleLikePost(post.id)}
-                              className={`flex items-center gap-1 hover:text-green-500 transition-colors ${
-                                userReactions[post.id] === 'like' ? 'text-green-500' : 'text-muted-foreground'
-                              }`}
-                            >
-                              <span>👍</span>
-                              <span>{post.likes}</span>
-                            </button>
-                            <button
-                              onClick={() => handleDislikePost(post.id)}
-                              className={`flex items-center gap-1 hover:text-red-500 transition-colors ${
-                                userReactions[post.id] === 'dislike' ? 'text-red-500' : 'text-muted-foreground'
-                              }`}
-                            >
-                              <span>👎</span>
-                              <span>{post.dislikes}</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     {posts.length > 5 && (
                       <div className="text-center pt-4">
                         <button 
@@ -1045,15 +1091,13 @@ export default function GroupPage() {
                     <Calendar className="w-5 h-5" />
                     Events ({events.length})
                   </h3>
-                  {isAdmin && (
-                    <button 
-                      onClick={() => setShowCreateEventModal(true)}
-                      className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Create Event
-                    </button>
-                  )}
+                  <button 
+                    onClick={() => setShowCreateEventModal(true)}
+                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Create Event
+                  </button>
                 </div>
                 
                 {loadingEvents ? (
@@ -1081,7 +1125,7 @@ export default function GroupPage() {
                                   <Edit className="w-4 h-4" />
                                 </button>
                                 <button 
-                                  onClick={() => handleDeleteEvent(event.id)}
+                                  onClick={() => handleDeleteEvent(event)}
                                   disabled={deletingEvent === event.id}
                                   className="p-1 text-muted-foreground hover:text-red-500 disabled:opacity-50"
                                   title="Delete event"
@@ -1807,6 +1851,82 @@ export default function GroupPage() {
           </div>
         </div>
       )}
+
+      {/* Delete Event Confirmation Modal */}
+      {showDeleteEventModal && eventToDelete && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowDeleteEventModal(false);
+              setEventToDelete(null);
+            }
+          }}
+        >
+          <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <Trash2 className="w-5 h-5 text-red-500" />
+                Delete Event
+              </h3>
+              <button
+                onClick={() => {
+                  setShowDeleteEventModal(false);
+                  setEventToDelete(null);
+                }}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-accent transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-3 border border-border rounded-lg bg-muted/50">
+                <h4 className="font-medium text-foreground mb-2">{eventToDelete.title}</h4>
+                <p className="text-sm text-muted-foreground mb-2">{eventToDelete.description}</p>
+                <p className="text-xs text-muted-foreground">
+                  {new Date(eventToDelete.event_datetime).toLocaleString()}
+                </p>
+              </div>
+
+              <div className="rounded-md bg-red-50 p-4 text-red-700 text-sm border border-red-200">
+                <p className="font-medium mb-1">⚠️ Warning</p>
+                <p>Are you sure you want to delete this event? This action cannot be undone and all RSVPs will be lost.</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6 pt-4 border-t border-border">
+              <button
+                onClick={() => {
+                  setShowDeleteEventModal(false);
+                  setEventToDelete(null);
+                }}
+                className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDeleteEvent}
+                disabled={deletingEvent === eventToDelete.id}
+                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deletingEvent === eventToDelete.id ? 'Deleting...' : 'Delete Event'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Post Modal */}
+      <PostModal
+        post={selectedPost}
+        isOpen={showPostModal}
+        onClose={handleClosePostModal}
+        onLike={handleLikePost}
+        disableInteractions={false}
+        isAuthenticated={!!user}
+        isGroupPost={true}
+      />
     </div>
   );
 }
