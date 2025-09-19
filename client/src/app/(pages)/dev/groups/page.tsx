@@ -199,7 +199,7 @@ const GroupDebugPanel = () => {
       <div className="mb-4">
         <h4 className="font-semibold mb-2 text-sm">Join Requests</h4>
         <div className="grid grid-cols-4 gap-1 mb-2">
-          <button onClick={()=>testEndpoint('requestToJoin',()=>groupApi.joinGroup(testGroupId))} className="bg-green-500 text-white px-2 py-1 rounded text-xs">Request to Join</button>
+          <button onClick={()=>testEndpoint('requestToJoin',()=>groupApi.createGroupRequest(testGroupId))} className="bg-green-500 text-white px-2 py-1 rounded text-xs">Request to Join</button>
           <button onClick={()=>testEndpoint('getGroupRequests',()=>groupApi.getGroupRequests(testGroupId))} className="bg-blue-500 text-white px-2 py-1 rounded text-xs">List Requests</button>
           <button onClick={()=>testEndpoint('approveRequest',()=>groupApi.approveGroupRequest(testRsvpId))} className="bg-green-600 text-white px-2 py-1 rounded text-xs">Approve</button>
           <button onClick={()=>testEndpoint('declineRequest',()=>groupApi.declineGroupRequest(testRsvpId))} className="bg-red-600 text-white px-2 py-1 rounded text-xs">Decline</button>

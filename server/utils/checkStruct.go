@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 // ValidationError represents a field validation error
@@ -34,17 +35,27 @@ func ValidateStringLength(data interface{}, minLen, maxLen int) []ValidationErro
 			continue
 		}
 
-		switch {
-		case length < minLen:
-			errors = append(errors, ValidationError{
-				Field:   fieldType.Name,
-				Message: fmt.Sprintf("must be at least %d characters", minLen),
-			})
-		case length > maxLen:
-			errors = append(errors, ValidationError{
-				Field:   fieldType.Name,
-				Message: fmt.Sprintf("must be at most %d characters", maxLen),
-			})
+		// Skip empty optional fields (fields with "omitempty" tag)
+		if length == 0 && fieldType.Tag.Get("json") != "" &&
+			(fieldType.Tag.Get("json") == "omitempty" ||
+				strings.Contains(fieldType.Tag.Get("json"), "omitempty")) {
+			continue
+		}
+
+		// Only validate non-empty fields
+		if length > 0 {
+			switch {
+			case length < minLen:
+				errors = append(errors, ValidationError{
+					Field:   fieldType.Name,
+					Message: fmt.Sprintf("must be at least %d characters", minLen),
+				})
+			case length > maxLen:
+				errors = append(errors, ValidationError{
+					Field:   fieldType.Name,
+					Message: fmt.Sprintf("must be at most %d characters", maxLen),
+				})
+			}
 		}
 	}
 

@@ -48,14 +48,6 @@ export class ApiClient {
       const raw = await response.text().catch(() => '');
       let message = raw || `API Error: ${response.status}`;
       
-      console.error('❌ API Error Response:', {
-        status: response.status,
-        statusText: response.statusText,
-        url: url,
-        rawResponse: raw,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-      
       try {
         const parsed = raw ? JSON.parse(raw) : null;
         if (parsed) {
@@ -66,6 +58,26 @@ export class ApiClient {
       } catch {
         // leave message as raw/text
       }
+      
+      // Special handling for duplicate group request (409 Conflict)
+      if (response.status === 409 && message.includes('already has a pending request')) {
+        // Return a special response instead of throwing an error
+        return {
+          success: true,
+          message: 'Request already exists',
+          duplicate: true
+        } as T;
+      }
+      
+      // Only log error if it's not a handled special case
+      console.error('❌ API Error Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        url: url,
+        rawResponse: raw,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
       throw new Error(message.trim());
     }
 
