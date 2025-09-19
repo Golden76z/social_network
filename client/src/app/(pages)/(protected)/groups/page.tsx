@@ -6,6 +6,7 @@ import { GroupResponse } from '@/lib/types/group';
 import { groupApi } from '@/lib/api/group';
 import { useAuth } from '@/context/AuthProvider';
 import { GroupCard } from '@/components/GroupCard';
+import { UserCheck } from 'lucide-react';
 
 export default function GroupsPage() {
   const router = useRouter();
@@ -18,6 +19,34 @@ export default function GroupsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'my-groups' | 'all-groups'>('my-groups');
+  const [showJoinSuccessModal, setShowJoinSuccessModal] = useState(false);
+  const [joinedGroup, setJoinedGroup] = useState<GroupResponse | null>(null);
+
+  // Handle escape key for modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showJoinSuccessModal) {
+        setShowJoinSuccessModal(false);
+        setJoinedGroup(null);
+      }
+    };
+
+    if (showJoinSuccessModal) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [showJoinSuccessModal]);
+
+  // Handle successful join request
+  const handleJoinSuccess = (groupId: number) => {
+    const group = allGroups.find(g => g.id === groupId);
+    if (group) {
+      setJoinedGroup(group);
+      setShowJoinSuccessModal(true);
+      // Update pending requests state
+      setPendingRequests(prev => new Set([...prev, groupId]));
+    }
+  };
 
   // Load groups data
   const loadGroups = async () => {
@@ -103,20 +132,21 @@ export default function GroupsPage() {
       const response = await groupApi.createGroupRequest(groupId);
       console.log('✅ Group request created successfully:', response);
       
-      // Show success message
-      alert('Join request sent! The group admin will review your request.');
-      
-      // Refresh the groups to update pending requests
-      await loadGroups();
+      // Handle successful join request with modal
+      handleJoinSuccess(groupId);
       
     } catch (error) {
       console.error('❌ Failed to request join group:', error);
-      console.error('❌ Error details:', {
-        message: (error as Error).message,
-        stack: (error as Error).stack,
-        name: (error as Error).name
-      });
-      alert('Failed to send join request. Please try again.');
+      const errorMessage = (error as Error).message;
+      
+      // If the error is about already having a pending request, just update the state
+      if (errorMessage.includes('already has a pending request')) {
+        handleJoinSuccess(groupId);
+        return;
+      }
+      
+      // For other errors, show the alert (fallback)
+      alert(errorMessage || 'Failed to send join request. Please try again.');
     }
   };
 
@@ -272,6 +302,63 @@ export default function GroupsPage() {
           }
         })()}
       </div>
+
+      {/* Join Success Modal */}
+      {showJoinSuccessModal && joinedGroup && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowJoinSuccessModal(false);
+              setJoinedGroup(null);
+            }
+          }}
+        >
+          <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <UserCheck className="w-5 h-5 text-green-500" />
+                Join Request Sent
+              </h3>
+              <button
+                onClick={() => {
+                  setShowJoinSuccessModal(false);
+                  setJoinedGroup(null);
+                }}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-accent transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-4 border border-border rounded-lg bg-muted/50">
+                <h4 className="font-medium text-foreground mb-2">{joinedGroup.title}</h4>
+                <p className="text-sm text-muted-foreground">
+                  Your request to join this group has been sent successfully.
+                </p>
+              </div>
+
+              <div className="rounded-md bg-green-50 p-4 text-green-700 text-sm border border-green-200">
+                <p className="font-medium mb-1">✅ Success</p>
+                <p>The group admin will review your request and notify you of their decision.</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-6 pt-4 border-t border-border">
+              <button
+                onClick={() => {
+                  setShowJoinSuccessModal(false);
+                  setJoinedGroup(null);
+                }}
+                className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

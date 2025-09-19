@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { GroupResponse, UpdateGroupRequest, GroupPost, GroupEvent } from '@/lib/types/group';
+import { GroupResponse, UpdateGroupRequest, GroupPost, GroupEvent, GroupMemberWithUser } from '@/lib/types/group';
 import { Post } from '@/lib/types';
 import { groupApi } from '@/lib/api/group';
 import { reactionApi } from '@/lib/api/reaction';
@@ -41,7 +41,7 @@ export default function GroupPage() {
   const router = useRouter();
   const { user } = useAuth();
   const [group, setGroup] = useState<GroupResponse | null>(null);
-  const [members, setMembers] = useState<GroupMember[]>([]);
+  const [members, setMembers] = useState<GroupMemberWithUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMember, setIsMember] = useState(false);
@@ -104,11 +104,12 @@ export default function GroupPage() {
       dislikes: groupPost.dislikes || 0,
       user_liked: groupPost.user_liked || false,
       user_disliked: groupPost.user_disliked || false,
-      author_nickname: 'Group Member', // Default nickname for group posts
+      author_nickname: groupPost.author_nickname || 'Group Member', // Use actual nickname or fallback
     };
   };
   const [showDeleteEventModal, setShowDeleteEventModal] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<GroupEvent | null>(null);
+  const [showJoinSuccessModal, setShowJoinSuccessModal] = useState(false);
 
   const [formState, setFormState] = useState({
     title: '',
@@ -221,26 +222,47 @@ export default function GroupPage() {
           setShowDeleteEventModal(false);
           setEventToDelete(null);
         }
+        if (showJoinSuccessModal) {
+          setShowJoinSuccessModal(false);
+        }
       }
     };
 
-    if (showInviteModal || showRequestsModal || showLeaveConfirm || showCreatePostModal || showCreateEventModal || showRemoveMemberModal || showDeletePostModal || showDeleteEventModal) {
+    if (showInviteModal || showRequestsModal || showLeaveConfirm || showCreatePostModal || showCreateEventModal || showRemoveMemberModal || showDeletePostModal || showDeleteEventModal || showJoinSuccessModal) {
       document.addEventListener('keydown', handleEscape);
       return () => document.removeEventListener('keydown', handleEscape);
     }
-  }, [showInviteModal, showRequestsModal, showLeaveConfirm, showCreatePostModal, showCreateEventModal, showRemoveMemberModal, showDeletePostModal, showDeleteEventModal]);
+  }, [showInviteModal, showRequestsModal, showLeaveConfirm, showCreatePostModal, showCreateEventModal, showRemoveMemberModal, showDeletePostModal, showDeleteEventModal, showJoinSuccessModal]);
 
   const handleJoinGroup = async () => {
     if (!group || hasPendingRequest) return;
     
     try {
-      await groupApi.createGroupRequest(group.id);
-      alert('Join request sent! The group admin will review your request.');
-      // Update pending request state
-      setHasPendingRequest(true);
+      const result = await groupApi.createGroupRequest(group.id);
+      
+      // Check if this was a duplicate request
+      if (result && typeof result === 'object' && 'duplicate' in result) {
+        // Handle duplicate request gracefully
+        setHasPendingRequest(true);
+        setShowJoinSuccessModal(true);
+      } else {
+        // Handle successful new request
+        setHasPendingRequest(true);
+        setShowJoinSuccessModal(true);
+      }
     } catch (error) {
       console.error('Failed to request join group:', error);
-      alert((error as Error).message || 'Failed to send join request. Please try again.');
+      const errorMessage = (error as Error).message;
+      
+      // If the error is about already having a pending request, just update the state
+      if (errorMessage.includes('already has a pending request')) {
+        setHasPendingRequest(true);
+        setShowJoinSuccessModal(true);
+        return;
+      }
+      
+      // For other errors, show the alert (fallback)
+      alert(errorMessage || 'Failed to send join request. Please try again.');
     }
   };
 
@@ -1114,7 +1136,14 @@ export default function GroupPage() {
                       return (
                         <div key={event.id} className="border border-border rounded-lg p-4">
                           <div className="flex items-start justify-between mb-2">
-                            <h4 className="font-semibold text-foreground">{event.title}</h4>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-semibold text-foreground">{event.title}</h4>
+                              {event.creator_nickname && (
+                                <span className="text-sm text-muted-foreground">
+                                  by {event.creator_nickname}
+                                </span>
+                              )}
+                            </div>
                             {(isAdmin || (user && event.creator_id === user.id)) && (
                               <div className="flex gap-2">
                                 <button 
@@ -1911,6 +1940,56 @@ export default function GroupPage() {
                 className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {deletingEvent === eventToDelete.id ? 'Deleting...' : 'Delete Event'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Join Success Modal */}
+      {showJoinSuccessModal && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowJoinSuccessModal(false);
+            }
+          }}
+        >
+          <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <UserCheck className="w-5 h-5 text-green-500" />
+                Join Request Sent
+              </h3>
+              <button
+                onClick={() => setShowJoinSuccessModal(false)}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-accent transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-4 border border-border rounded-lg bg-muted/50">
+                <h4 className="font-medium text-foreground mb-2">{group?.title}</h4>
+                <p className="text-sm text-muted-foreground">
+                  Your request to join this group has been sent successfully.
+                </p>
+              </div>
+
+              <div className="rounded-md bg-green-50 p-4 text-green-700 text-sm border border-green-200">
+                <p className="font-medium mb-1">✅ Success</p>
+                <p>The group admin will review your request and notify you of their decision.</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-6 pt-4 border-t border-border">
+              <button
+                onClick={() => setShowJoinSuccessModal(false)}
+                className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                Got it
               </button>
             </div>
           </div>

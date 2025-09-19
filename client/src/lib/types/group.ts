@@ -48,6 +48,10 @@ export interface GroupPost {
   dislikes: number;
   user_liked: boolean;
   user_disliked: boolean;
+  author_nickname?: string;
+  author_first_name?: string;
+  author_last_name?: string;
+  author_avatar?: string;
 }
 
 export interface UpdateGroupPostRequest {
@@ -102,6 +106,10 @@ export interface GroupEvent {
   description: string;
   event_datetime: string;
   created_at: string;
+  creator_nickname?: string;
+  creator_first_name?: string;
+  creator_last_name?: string;
+  creator_avatar?: string;
 }
 
 // ===== GROUP MEMBER / INVITATION =====
