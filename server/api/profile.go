@@ -366,3 +366,66 @@ func checkUniqueConstraints(req *models.UpdateUserProfileRequest, userID int64) 
 
 	return nil
 }
+
+// GetPublicUserProfileHandler allows fetching a user's profile without authentication.
+// It returns limited data for private profiles and fuller data for public profiles.
+func GetPublicUserProfileHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET method allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse the target user id
+	idParam := r.URL.Query().Get("id")
+	if idParam == "" {
+		http.Error(w, "Missing user id", http.StatusBadRequest)
+		return
+	}
+	targetUserID, err := strconv.ParseInt(idParam, 10, 64)
+	if err != nil || targetUserID <= 0 {
+		http.Error(w, "Invalid user id", http.StatusBadRequest)
+		return
+	}
+
+	// Fetch user profile from database
+	profile, err := getUserProfileFromDB(targetUserID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	// For public endpoint, never include sensitive fields like email/dob for other users
+	// Private profile => minimal information
+	// Public profile => public-safe information
+	var response models.UserProfileResponse
+	if profile.IsPrivate {
+		response = models.UserProfileResponse{
+			ID:        profile.ID,
+			Nickname:  profile.Nickname,
+			Avatar:    profile.GetAvatar(),
+			IsPrivate: profile.IsPrivate,
+			Followers: profile.Followers,
+			Followed:  profile.Followed,
+		}
+	} else {
+		response = models.UserProfileResponse{
+			ID:        profile.ID,
+			Nickname:  profile.Nickname,
+			FirstName: profile.FirstName,
+			LastName:  profile.LastName,
+			Avatar:    profile.GetAvatar(),
+			Bio:       profile.GetBio(),
+			IsPrivate: profile.IsPrivate,
+			Followers: profile.Followers,
+			Followed:  profile.Followed,
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(response)
+}

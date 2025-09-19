@@ -27,7 +27,7 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
 
   useEffect(() => {
     if (lastMessage?.type === 'private_message' && 
-        lastMessage.data?.receiver_id === currentUserId) {
+        (lastMessage.data as any)?.receiver_id === currentUserId) {
       const newMessage: ChatMessage = {
         id: `${lastMessage.timestamp}-${lastMessage.user_id}`,
         username: lastMessage.username,

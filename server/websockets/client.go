@@ -54,14 +54,6 @@ func (c *Client) ReadPump() {
 			}
 			c.Hub.broadcast <- msg
 
-		case MessageTypePrivateMessage:
-			// Handle private message
-			c.handlePrivateMessage(msg)
-
-		case MessageTypeGroupMessage:
-			// Handle group message
-			c.handleGroupMessage(msg)
-
 		case MessageTypePing:
 			// Validate session and respond with pong
 			c.handlePing(msg)

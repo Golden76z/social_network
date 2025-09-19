@@ -23,9 +23,12 @@ const HomePage: React.FC = () => {
       try {
         setLoadingPosts(true);
         setError(null);
-        
-        console.log('User status:', user ? 'authenticated' : 'not authenticated');
-        
+
+        console.log(
+          'User status:',
+          user ? 'authenticated' : 'not authenticated',
+        );
+
         let postsData;
         if (user) {
           console.log('Fetching user feed...');
@@ -34,12 +37,14 @@ const HomePage: React.FC = () => {
           console.log('Fetching public posts...');
           postsData = await postApi.getPublicPosts();
         }
-        
+
         console.log('Posts received:', postsData?.length || 0);
         setPosts(postsData || []);
       } catch (error) {
         console.error('Error fetching posts:', error);
-        setError(error instanceof Error ? error.message : 'Failed to fetch posts');
+        setError(
+          error instanceof Error ? error.message : 'Failed to fetch posts',
+        );
         setPosts([]); // Ensure posts is always an array
       } finally {
         setLoadingPosts(false);
@@ -50,7 +55,7 @@ const HomePage: React.FC = () => {
   }, [user]);
 
   const handleViewDetails = (postId: number) => {
-    const post = posts.find(p => p.id === postId);
+    const post = posts.find((p) => p.id === postId);
     if (post) {
       setSelectedPost(post);
       setIsModalOpen(true);
@@ -60,7 +65,7 @@ const HomePage: React.FC = () => {
   const handleCloseModal = async () => {
     setIsModalOpen(false);
     setSelectedPost(null);
-    
+
     // Always refresh posts when closing modal to ensure sync
     try {
       let updatedPosts;
@@ -88,9 +93,9 @@ const HomePage: React.FC = () => {
         updatedPosts = await postApi.getPublicPosts();
       }
       setPosts(updatedPosts || []);
-      
+
       if (selectedPost?.id === postId) {
-        const updatedPost = updatedPosts?.find(p => p.id === postId);
+        const updatedPost = updatedPosts?.find((p) => p.id === postId);
         if (updatedPost) {
           setSelectedPost(updatedPost);
         }
@@ -115,8 +120,7 @@ const HomePage: React.FC = () => {
       <div className="space-y-6">
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h3 className="font-semibold mb-4">Recent Posts</h3>
-          
-          
+
           {loadingPosts ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -126,8 +130,8 @@ const HomePage: React.FC = () => {
             <div className="text-center py-8">
               <p className="text-red-500 text-lg">Error loading posts</p>
               <p className="text-gray-400 text-sm mt-2">{error}</p>
-              <button 
-                onClick={() => window.location.reload()} 
+              <button
+                onClick={() => window.location.reload()}
                 className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
               >
                 Retry
@@ -137,9 +141,9 @@ const HomePage: React.FC = () => {
             <div className="text-center py-8">
               <p className="text-gray-500 text-lg">No posts available yet.</p>
               <p className="text-gray-400 text-sm mt-2">
-                {user 
-                  ? "Your personalized feed is empty. Follow some users or create a post!" 
-                  : "No public posts available. Sign in to see more content!"}
+                {user
+                  ? 'Your personalized feed is empty. Follow some users or create a post!'
+                  : 'No public posts available. Sign in to see more content!'}
               </p>
             </div>
           ) : (

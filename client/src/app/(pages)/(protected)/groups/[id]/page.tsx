@@ -5,14 +5,12 @@ import { useParams, useRouter } from 'next/navigation';
 import { GroupResponse } from '@/lib/types/group';
 import { groupApi } from '@/lib/api/group';
 import { useAuth } from '@/context/AuthProvider';
-import { useAuthReady } from '@/hooks/useAuthGuard';
 import { GroupCard } from '@/components/GroupCard';
 
 export default function GroupDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
-  const isAuthReady = useAuthReady();
   const [group, setGroup] = useState<GroupResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,9 +23,6 @@ export default function GroupDetailPage() {
       try {
         setLoading(true);
         setError(null);
-
-        // Only load group when auth is ready
-        if (!isAuthReady) return;
 
         // Fetch group details
         const groupData = await groupApi.getGroupById(groupId);
@@ -53,7 +48,7 @@ export default function GroupDetailPage() {
     if (groupId) {
       loadGroup();
     }
-  }, [groupId, isAuthReady]);
+  }, [groupId]);
 
   const handleJoinGroup = async () => {
     if (!group) return;
