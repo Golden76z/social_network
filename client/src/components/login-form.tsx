@@ -82,7 +82,7 @@ export function LoginForm({
           <form onSubmit={handleSubmit}>
             <div className="flex flex-col gap-6">
               {error && (
-                <div className="rounded-md bg-red-50 p-4 text-red-700 text-sm">
+                <div className="rounded-md bg-destructive/10 p-4 text-destructive text-sm">
                   {error}
                 </div>
               )}
@@ -125,7 +125,7 @@ export function LoginForm({
                   />
                   <button
                     type="button"
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}

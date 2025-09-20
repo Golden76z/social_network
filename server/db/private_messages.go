@@ -4,7 +4,7 @@ import (
 	"github.com/Golden76z/social-network/models"
 )
 
-func (s *Service) CreatePrivateMessage(senderID, receiverID int64, body string) error {
+func (s *Service) CreatePrivateMessage(senderID, receiverID int, body string) error {
 	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
@@ -22,7 +22,7 @@ func (s *Service) CreatePrivateMessage(senderID, receiverID int64, body string) 
 	return err
 }
 
-func (s *Service) GetPrivateMessageByID(id int64) (*models.PrivateMessage, error) {
+func (s *Service) GetPrivateMessageByID(id int) (*models.PrivateMessage, error) {
 	row := s.DB.QueryRow(`
         SELECT id, sender_id, receiver_id, body, created_at
         FROM private_messages WHERE id = ?`, id)
@@ -34,7 +34,7 @@ func (s *Service) GetPrivateMessageByID(id int64) (*models.PrivateMessage, error
 	return &pm, nil
 }
 
-func (s *Service) DeletePrivateMessage(id int64) error {
+func (s *Service) DeletePrivateMessage(id int) error {
 	tx, err := s.DB.Begin()
 	if err != nil {
 		return err

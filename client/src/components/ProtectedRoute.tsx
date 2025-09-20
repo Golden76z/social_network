@@ -68,3 +68,5 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   // Render the protected content
   return <>{children}</>;
 };
+
+

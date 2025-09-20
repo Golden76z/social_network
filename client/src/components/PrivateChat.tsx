@@ -14,11 +14,13 @@ interface PrivateChatProps {
 export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [sending, setSending] = useState(false);
   const [input, setInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const messagesTopRef = useRef<HTMLDivElement>(null);
   const { sendMessage: sendWebSocketMessage, lastMessage } = useWebSocketContext();
 
   useEffect(() => {
@@ -26,31 +28,58 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
   }, [conversation.other_user_id]);
 
   useEffect(() => {
-    if (lastMessage?.type === 'private_message' && 
-        (lastMessage.data as any)?.receiver_id === currentUserId) {
-      const newMessage: ChatMessage = {
-        id: `${lastMessage.timestamp}-${lastMessage.user_id}`,
-        username: lastMessage.username,
-        content: lastMessage.content || '',
-        timestamp: lastMessage.timestamp,
-        isOwn: lastMessage.user_id === currentUserId,
-      };
-      setMessages(prev => [...prev, newMessage]);
+    if (lastMessage?.type === 'private_message') {
+      console.log('🔍 PrivateChat received WebSocket message:', lastMessage);
+      const messageData = lastMessage.data as any;
+      const senderId = messageData?.sender_id || lastMessage.user_id;
+      const receiverId = messageData?.receiver_id;
+      
+      console.log('🔍 Message data:', { senderId, receiverId, currentUserId, otherUserId: conversation.other_user_id });
+      
+      // Check if this message is for the current conversation
+      if ((senderId === conversation.other_user_id && receiverId === currentUserId) ||
+          (senderId === currentUserId && receiverId === conversation.other_user_id)) {
+        console.log('🔍 Message is for this conversation, adding to messages');
+        const newMessage: ChatMessage = {
+          id: `${lastMessage.timestamp}-${lastMessage.user_id}`,
+          username: lastMessage.username,
+          content: lastMessage.content || '',
+          timestamp: lastMessage.timestamp,
+          isOwn: lastMessage.user_id === currentUserId,
+        };
+        setMessages(prev => [...prev, newMessage]);
+      } else {
+        console.log('🔍 Message is not for this conversation, ignoring');
+      }
     }
-  }, [lastMessage, currentUserId]);
+  }, [lastMessage, currentUserId, conversation.other_user_id]);
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+
+  const loadMoreMessages = () => {
+    if (!loadingMore && hasMoreMessages) {
+      loadMessages(messages.length);
+    }
   };
 
-  const loadMessages = async () => {
+  const loadMessages = async (offset: number = 0) => {
     try {
-      setLoading(true);
-      const data = await chatAPI.getMessages(conversation.other_user_id);
+      if (offset === 0) {
+        setLoading(true);
+        setHasMoreMessages(true); // Reset pagination state
+      } else {
+        setLoadingMore(true);
+      }
+      
+      console.log('🔍 Loading messages for conversation:', conversation.other_user_id, 'offset:', offset, 'limit: 20');
+      const data = await chatAPI.getMessages(conversation.other_user_id, 20, offset);
+      console.log('🔍 Received data:', data, 'count:', data?.length);
+      
+      if (!data || !Array.isArray(data)) {
+        console.error('❌ Invalid data received:', data);
+        setError('No messages data received');
+        return;
+      }
       
       const chatMessages: ChatMessage[] = data.map(msg => ({
         id: msg.id.toString(),
@@ -60,11 +89,26 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
         isOwn: msg.sender_id === currentUserId,
       }));
       
-      setMessages(chatMessages.reverse()); // Reverse to show oldest first
+      // Check if we got fewer messages than requested (indicating no more messages)
+      if (data.length < 20) {
+        setHasMoreMessages(false);
+        console.log('🔍 No more messages available (loaded', data.length, 'messages)');
+      } else {
+        console.log('🔍 More messages available (loaded', data.length, 'messages)');
+      }
+      
+      if (offset === 0) {
+        // First load - replace messages
+        setMessages(chatMessages.reverse());
+      } else {
+        // Load more - prepend to existing messages
+        setMessages(prev => [...chatMessages.reverse(), ...prev]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load messages');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -73,17 +117,21 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
     if (!input.trim() || sending) return;
 
     const messageContent = input.trim();
+    console.log('📤 Sending message:', messageContent, 'to user:', conversation.other_user_id);
     setInput('');
     setSending(true);
 
     try {
       // Send via API
+      console.log('📤 Calling chatAPI.sendMessage...');
       await chatAPI.sendMessage({
         receiver_id: conversation.other_user_id,
         body: messageContent,
       });
+      console.log('📤 chatAPI.sendMessage completed successfully');
 
       // Send via WebSocket for real-time delivery
+      console.log('📤 Sending via WebSocket...');
       sendWebSocketMessage({
         type: 'private_message',
         content: messageContent,
@@ -91,6 +139,7 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
           receiver_id: conversation.other_user_id,
         },
       });
+      console.log('📤 WebSocket message sent');
 
       // Add message to local state immediately
       const newMessage: ChatMessage = {
@@ -103,6 +152,7 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
       setMessages(prev => [...prev, newMessage]);
 
     } catch (err) {
+      console.error('❌ Failed to send message:', err);
       setError(err instanceof Error ? err.message : 'Failed to send message');
       setInput(messageContent); // Restore input on error
     } finally {
@@ -166,7 +216,7 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="overflow-y-auto p-4 space-y-4" style={{ height: '500px' }}>
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
             {error}
@@ -175,6 +225,19 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
               className="ml-2 underline"
             >
               Dismiss
+            </button>
+          </div>
+        )}
+        
+        {/* Load More Button */}
+        {hasMoreMessages && !loading && (
+          <div className="text-center" ref={messagesTopRef}>
+            <button
+              onClick={loadMoreMessages}
+              disabled={loadingMore}
+              className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 disabled:opacity-50"
+            >
+              {loadingMore ? 'Loading...' : 'Load More Messages'}
             </button>
           </div>
         )}
@@ -207,7 +270,6 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
             </div>
           ))
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Input */}

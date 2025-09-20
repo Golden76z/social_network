@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -35,34 +36,33 @@ type GetGroupMessagesRequest struct {
 }
 
 func GetConversationsHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("GetConversationsHandler: Handler called!\n")
-	// Debug: Check if userID is in context
 	userIDValue := r.Context().Value(middleware.UserIDKey)
 	if userIDValue == nil {
 		http.Error(w, "User not authenticated", http.StatusUnauthorized)
 		return
 	}
 
-	fmt.Printf("GetConversationsHandler: userIDValue type: %T, value: %v\n", userIDValue, userIDValue)
-	userID, ok := userIDValue.(int64)
+	userID, ok := userIDValue.(int)
 	if !ok {
-		fmt.Printf("GetConversationsHandler: Type assertion failed, got type: %T\n", userIDValue)
 		http.Error(w, "Invalid user ID in context", http.StatusInternalServerError)
 		return
 	}
 
+	log.Printf("GetConversationsHandler: Getting conversations for user %d", userID)
 	conversations, err := db.DBService.GetConversations(userID)
 	if err != nil {
+		log.Printf("GetConversationsHandler: Error getting conversations: %v", err)
 		http.Error(w, "Failed to get conversations", http.StatusInternalServerError)
 		return
 	}
 
+	log.Printf("GetConversationsHandler: Found %d conversations", len(conversations))
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(conversations)
 }
 
 func GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(middleware.UserIDKey).(int64)
+	userID := r.Context().Value(middleware.UserIDKey).(int)
 
 	// Parse query parameters
 	otherUserIDStr := r.URL.Query().Get("user_id")
@@ -78,7 +78,7 @@ func GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	limitStr := r.URL.Query().Get("limit")
-	limit := 50 // default
+	limit := 20 // default
 	if limitStr != "" {
 		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 && parsedLimit <= 100 {
 			limit = parsedLimit
@@ -93,18 +93,21 @@ func GetMessagesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	messages, err := db.DBService.GetMessagesBetweenUsers(userID, otherUserID, limit, offset)
+	log.Printf("GetMessagesHandler: Getting messages between user %d and %d", userID, otherUserID)
+	messages, err := db.DBService.GetMessagesBetweenUsers(userID, int(otherUserID), limit, offset)
 	if err != nil {
+		log.Printf("GetMessagesHandler: Error getting messages: %v", err)
 		http.Error(w, "Failed to get messages", http.StatusInternalServerError)
 		return
 	}
 
+	log.Printf("GetMessagesHandler: Found %d messages", len(messages))
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(messages)
 }
 
 func SendMessageHandler(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(middleware.UserIDKey).(int64)
+	userID := r.Context().Value(middleware.UserIDKey).(int)
 
 	var req SendMessageRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -124,7 +127,7 @@ func SendMessageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if user can send message to this receiver
-	canSend, err := db.DBService.CheckCanSendMessage(userID, req.ReceiverID)
+	canSend, err := db.DBService.CheckCanSendMessage(userID, int(req.ReceiverID))
 	if err != nil {
 		http.Error(w, "Failed to validate message permissions", http.StatusInternalServerError)
 		return
@@ -136,7 +139,7 @@ func SendMessageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the message
-	err = db.DBService.CreatePrivateMessage(userID, req.ReceiverID, req.Body)
+	err = db.DBService.CreatePrivateMessage(userID, int(req.ReceiverID), req.Body)
 	if err != nil {
 		http.Error(w, "Failed to send message", http.StatusInternalServerError)
 		return
@@ -146,12 +149,13 @@ func SendMessageHandler(w http.ResponseWriter, r *http.Request) {
 	hub := websockets.GetHub()
 	if hub != nil {
 		message := websockets.Message{
-			Type:      "private_message",
+			Type:      websockets.MessageTypePrivateMessage,
 			Content:   req.Body,
 			UserID:    int(userID),
-			Username:  r.Context().Value("username").(string),
+			Username:  r.Context().Value(middleware.UsernameKey).(string),
 			Timestamp: time.Now(),
 			Data: map[string]interface{}{
+				"sender_id":   userID,
 				"receiver_id": req.ReceiverID,
 			},
 		}
@@ -163,7 +167,7 @@ func SendMessageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetGroupMessagesHandler(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(middleware.UserIDKey).(int64)
+	userID := r.Context().Value(middleware.UserIDKey).(int)
 
 	// Parse query parameters
 	groupIDStr := r.URL.Query().Get("group_id")
@@ -179,7 +183,7 @@ func GetGroupMessagesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if user is a member of the group
-	isMember, err := db.DBService.CheckGroupMembership(userID, groupID)
+	isMember, err := db.DBService.CheckGroupMembership(userID, int(groupID))
 	if err != nil {
 		http.Error(w, "Failed to check group membership", http.StatusInternalServerError)
 		return
@@ -191,7 +195,7 @@ func GetGroupMessagesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	limitStr := r.URL.Query().Get("limit")
-	limit := 50 // default
+	limit := 20 // default
 	if limitStr != "" {
 		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 && parsedLimit <= 100 {
 			limit = parsedLimit
@@ -206,7 +210,7 @@ func GetGroupMessagesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	messages, err := db.DBService.GetGroupMessages(groupID, limit, offset)
+	messages, err := db.DBService.GetGroupMessages(int(groupID), limit, offset)
 	if err != nil {
 		http.Error(w, "Failed to get group messages", http.StatusInternalServerError)
 		return
@@ -217,7 +221,7 @@ func GetGroupMessagesHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func SendGroupMessageHandler(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(middleware.UserIDKey).(int64)
+	userID := r.Context().Value(middleware.UserIDKey).(int)
 
 	var req SendGroupMessageRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -237,7 +241,7 @@ func SendGroupMessageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if user is a member of the group
-	isMember, err := db.DBService.CheckGroupMembership(userID, req.GroupID)
+	isMember, err := db.DBService.CheckGroupMembership(userID, int(req.GroupID))
 	if err != nil {
 		http.Error(w, "Failed to check group membership", http.StatusInternalServerError)
 		return
@@ -249,7 +253,7 @@ func SendGroupMessageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the group message
-	err = db.DBService.CreateGroupMessage(req.GroupID, userID, req.Body)
+	err = db.DBService.CreateGroupMessage(int(req.GroupID), userID, req.Body)
 	if err != nil {
 		http.Error(w, "Failed to send group message", http.StatusInternalServerError)
 		return
@@ -259,11 +263,11 @@ func SendGroupMessageHandler(w http.ResponseWriter, r *http.Request) {
 	hub := websockets.GetHub()
 	if hub != nil {
 		message := websockets.Message{
-			Type:      "group_message",
+			Type:      websockets.MessageTypeGroupMessage,
 			Content:   req.Body,
 			GroupID:   fmt.Sprintf("%d", req.GroupID),
 			UserID:    int(userID),
-			Username:  r.Context().Value("username").(string),
+			Username:  r.Context().Value(middleware.UsernameKey).(string),
 			Timestamp: time.Now(),
 		}
 		hub.BroadcastMessage(message)
@@ -273,6 +277,30 @@ func SendGroupMessageHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
 }
 
+func GetGroupConversationsHandler(w http.ResponseWriter, r *http.Request) {
+	userIDValue := r.Context().Value(middleware.UserIDKey)
+	if userIDValue == nil {
+		http.Error(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
+
+	userID, ok := userIDValue.(int)
+	if !ok {
+		http.Error(w, "Invalid user ID in context", http.StatusInternalServerError)
+		return
+	}
+
+	// Get group conversations for the user
+	conversations, err := db.DBService.GetGroupConversations(userID)
+	if err != nil {
+		http.Error(w, "Failed to get group conversations", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(conversations)
+}
+
 func GetMessageableUsersHandler(w http.ResponseWriter, r *http.Request) {
 	userIDValue := r.Context().Value(middleware.UserIDKey)
 	if userIDValue == nil {
@@ -280,7 +308,7 @@ func GetMessageableUsersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, ok := userIDValue.(int64)
+	userID, ok := userIDValue.(int)
 	if !ok {
 		http.Error(w, "Invalid user ID in context", http.StatusInternalServerError)
 		return

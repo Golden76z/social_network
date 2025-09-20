@@ -135,7 +135,7 @@ export const GroupCard: React.FC<GroupCardProps> = ({
                 disabled={isLoading || hasPendingRequest}
                 className={`px-4 py-2 rounded text-sm transition-colors disabled:opacity-50 ${
                   hasPendingRequest 
-                    ? 'bg-gray-300 text-gray-600 cursor-not-allowed' 
+                    ? 'bg-muted text-muted-foreground cursor-not-allowed' 
                     : 'bg-primary text-primary-foreground hover:bg-primary/90'
                 }`}
               >

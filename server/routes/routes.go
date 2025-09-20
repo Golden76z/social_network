@@ -2,7 +2,6 @@ package routes
 
 import (
 	"database/sql"
-	"time"
 
 	"github.com/Golden76z/social-network/api"
 	"github.com/Golden76z/social-network/config"
@@ -35,7 +34,7 @@ func setupProtectedRoutes(r *Router) {
 		// Apply auth middleware
 		r.Use(middleware.AuthMiddleware())
 		r.Use(middleware.CSRFMiddleware)
-		r.Use(middleware.RateLimit(1000, time.Minute))
+		// r.Use(middleware.RateLimit(1000000, time.Minute))
 
 		setupUserRoutes(r)
 		setupPostRoutes(r)

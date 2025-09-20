@@ -36,14 +36,14 @@ export default function Header() {
 
           {/* Center - Logo and Search bar */}
           <div className="flex-1 flex flex-col items-center gap-3">
-            <Link href="/" className="font-bold text-3xl text-purple-600">
+            <Link href="/" className="font-bold text-3xl text-primary">
               Deustagram
             </Link>
             <div className="hidden md:block w-full max-w-md">
               <input
                 type="text"
                 placeholder="Search..."
-                className="w-full px-4 py-1.5 border border-border rounded-md bg-background text-base focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-4 py-1.5 border border-border rounded-md bg-background text-base focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
           </div>
@@ -72,7 +72,7 @@ export default function Header() {
                   rounded
                   initials={user?.nickname || user?.first_name || 'U'}
                 />
-                <span className="text-sm font-medium text-gray-700">
+                <span className="text-sm font-medium text-foreground">
                   {user?.nickname || user?.first_name || 'User'}
                 </span>
               </button>
@@ -125,7 +125,7 @@ export default function Header() {
           <input
             type="text"
             placeholder="Search..."
-            className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
 
           {isAuthenticated ? (

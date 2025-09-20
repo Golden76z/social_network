@@ -81,7 +81,15 @@ export class ApiClient {
       throw new Error(message.trim());
     }
 
-    return response.json();
+    try {
+      const data = await response.json();
+      console.log('📡 API Response data:', data);
+      return data;
+    } catch (jsonError) {
+      console.error('❌ Failed to parse JSON response:', jsonError);
+      console.error('❌ Response text:', await response.text());
+      throw new Error('Invalid JSON response from server');
+    }
   }
 
   private async fetchCSRFToken(): Promise<void> {
@@ -151,6 +159,11 @@ export class ApiClient {
   isAuthenticated(): boolean {
     if (typeof window === 'undefined') return false;
     return !!localStorage.getItem('jwt_token');
+  }
+
+  // Get the raw JWT token
+  getToken(): string | null {
+    return localStorage.getItem('jwt_token');
   }
 
   // NEW METHOD: Check if token is expired

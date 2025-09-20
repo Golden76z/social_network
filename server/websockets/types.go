@@ -9,19 +9,22 @@ import (
 
 // Message types for different WebSocket events
 const (
-	MessageTypeChat            = "chat"
-	MessageTypePing            = "ping"
-	MessageTypePong            = "pong"
-	MessageTypeError           = "error"
-	MessageTypeNotify          = "notify"
-	MessageTypeUserList        = "user_list"
-	MessageTypeGroupList       = "group_list"
-	MessageTypeUserJoined      = "user_joined"
-	MessageTypeUserLeft        = "user_left"
-	MessageTypeJoinGroup       = "join_group"
-	MessageTypeLeaveGroup      = "leave_group"
-	MessageTypeGetGroupMembers = "get_group_members"
-	MessageTypeGroupMembers    = "group_members"
+	MessageTypeChat               = "chat"
+	MessageTypePing               = "ping"
+	MessageTypePong               = "pong"
+	MessageTypeError              = "error"
+	MessageTypeNotify             = "notify"
+	MessageTypeUserList           = "user_list"
+	MessageTypeGroupList          = "group_list"
+	MessageTypeUserJoined         = "user_joined"
+	MessageTypeUserLeft           = "user_left"
+	MessageTypeJoinGroup          = "join_group"
+	MessageTypeLeaveGroup         = "leave_group"
+	MessageTypeGetGroupMembers    = "get_group_members"
+	MessageTypeGroupMembers       = "group_members"
+	MessageTypePrivateMessage     = "private_message"
+	MessageTypeGroupMessage       = "group_message"
+	MessageTypeConversationUpdate = "conversation_update"
 )
 
 // Message represents a WebSocket message
