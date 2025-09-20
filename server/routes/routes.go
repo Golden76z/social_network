@@ -28,6 +28,9 @@ func setupPublicRoutes(r *Router, wsHub *websockets.Hub, cfg *config.Config) {
 
 		// Public profile route (no authentication required)
 		r.GET("/api/public/user/profile", api.GetPublicUserProfileHandler)
+
+		// Test routes for development (public)
+		r.GET("/api/test/token", api.TestTokenHandler)
 	})
 }
 

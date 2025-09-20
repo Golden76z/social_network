@@ -15,6 +15,7 @@ export interface User {
   
   export interface UserProfile extends User {
     isFollowing?: boolean;
+    followStatus?: string; // For private profiles: "none", "pending", "accepted", "declined"
   }
   
   export interface CreateUserRequest {

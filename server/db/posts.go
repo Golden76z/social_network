@@ -615,6 +615,27 @@ func (s *Service) IsFollowing(currentUserID, targetUserID int64) (bool, error) {
 	return isFollowing, nil
 }
 
+// GetFollowRequestStatus returns the status of a follow request between two users
+func (s *Service) GetFollowRequestStatus(currentUserID, targetUserID int64) (string, error) {
+	query := `
+        SELECT status
+        FROM follow_requests
+        WHERE requester_id = ? AND target_id = ?
+        ORDER BY created_at DESC
+        LIMIT 1`
+
+	var status string
+	err := s.DB.QueryRow(query, currentUserID, targetUserID).Scan(&status)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "none", nil // No follow request exists
+		}
+		return "", err
+	}
+
+	return status, nil
+}
+
 func (s *Service) UpdatePost(postID int64, req models.UpdatePostRequest) error {
 	tx, err := s.DB.Begin()
 	if err != nil {

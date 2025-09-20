@@ -154,3 +154,36 @@ func (s *Service) GetFollowing(userID int64) ([]models.User, error) {
 	}
 	return users, nil
 }
+
+// GetMutualFriends returns users who follow the given user AND are followed back by the given user
+func (s *Service) GetMutualFriends(userID int64) ([]models.User, error) {
+	rows, err := s.DB.Query(`
+		SELECT u.id, u.nickname, u.first_name, u.last_name, u.email, u.avatar, u.is_private
+		FROM users u
+		WHERE u.id IN (
+			SELECT f1.requester_id
+			FROM follow_requests f1
+			WHERE f1.target_id = ? AND f1.status = 'accepted'
+		)
+		AND u.id IN (
+			SELECT f2.target_id
+			FROM follow_requests f2
+			WHERE f2.requester_id = ? AND f2.status = 'accepted'
+		)
+		AND u.id != ?`, userID, userID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []models.User
+	for rows.Next() {
+		var u models.User
+		err := rows.Scan(&u.ID, &u.Nickname, &u.FirstName, &u.LastName, &u.Email, &u.Avatar, &u.IsPrivate)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, nil
+}
