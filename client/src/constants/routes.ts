@@ -11,6 +11,7 @@ export const routes = {
   // User routes
   user: {
     profile: '/api/user/profile',
+    publicProfile: '/api/public/user/profile',
     notifications: '/api/user/notifications',
     follow: '/api/user/follow',
     follower: '/api/user/follower',

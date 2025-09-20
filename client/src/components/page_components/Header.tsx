@@ -5,6 +5,18 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import Link from 'next/link';
 import { ProfileThumbnail } from '@/components/ProfileThumbnail';
+import { ButtonAccept } from '@/components/ui/Button/buttonAccept';
+import { 
+  User, 
+  LogOut, 
+  Settings, 
+  Plus,
+  ChevronDown,
+  Search,
+  Menu,
+  Edit3,
+  Lock
+} from 'lucide-react';
 
 export default function Header() {
   const router = useRouter();
@@ -39,11 +51,12 @@ export default function Header() {
             <Link href="/" className="font-bold text-3xl text-primary">
               Deustagram
             </Link>
-            <div className="hidden md:block w-full max-w-md">
+            <div className="hidden md:block w-full max-w-md relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Search..."
-                className="w-full px-4 py-1.5 border border-border rounded-md bg-background text-base focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full pl-10 pr-4 py-2.5 border border-border/50 rounded-xl bg-background/50 backdrop-blur-sm text-base focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-border transition-all duration-200"
               />
             </div>
           </div>
@@ -51,19 +64,21 @@ export default function Header() {
           {/* Right side - Menu */}
           <div className="flex-1 flex justify-end">
             {/* Desktop menu */}
-            <div className="hidden md:flex items-center gap-3" ref={dropdownRef}>
+            <div className="hidden md:flex items-center gap-3 relative" ref={dropdownRef}>
           {isAuthenticated ? (
             <>
-              <Link
-                href="/posts/create"
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 transition-colors"
-              >
-                ✏️ Post
+              <Link href="/posts/create">
+                <button className="flex items-center space-x-3 px-5 py-3 rounded-xl border border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/15 backdrop-blur-sm transition-all duration-200 hover:shadow-md group">
+                  <Edit3 className="w-4 h-4 text-primary transition-colors" />
+                  <span className="text-sm font-medium text-primary transition-colors">
+                    Post
+                  </span>
+                </button>
               </Link>
 
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="flex items-center space-x-2 px-3 py-2 rounded-lg border border-border hover:bg-accent transition-colors"
+                className="flex items-center space-x-3 px-4 py-2.5 rounded-xl border border-border/50 hover:border-border bg-background/50 hover:bg-accent/50 backdrop-blur-sm transition-all duration-200 hover:shadow-sm group"
               >
                 <ProfileThumbnail
                   src={user?.avatar}
@@ -72,39 +87,56 @@ export default function Header() {
                   rounded
                   initials={user?.nickname || user?.first_name || 'U'}
                 />
-                <span className="text-sm font-medium text-foreground">
+                <span className="text-sm font-medium text-foreground group-hover:text-accent-foreground transition-colors">
                   {user?.nickname || user?.first_name || 'User'}
                 </span>
+                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {dropdownOpen && (
-                <div className="absolute right-4 top-16 mt-1 w-40 rounded-md border border-border bg-popover shadow-md p-1 z-50">
-                  <Link
-                    href="/profile"
-                    className="block px-4 py-2 rounded-md text-sm hover:bg-accent transition-colors"
-                    onClick={() => setDropdownOpen(false)}
-                  >
-                    👤 Profile
-                  </Link>
-                  <button
-                    onClick={() => {
-                      setDropdownOpen(false);
-                      logout();
-                    }}
-                    className="w-full text-left px-4 py-2 rounded-md text-sm hover:bg-accent transition-colors"
-                  >
-                    🚪 Logout
-                  </button>
+                <div className="absolute left-1/2 top-full mt-2 w-48 rounded-xl border border-border/50 bg-popover/95 backdrop-blur-md shadow-xl p-2 z-50 animate-in slide-in-from-top-2 duration-200 transform -translate-x-1/2">
+                  <div className="flex flex-col gap-1">
+                    <Link
+                      href="/profile"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm hover:bg-accent/50 transition-all duration-200 group"
+                      onClick={() => setDropdownOpen(false)}
+                    >
+                      <User className="w-4 h-4 text-muted-foreground group-hover:text-accent-foreground transition-colors" />
+                      <span className="font-medium">Profile</span>
+                    </Link>
+                    <Link
+                      href="/settings"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm hover:bg-accent/50 transition-all duration-200 group"
+                      onClick={() => setDropdownOpen(false)}
+                    >
+                      <Settings className="w-4 h-4 text-muted-foreground group-hover:text-accent-foreground transition-colors" />
+                      <span className="font-medium">Settings</span>
+                    </Link>
+                    <div className="h-px bg-border/50 my-1"></div>
+                    <button
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        logout();
+                      }}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm hover:bg-destructive/10 hover:text-destructive transition-all duration-200 group text-left"
+                    >
+                      <LogOut className="w-4 h-4 text-muted-foreground group-hover:text-destructive transition-colors" />
+                      <span className="font-medium">Logout</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </>
           ) : (
-            <button
+            <ButtonAccept 
+              variant="PrimaryRest" 
+              size="size2" 
+              className="gap-2 shadow-sm hover:shadow-md transition-all duration-200"
               onClick={() => router.push('/login')}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 transition-colors"
             >
-              🔐 Sign In
-            </button>
+              <Lock className="w-4 h-4" />
+              Sign In
+            </ButtonAccept>
           )}
             </div>
           </div>
@@ -113,55 +145,66 @@ export default function Header() {
         {/* Mobile hamburger */}
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden flex items-center justify-center w-9 h-9 rounded-md border border-border"
+          className="md:hidden flex items-center justify-center w-10 h-10 rounded-xl border border-border/50 hover:border-border bg-background/50 hover:bg-accent/50 backdrop-blur-sm transition-all duration-200"
         >
-          ☰
+          <Menu className="w-5 h-5" />
         </button>
       </div>
 
       {/* Mobile menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-border px-4 py-3 space-y-2">
-          <input
-            type="text"
-            placeholder="Search..."
-            className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          />
+        <div className="md:hidden border-t border-border/50 px-4 py-4 space-y-3 bg-background/50 backdrop-blur-sm">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search..."
+              className="w-full pl-10 pr-4 py-2.5 border border-border/50 rounded-xl bg-background/50 backdrop-blur-sm text-sm focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-border transition-all duration-200"
+            />
+          </div>
 
           {isAuthenticated ? (
-            <>
-              <Link
-                href="/posts/create"
-                className="block w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 transition-colors text-center"
-              >
-                ✏️ Post
+            <div className="space-y-2">
+              <Link href="/posts/create">
+                <button className="flex items-center justify-center gap-3 w-full px-5 py-3 rounded-xl border border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/15 backdrop-blur-sm transition-all duration-200 hover:shadow-md group">
+                  <Edit3 className="w-4 h-4 text-primary transition-colors" />
+                  <span className="text-sm font-medium text-primary transition-colors">
+                    Create Post
+                  </span>
+                </button>
               </Link>
               <Link
-                href="/dev/test"
-                className="block w-full px-4 py-2 rounded-md text-sm hover:bg-accent transition-colors text-center"
+                href="/profile"
+                className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-sm hover:bg-accent/50 transition-all duration-200 text-center border border-border/50"
+                onClick={() => setMobileMenuOpen(false)}
               >
-                👤 Profile
+                <User className="w-4 h-4" />
+                Profile
               </Link>
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
                   logout();
                 }}
-                className="block w-full text-center px-4 py-2 rounded-md text-sm hover:bg-accent transition-colors"
+                className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-sm hover:bg-destructive/10 hover:text-destructive transition-all duration-200 border border-border/50"
               >
-                🚪 Logout
+                <LogOut className="w-4 h-4" />
+                Logout
               </button>
-            </>
+            </div>
           ) : (
-            <button
+            <ButtonAccept 
+              variant="PrimaryRest" 
+              size="size3" 
+              className="w-full gap-2 shadow-sm hover:shadow-md transition-all duration-200"
               onClick={() => {
                 setMobileMenuOpen(false);
                 router.push('/login');
               }}
-              className="block w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 transition-colors text-center"
             >
-              🔐 Sign In
-            </button>
+              <Lock className="w-4 h-4" />
+              Sign In
+            </ButtonAccept>
           )}
         </div>
       )}

@@ -32,7 +32,7 @@ export const ProfileThumbnail: React.FC<ProfileThumbnailProps> = ({
 
   // Build absolute URL if backend returns relative "/uploads/..."
   const buildUrl = (s?: string | null): string | undefined => {
-    if (!s) return undefined;
+    if (!s || typeof s !== 'string') return undefined;
     if (s.startsWith('http')) return s;
     const base =
       process.env.NEXT_PUBLIC_API_URL ||

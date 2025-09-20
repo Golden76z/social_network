@@ -8,8 +8,6 @@ func setupUserRoutes(r *Router) {
 	// Profile routes
 	r.GET("/api/user/profile", api.GetUserProfileHandler)
 	r.PUT("/api/user/profile", api.UpdateUserProfileHandler)
-	// Public profile route (no auth)
-	r.GET("/api/public/user/profile", api.GetPublicUserProfileHandler)
 
 	// Notification routes
 	r.POST("/api/user/notifications", api.SendUserNotificationsHandler)
