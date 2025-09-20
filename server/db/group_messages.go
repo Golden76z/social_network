@@ -6,14 +6,14 @@ import (
 
 // GroupMessage represents a group message in the database
 type GroupMessage struct {
-	ID        int64  `json:"id"`
-	GroupID   int64  `json:"group_id"`
-	SenderID  int64  `json:"sender_id"`
+	ID        int    `json:"id"`
+	GroupID   int    `json:"group_id"`
+	SenderID  int    `json:"sender_id"`
 	Body      string `json:"body"`
 	CreatedAt string `json:"created_at"`
 }
 
-func (s *Service) CreateGroupMessage(groupID, senderID int64, body string) error {
+func (s *Service) CreateGroupMessage(groupID, senderID int, body string) error {
 	tx, err := s.DB.Begin()
 	if err != nil {
 		return err
@@ -31,7 +31,7 @@ func (s *Service) CreateGroupMessage(groupID, senderID int64, body string) error
 	return err
 }
 
-func (s *Service) GetGroupMessageByID(id int64) (*GroupMessage, error) {
+func (s *Service) GetGroupMessageByID(id int) (*GroupMessage, error) {
 	row := s.DB.QueryRow(`
         SELECT id, group_id, sender_id, body, created_at
         FROM group_messages WHERE id = ?`, id)
@@ -43,7 +43,7 @@ func (s *Service) GetGroupMessageByID(id int64) (*GroupMessage, error) {
 	return &gm, nil
 }
 
-func DeleteGroupMessage(db *sql.DB, id int64) error {
+func DeleteGroupMessage(db *sql.DB, id int) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err

@@ -1,5 +1,13 @@
 import { Conversation, PrivateMessage, GroupMessage, SendMessageRequest, SendGroupMessageRequest } from '../types/chat';
 
+export interface GroupConversation {
+  group_id: number;
+  group_name: string;
+  group_description: string;
+  last_message: string;
+  last_message_time: string;
+}
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 class ChatAPI {
@@ -25,18 +33,30 @@ class ChatAPI {
 
   // Get all conversations for the current user
   async getConversations(): Promise<Conversation[]> {
-    return this.request<Conversation[]>('/api/chat/conversations');
+    try {
+      return await this.request<Conversation[]>('/api/chat/conversations');
+    } catch (error) {
+      console.error('Failed to get conversations:', error);
+      // Return empty array instead of throwing error to prevent null data issues
+      return [];
+    }
   }
 
   // Get messages between current user and another user
-  async getMessages(userId: number, limit: number = 50, offset: number = 0): Promise<PrivateMessage[]> {
+  async getMessages(userId: number, limit: number = 20, offset: number = 0): Promise<PrivateMessage[]> {
     const params = new URLSearchParams({
       user_id: userId.toString(),
       limit: limit.toString(),
       offset: offset.toString(),
     });
     
-    return this.request<PrivateMessage[]>(`/api/chat/messages?${params}`);
+    try {
+      return await this.request<PrivateMessage[]>(`/api/chat/messages?${params}`);
+    } catch (error) {
+      console.error('Failed to get messages:', error);
+      // Return empty array instead of throwing error to prevent null data issues
+      return [];
+    }
   }
 
   // Send a private message
@@ -48,14 +68,20 @@ class ChatAPI {
   }
 
   // Get group messages
-  async getGroupMessages(groupId: number, limit: number = 50, offset: number = 0): Promise<GroupMessage[]> {
+  async getGroupMessages(groupId: number, limit: number = 20, offset: number = 0): Promise<GroupMessage[]> {
     const params = new URLSearchParams({
       group_id: groupId.toString(),
       limit: limit.toString(),
       offset: offset.toString(),
     });
     
-    return this.request<GroupMessage[]>(`/api/chat/group-messages?${params}`);
+    try {
+      return await this.request<GroupMessage[]>(`/api/chat/group-messages?${params}`);
+    } catch (error) {
+      console.error('Failed to get group messages:', error);
+      // Return empty array instead of throwing error to prevent null data issues
+      return [];
+    }
   }
 
   // Send a group message
@@ -64,6 +90,17 @@ class ChatAPI {
       method: 'POST',
       body: JSON.stringify(message),
     });
+  }
+
+  // Get group conversations for the current user
+  async getGroupConversations(): Promise<GroupConversation[]> {
+    try {
+      return await this.request<GroupConversation[]>('/api/chat/group-conversations');
+    } catch (error) {
+      console.error('Failed to get group conversations:', error);
+      // Return empty array instead of throwing error to prevent null data issues
+      return [];
+    }
   }
 
   // Get users that can be messaged (followers + following + public users)

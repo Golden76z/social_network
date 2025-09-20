@@ -30,12 +30,17 @@ func AuthMiddleware() func(http.Handler) http.Handler {
 				return
 			}
 
-			// 2. Verify JWT validity
-			utils.ValidateToken(token.Value)
+			// 2. Extract user ID and username from JWT token (more reliable than session lookup)
+			claims, err := utils.ValidateToken(token.Value)
+			if err != nil {
+				http.Error(w, "Invalid token", http.StatusUnauthorized)
+				return
+			}
 
-			// 3. Extract user ID from JWT token (more reliable than session lookup)
-			userID, err := utils.GetUserIDFromTokenString(token.Value)
-			if err != nil || userID == 0 {
+			userID := claims.UserID
+			username := claims.Username
+
+			if userID == 0 {
 				http.Error(w, "Invalid token", http.StatusUnauthorized)
 				return
 			}
@@ -57,7 +62,7 @@ func AuthMiddleware() func(http.Handler) http.Handler {
 			// 5. Attach user data to context using custom keys
 			ctx := r.Context()
 			ctx = context.WithValue(ctx, UserIDKey, userID)
-			//ctx = context.WithValue(ctx, UsernameKey, username)
+			ctx = context.WithValue(ctx, UsernameKey, username)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

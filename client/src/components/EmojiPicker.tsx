@@ -1,68 +1,114 @@
 "use client"
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface EmojiPickerProps {
-  onEmojiSelect: (emoji: string) => void;
   isOpen: boolean;
   onClose: () => void;
+  onEmojiSelect: (emoji: string) => void;
 }
 
-const EMOJI_CATEGORIES = {
-  'Faces': ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '😎', '🤓', '🧐'],
-  'Hearts': ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟'],
-  'Gestures': ['👍', '👎', '👌', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👋', '🤚', '🖐️', '✋', '🖖', '👏', '🙌', '👐', '🤲', '🤝', '🙏'],
-  'Objects': ['💎', '⚡', '🔥', '💯', '⭐', '🌟', '✨', '🎉', '🎊', '🎈', '🎁', '🏆', '🥇', '🥈', '🥉', '🏅', '🎖️', '🏵️', '🎗️', '🎫', '🎟️', '🎪', '🤹', '🎭', '🩰', '🎨', '🎬', '🎤', '🎧', '🎼', '🎵', '🎶', '🎹', '🥁', '🎷', '🎺', '🎸', '🪕', '🎻', '🪗', '🎲', '♠️', '♥️', '♦️', '♣️', '🃏', '🀄', '🎴', '🎯', '🎳', '🎮', '🕹️', '🎰', '🧩', '🎲'],
-};
+const emojis = [
+  '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣',
+  '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰',
+  '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜',
+  '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏',
+  '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣',
+  '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠',
+  '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨',
+  '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥',
+  '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧',
+  '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐',
+  '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑',
+  '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻',
+  '💀', '☠️', '👽', '👾', '🤖', '🎃', '😺', '😸',
+  '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '👶',
+  '👧', '🧒', '👦', '👩', '🧑', '👨', '👱‍♀️', '👱‍♂️',
+  '🧔', '👵', '🧓', '👴', '👲', '👳‍♀️', '👳‍♂️', '🧕',
+  '👮‍♀️', '👮‍♂️', '👷‍♀️', '👷‍♂️', '💂‍♀️', '💂‍♂️', '🕵️‍♀️', '🕵️‍♂️',
+  '👩‍⚕️', '👨‍⚕️', '👩‍🌾', '👨‍🌾', '👩‍🍳', '👨‍🍳', '👩‍🎓', '👨‍🎓',
+  '👩‍🎤', '👨‍🎤', '👩‍🏫', '👨‍🏫', '👩‍🏭', '👨‍🏭', '👩‍💻', '👨‍💻',
+  '👩‍💼', '👨‍💼', '👩‍🔧', '👨‍🔧', '👩‍🔬', '👨‍🔬', '👩‍🎨', '👨‍🎨',
+  '👩‍🚒', '👨‍🚒', '👩‍✈️', '👨‍✈️', '👩‍🚀', '👨‍🚀', '👩‍⚖️', '👨‍⚖️',
+  '👰', '🤵', '👸', '🤴', '🦸‍♀️', '🦸‍♂️', '🦹‍♀️', '🦹‍♂️',
+  '🤶', '🎅', '🧙‍♀️', '🧙‍♂️', '🧝‍♀️', '🧝‍♂️', '🧛‍♀️', '🧛‍♂️',
+  '🧟‍♀️', '🧟‍♂️', '🧞‍♀️', '🧞‍♂️', '🧜‍♀️', '🧜‍♂️', '🧚‍♀️', '🧚‍♂️',
+  '👼', '🤰', '🤱', '🙇‍♀️', '🙇‍♂️', '💁‍♀️', '💁‍♂️', '🙅‍♀️',
+  '🙅‍♂️', '🙆‍♀️', '🙆‍♂️', '🙋‍♀️', '🙋‍♂️', '🧏‍♀️', '🧏‍♂️', '🤦‍♀️',
+  '🤦‍♂️', '🤷‍♀️', '🤷‍♂️', '🙎‍♀️', '🙎‍♂️', '🙍‍♀️', '🙍‍♂️', '💇‍♀️',
+  '💇‍♂️', '💆‍♀️', '💆‍♂️', '🧖‍♀️', '🧖‍♂️', '💅', '🤳', '💃',
+  '🕺', '👯‍♀️', '👯‍♂️', '🕴', '👩‍🦽', '👨‍🦽', '👩‍🦼', '👨‍🦼',
+  '🚶‍♀️', '🚶‍♂️', '👩‍🦯', '👨‍🦯', '🧎‍♀️', '🧎‍♂️', '🏃‍♀️', '🏃‍♂️',
+  '🧍‍♀️', '🧍‍♂️', '👫', '👬', '👭', '💑', '👩‍❤️‍👩', '👨‍❤️‍👨',
+  '💏', '👩‍❤️‍💋‍👩', '👨‍❤️‍💋‍👨', '👪', '👨‍👩‍👧', '👨‍👩‍👧‍👦', '👨‍👩‍👦‍👦', '👨‍👩‍👧‍👧',
+  '👨‍👨‍👦', '👨‍👨‍👧', '👨‍👨‍👧‍👦', '👨‍👨‍👦‍👦', '👨‍👨‍👧‍👧', '👩‍👩‍👦', '👩‍👩‍👧', '👩‍👩‍👧‍👦',
+  '👩‍👩‍👦‍👦', '👩‍👩‍👧‍👧', '👨‍👦', '👨‍👦‍👦', '👨‍👧', '👨‍👧‍👦', '👨‍👧‍👧', '👩‍👦',
+  '👩‍👦‍👦', '👩‍👧', '👩‍👧‍👦', '👩‍👧‍👧', '🗣', '👤', '👥', '👣'
+];
 
-export function EmojiPicker({ onEmojiSelect, isOpen, onClose }: EmojiPickerProps) {
-  const [selectedCategory, setSelectedCategory] = useState<keyof typeof EMOJI_CATEGORIES>('Faces');
+export function EmojiPicker({ isOpen, onClose, onEmojiSelect }: EmojiPickerProps) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen, onClose]);
+
+  const filteredEmojis = emojis.filter(emoji => 
+    emoji.includes(searchTerm) || searchTerm === ''
+  );
 
   if (!isOpen) return null;
 
   return (
-    <div className="absolute bottom-full left-0 mb-2 bg-white border border-gray-300 rounded-lg shadow-lg p-4 w-80 max-h-64 overflow-hidden">
-      <div className="flex justify-between items-center mb-3">
-        <h3 className="font-semibold text-sm">Choose an emoji</h3>
-        <button
-          onClick={onClose}
-          className="text-gray-500 hover:text-gray-700 text-lg"
-        >
-          ×
-        </button>
+    <div
+      ref={pickerRef}
+      className="absolute bottom-full right-0 mb-2 w-80 bg-white border border-gray-300 rounded-lg shadow-lg z-50"
+    >
+      <div className="p-3 border-b">
+        <input
+          type="text"
+          placeholder="Search emojis..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
       </div>
       
-      {/* Category tabs */}
-      <div className="flex space-x-1 mb-3 border-b">
-        {Object.keys(EMOJI_CATEGORIES).map((category) => (
-          <button
-            key={category}
-            onClick={() => setSelectedCategory(category as keyof typeof EMOJI_CATEGORIES)}
-            className={`px-2 py-1 text-xs font-medium ${
-              selectedCategory === category
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {category}
-          </button>
-        ))}
-      </div>
-
-      {/* Emoji grid */}
-      <div className="grid grid-cols-8 gap-1 max-h-32 overflow-y-auto">
-        {EMOJI_CATEGORIES[selectedCategory].map((emoji) => (
-          <button
-            key={emoji}
-            onClick={() => {
-              onEmojiSelect(emoji);
-              onClose();
-            }}
-            className="text-lg hover:bg-gray-100 rounded p-1 transition-colors"
-          >
-            {emoji}
-          </button>
-        ))}
+      <div className="p-3 max-h-60 overflow-y-auto">
+        <div className="grid grid-cols-8 gap-1">
+          {filteredEmojis.map((emoji, index) => (
+            <button
+              key={index}
+              onClick={() => {
+                onEmojiSelect(emoji);
+                onClose();
+              }}
+              className="w-8 h-8 flex items-center justify-center text-lg hover:bg-gray-100 rounded transition-colors"
+              title={emoji}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+        
+        {filteredEmojis.length === 0 && (
+          <div className="text-center text-gray-500 py-4">
+            No emojis found
+          </div>
+        )}
       </div>
     </div>
   );
