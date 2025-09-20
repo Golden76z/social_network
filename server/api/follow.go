@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -117,8 +118,23 @@ func GetFollowerHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error fetching followers", http.StatusInternalServerError)
 		return
 	}
+
+	// Transform User objects to UserDisplayInfo format
+	var displayInfo []map[string]interface{}
+	for _, user := range followers {
+		displayInfo = append(displayInfo, map[string]interface{}{
+			"id":         user.ID,
+			"nickname":   user.Nickname,
+			"fullName":   fmt.Sprintf("%s %s", user.FirstName, user.LastName),
+			"first_name": user.FirstName,
+			"last_name":  user.LastName,
+			"avatar":     user.GetAvatar(),
+			"is_private": user.IsPrivate,
+		})
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(followers)
+	json.NewEncoder(w).Encode(displayInfo)
 }
 
 // GetFollowingHandler returns the list of users the specified user is following
@@ -150,8 +166,23 @@ func GetFollowingHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error fetching following", http.StatusInternalServerError)
 		return
 	}
+
+	// Transform User objects to UserDisplayInfo format
+	var displayInfo []map[string]interface{}
+	for _, user := range following {
+		displayInfo = append(displayInfo, map[string]interface{}{
+			"id":         user.ID,
+			"nickname":   user.Nickname,
+			"fullName":   fmt.Sprintf("%s %s", user.FirstName, user.LastName),
+			"first_name": user.FirstName,
+			"last_name":  user.LastName,
+			"avatar":     user.GetAvatar(),
+			"is_private": user.IsPrivate,
+		})
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(following)
+	json.NewEncoder(w).Encode(displayInfo)
 }
 
 // UpdateFollowHandler allows the target user to accept or decline a follow request. Only 'accepted' or 'declined' are valid statuses. If already in the requested status, returns an error.

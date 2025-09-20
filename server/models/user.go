@@ -14,6 +14,7 @@ type User struct {
 	Avatar      sql.NullString `json:"avatar,omitempty"`
 	Bio         sql.NullString `json:"bio,omitempty"`
 	IsPrivate   bool           `json:"is_private"`
+	CreatedAt   string         `json:"created_at"`
 	Followers   int            `json:"followers"`
 	Followed    int            `json:"followed"`
 }
@@ -29,6 +30,7 @@ type UserProfileResponse struct {
 	Avatar      string `json:"avatar,omitempty"`
 	Bio         string `json:"bio,omitempty"`
 	IsPrivate   bool   `json:"is_private"`
+	CreatedAt   string `json:"created_at"`
 	Followers   int    `json:"followers"`
 	Followed    int    `json:"followed"`
 }

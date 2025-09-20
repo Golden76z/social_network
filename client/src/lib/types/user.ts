@@ -51,5 +51,8 @@ export interface User {
     id: number;
     nickname: string;
     fullName: string;
+    first_name?: string;
+    last_name?: string;
     avatar?: string;
+    is_private?: boolean;
   }

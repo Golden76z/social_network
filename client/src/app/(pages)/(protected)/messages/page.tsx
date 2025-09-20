@@ -184,7 +184,7 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col">
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <h1 className="text-2xl font-bold text-foreground">Messages</h1>
         <Button variant="outline" type="button">

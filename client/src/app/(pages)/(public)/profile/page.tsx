@@ -12,9 +12,19 @@ import {
   Post,
 } from '@/lib/types';
 import { uploadAvatar } from '@/lib/api/upload';
-import { Lock, Unlock, UserMinus, UserPlus } from 'lucide-react';
+import { Lock, Unlock, UserMinus, UserPlus, Users, UserCheck } from 'lucide-react';
 import { PostCard } from '@/components/PostCard';
 import { PostModal } from '@/components/PostModal';
+import { Avatar } from '@/components/Avatar';
+import { ProfileThumbnail } from '@/components/ProfileThumbnail';
+import Button from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ModernInput } from '@/components/ui/modern-input';
+import { ModernTextarea } from '@/components/ui/modern-textarea';
+import { ModernCheckbox } from '@/components/ui/modern-checkbox';
+import { ModernSection } from '@/components/ui/modern-section';
+import { ModernFileInput } from '@/components/ui/modern-file-input';
+import { AvatarFileInput } from '@/components/ui/avatar-file-input';
 
 interface FollowersModalProps {
   isOpen: boolean;
@@ -22,7 +32,81 @@ interface FollowersModalProps {
   users: UserDisplayInfo[];
   title: string;
   onUserClick: (userId: number) => void;
+  isOwnProfile?: boolean;
 }
+
+interface ErrorModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  message: string;
+}
+
+const ErrorModal: React.FC<ErrorModalProps> = ({
+  isOpen,
+  onClose,
+  title,
+  message,
+}) => {
+  const modalRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        modalRef.current &&
+        !modalRef.current.contains(e.target as Node) &&
+        isOpen
+      ) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div
+        ref={modalRef}
+        className="bg-card rounded-lg max-w-md w-full border border-border"
+      >
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h2 className="text-lg font-semibold text-card-foreground">{title}</h2>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-accent rounded-full"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="p-4">
+          <p className="text-card-foreground">{message}</p>
+        </div>
+        <div className="flex justify-end p-4 border-t border-border">
+          <Button onClick={onClose} variant="outline" size="default">
+            OK
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const FollowersModal: React.FC<FollowersModalProps> = ({
   isOpen,
@@ -30,6 +114,7 @@ const FollowersModal: React.FC<FollowersModalProps> = ({
   users,
   title,
   onUserClick,
+  isOwnProfile = false,
 }) => {
   const modalRef = React.useRef<HTMLDivElement>(null);
 
@@ -64,41 +149,100 @@ const FollowersModal: React.FC<FollowersModalProps> = ({
 
   if (!isOpen) return null;
 
+  const isFollowers = title === 'Followers';
+  const icon = isFollowers ? Users : UserCheck;
+
+  // Get the appropriate title based on context
+  const getModalTitle = () => {
+    console.log('getModalTitle called:', { isOwnProfile, isFollowers, title });
+    if (isOwnProfile) {
+      return isFollowers ? 'People that follow you' : 'People you follow';
+    }
+    return title;
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div 
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
       <div
         ref={modalRef}
-        className="bg-white rounded-lg max-w-md w-full max-h-[80vh] overflow-hidden"
+        className="bg-card border border-border rounded-lg p-6 max-w-lg w-full mx-4 max-h-[85vh] overflow-y-auto"
       >
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold">{title}</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+            {React.createElement(icon, { className: "w-5 h-5" })}
+            {getModalTitle()} ({users.length})
+          </h3>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-full"
+            className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-accent transition-colors"
           >
             ✕
           </button>
         </div>
-
-        <div className="overflow-y-auto max-h-[60vh] p-4">
+        
+        <div className="space-y-4">
           {users.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">
-              No {title.toLowerCase()} yet.
-            </p>
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                {React.createElement(icon, { className: "w-8 h-8 text-muted-foreground opacity-50" })}
+              </div>
+              <h4 className="text-lg font-medium text-card-foreground mb-2">
+                No {title.toLowerCase()} yet
+              </h4>
+              <p className="text-muted-foreground text-sm">
+                {isFollowers 
+                  ? (isOwnProfile 
+                      ? "You don't have any followers yet." 
+                      : "This user doesn't have any followers yet.")
+                  : (isOwnProfile 
+                      ? "You aren't following anyone yet." 
+                      : "This user isn't following anyone yet.")
+                }
+              </p>
+            </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-[50vh] overflow-y-auto">
               {users.map((user) => (
                 <div
                   key={user.id}
                   onClick={() => onUserClick(user.id)}
-                  className="flex items-center space-x-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors"
+                  className="flex items-center gap-4 p-4 rounded-xl border border-border hover:bg-accent cursor-pointer transition-all duration-200 hover:shadow-md group hover:border-primary/20"
                 >
-                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
-                    {user.nickname?.charAt(0) || 'U'}
+                  <ProfileThumbnail
+                    src={typeof user.avatar === 'string' ? user.avatar : undefined}
+                    alt={`${user.fullName} avatar`}
+                    size="md"
+                    rounded
+                    initials={user.nickname || 'U'}
+                    className="group-hover:scale-105 transition-transform duration-200 ring-2 ring-transparent group-hover:ring-primary/20"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="space-y-1">
+                      {user.first_name && user.last_name ? (
+                        <h4 className="font-semibold text-base text-card-foreground truncate group-hover:text-primary transition-colors">
+                          {user.first_name} {user.last_name}
+                        </h4>
+                      ) : (
+                        <h4 className="font-semibold text-base text-card-foreground truncate group-hover:text-primary transition-colors">
+                          {user.fullName}
+                        </h4>
+                      )}
+                      <p className="text-sm text-muted-foreground truncate font-medium">
+                        @{user.nickname}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold text-sm">{user.fullName}</p>
-                    <p className="text-xs text-gray-500">@{user.nickname}</p>
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-all duration-200 group-hover:scale-105">
+                      <UserCheck className="w-4 h-4 text-primary" />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -140,7 +284,13 @@ function ProfilePageContent() {
   // Avatar change state
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarUploading, setAvatarUploading] = useState(false);
+  
+  // Error modal state
+  const [errorModal, setErrorModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+  }>({ isOpen: false, title: '', message: '' });
 
   // Posts sections state
   const [userPosts, setUserPosts] = useState<Post[]>([]);
@@ -389,6 +539,30 @@ function ProfilePageContent() {
       setSaving(true);
       setError(null);
 
+      // Upload avatar first if there's a new one
+      let avatarUrl = profileUser?.avatar;
+      if (avatarFile) {
+        try {
+          const { url } = await uploadAvatar(avatarFile);
+          avatarUrl = url;
+          // Update the profile user with new avatar URL
+          setProfileUser((prev) =>
+            prev ? { ...prev, avatar: url } : prev,
+          );
+          // Clean up preview
+          if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+          setAvatarPreview(null);
+          setAvatarFile(null);
+        } catch (e: any) {
+          setErrorModal({
+            isOpen: true,
+            title: 'Erreur de téléchargement',
+            message: e?.message || "Erreur lors de la mise à jour de l'avatar",
+          });
+          return; // Don't proceed with profile update if avatar upload fails
+        }
+      }
+
       const payload: UpdateUserRequest = {
         first_name: formState.first_name,
         last_name: formState.last_name,
@@ -601,230 +775,208 @@ function ProfilePageContent() {
   };
 
   return (
-    <div className="w-full">
-      <h1 className="text-2xl font-bold mb-6">
-        {isOwnProfile()
-          ? 'Your Profile'
-          : `${profileUser?.nickname || 'User'}'s Profile`}
-      </h1>
-
+    <div className="max-w-4xl">
       <div className="space-y-6">
         {/* Profile Header */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-card rounded-lg border border-border p-6">
           <div className="flex items-start gap-4">
-            {/* Avatar */}
-            {avatarPreview || profileUser.avatar ? (
-              <img
-                src={
-                  (avatarPreview || profileUser.avatar)!.startsWith('http')
-                    ? (avatarPreview || profileUser.avatar)!
-                    : `${
-                        process.env.NEXT_PUBLIC_API_URL ||
-                        process.env.NEXT_PUBLIC_API_BASE_URL ||
-                        'http://localhost:8080'
-                      }${avatarPreview || profileUser.avatar}`
-                }
-                alt="Avatar"
-                className="w-20 h-20 rounded-full object-cover border"
+            {/* Avatar - Always visible */}
+            <div className="flex-shrink-0">
+              <Avatar
+                src={avatarPreview || profileUser.avatar}
+                alt={`${profileUser.first_name} ${profileUser.last_name}`}
+                fallback={profileUser.nickname?.charAt(0) || 'U'}
+                size="xl"
               />
-            ) : (
-              <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-medium">
-                {profileUser.nickname?.charAt(0) || 'U'}
-              </div>
-            )}
-            <div className="flex-1 space-y-2">
+            </div>
+
+            {/* Profile Content */}
+            <div className="flex-1 space-y-4">
               {isEditing ? (
-                <>
+                <div className="space-y-4">
                   {/* Avatar change controls */}
-                  <div className="flex items-center gap-2">
-                    <label className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer">
-                      Changer la photo
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/gif"
-                        className="hidden"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0] || null;
-                          if (!f) return;
-                          if (!/^image\/(jpeg|jpg|png|gif)$/i.test(f.type)) {
-                            alert('Format non supporté');
-                            return;
-                          }
-                          if (f.size > 5 * 1024 * 1024) {
-                            alert('Fichier trop volumineux (max 5 Mo)');
-                            return;
-                          }
-                          if (avatarPreview) URL.revokeObjectURL(avatarPreview);
-                          setAvatarPreview(URL.createObjectURL(f));
-                          setAvatarFile(f);
-                        }}
+                  <ModernSection>
+                    <div className="flex items-center gap-4">
+                      <div className="flex gap-2">
+                        <AvatarFileInput
+                          onChange={(file) => {
+                            if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+                            if (file) {
+                              setAvatarPreview(URL.createObjectURL(file));
+                              setAvatarFile(file);
+                            }
+                          }}
+                          onError={(title, message) => {
+                            setErrorModal({
+                              isOpen: true,
+                              title,
+                              message
+                            });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </ModernSection>
+
+                  {/* Personal Information */}
+                  <ModernSection title="Personal Information">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <ModernInput
+                        type="text"
+                        value={formState.first_name}
+                        onChange={(e) => handleChange('first_name', e.target.value)}
+                        placeholder="First Name"
                       />
-                    </label>
-                    <button
-                      type="button"
-                      disabled={!avatarFile || avatarUploading}
-                      onClick={async () => {
-                        if (!avatarFile) return;
-                        try {
-                          setAvatarUploading(true);
-                          const { url } = await uploadAvatar(avatarFile);
-                          setProfileUser((prev) =>
-                            prev ? { ...prev, avatar: url } : prev,
-                          );
-                          if (avatarPreview) URL.revokeObjectURL(avatarPreview);
-                          setAvatarPreview(null);
-                          setAvatarFile(null);
-                        } catch (e: any) {
-                          alert(
-                            e?.message ||
-                              "Erreur lors de la mise à jour de l'avatar",
-                          );
-                        } finally {
-                          setAvatarUploading(false);
-                        }
-                      }}
-                      className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg disabled:opacity-50"
-                    >
-                      {avatarUploading ? 'Envoi...' : 'Mettre à jour la photo'}
-                    </button>
-                  </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      className="flex-1 border border-gray-300 rounded px-3 py-2 text-lg font-semibold"
-                      value={formState.first_name}
-                      onChange={(e) =>
-                        handleChange('first_name', e.target.value)
-                      }
-                      placeholder="First Name"
-                    />
-                    <input
-                      type="text"
-                      className="flex-1 border border-gray-300 rounded px-3 py-2 text-lg font-semibold"
-                      value={formState.last_name}
-                      onChange={(e) =>
-                        handleChange('last_name', e.target.value)
-                      }
-                      placeholder="Last Name"
-                    />
-                  </div>
-                  <input
-                    type="text"
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-gray-600"
-                    value={formState.nickname}
-                    onChange={(e) => handleChange('nickname', e.target.value)}
-                    placeholder="Nickname"
-                  />
-                  <textarea
-                    rows={3}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                    value={formState.bio}
-                    onChange={(e) => handleChange('bio', e.target.value)}
-                    placeholder="Bio"
-                  />
-                  <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={formState.is_private}
-                        onChange={(e) =>
-                          handleChange('is_private', e.target.checked)
-                        }
-                        className="rounded"
+                      <ModernInput
+                        type="text"
+                        value={formState.last_name}
+                        onChange={(e) => handleChange('last_name', e.target.value)}
+                        placeholder="Last Name"
                       />
-                      <span className="flex items-center gap-1">
-                        {formState.is_private ? (
-                          <Lock className="w-4 h-4" />
+                    </div>
+                    <ModernInput
+                      type="text"
+                      value={formState.nickname}
+                      onChange={(e) => handleChange('nickname', e.target.value)}
+                      placeholder="Nickname"
+                    />
+                  </ModernSection>
+
+                  {/* Bio */}
+                  <ModernSection title="Bio">
+                    <ModernTextarea
+                      rows={3}
+                      value={formState.bio}
+                      onChange={(e) => handleChange('bio', e.target.value)}
+                      placeholder="Tell us about yourself..."
+                    />
+                  </ModernSection>
+
+                  {/* Privacy Settings */}
+                  <ModernSection title="Privacy Settings">
+                    <ModernCheckbox
+                      checked={formState.is_private}
+                      onChange={(e) => handleChange('is_private', e.target.checked)}
+                      label="Private Profile"
+                      icon={
+                        formState.is_private ? (
+                          <Lock className="w-4 h-4 text-orange-500" />
                         ) : (
-                          <Unlock className="w-4 h-4" />
-                        )}
-                        Private Profile
-                      </span>
-                    </label>
-                  </div>
-                </>
+                          <Unlock className="w-4 h-4 text-green-500" />
+                        )
+                      }
+                    />
+                  </ModernSection>
+                </div>
               ) : (
-                <>
-                  <h2 className="text-xl font-semibold">
-                    {profileUser.first_name} {profileUser.last_name}
-                  </h2>
-                  <p className="text-gray-600">@{profileUser.nickname}</p>
-                  <p className="text-sm text-gray-700">
-                    {profileUser.bio || 'No bio yet.'}
-                  </p>
-                  <div className="flex items-center gap-2 text-sm">
-                    {profileUser.is_private ? (
-                      <span className="flex items-center gap-1 text-orange-600">
-                        <Lock className="w-4 h-4" />
-                        Private Profile
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-green-600">
-                        <Unlock className="w-4 h-4" />
-                        Public Profile
-                      </span>
-                    )}
+                <div className="space-y-4">
+                  {/* Name and Username */}
+                  <div className="space-y-1">
+                    <h2 className="text-2xl font-bold text-card-foreground">
+                      {profileUser.first_name} {profileUser.last_name}
+                    </h2>
+                    <div className="flex items-center gap-3">
+                      <p className="text-lg text-muted-foreground">@{profileUser.nickname}</p>
+                      {profileUser.is_private ? (
+                        <div className="flex items-center gap-1 px-2 py-1 bg-orange-100 rounded-full">
+                          <Lock className="w-3 h-3 text-orange-600" />
+                          <span className="text-xs text-orange-600 font-medium">Private</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 px-2 py-1 bg-green-100 rounded-full">
+                          <Unlock className="w-3 h-3 text-green-600" />
+                          <span className="text-xs text-green-600 font-medium">Public</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </>
+
+                  {/* Bio Section */}
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-medium text-card-foreground">Bio</h3>
+                    <div className="p-4 bg-muted/30 rounded-lg border border-border">
+                      <p className="text-card-foreground leading-relaxed">
+                        {profileUser.bio || 'No bio available yet.'}
+                      </p>
+                    </div>
+                  </div>
+
+
+                  {/* Additional Info */}
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-medium text-card-foreground">Member Since</h3>
+                    <div className="p-3 bg-muted/30 rounded-lg border border-border">
+                      <p className="text-sm text-card-foreground">
+                        {profileUser.created_at && !isNaN(new Date(profileUser.created_at).getTime()) 
+                          ? new Date(profileUser.created_at).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })
+                          : 'Unknown'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
 
             {isOwnProfile() && (
-              <>
+              <div className="flex justify-end">
                 {isEditing ? (
-                  <div className="flex gap-2">
-                    <button
+                  <div className="flex flex-col gap-2">
+                    <Button
                       onClick={handleSave}
                       disabled={saving}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                      variant="outline"
+                      size="default"
                     >
-                      {saving ? 'Saving...' : 'Save'}
-                    </button>
-                    <button
+                      {saving ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                    <Button
                       onClick={handleCancel}
-                      className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      variant="outline"
+                      size="default"
                     >
                       Cancel
-                    </button>
+                    </Button>
                   </div>
                 ) : (
-                  <button
-                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  <Button
                     onClick={() => setIsEditing(true)}
+                    variant="outline"
+                    size="default"
                   >
                     Edit Profile
-                  </button>
+                  </Button>
                 )}
-              </>
+              </div>
             )}
 
             {userId && user && parseInt(userId) !== user.id && (
-              <button
-                onClick={handleFollowToggle}
-                disabled={isFollowLoading}
-                className={`px-4 py-2 rounded-lg transition-colors flex items-center space-x-2 ${
-                  isFollowing
-                    ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    : 'bg-blue-500 text-white hover:bg-blue-600'
-                } ${isFollowLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                {isFollowLoading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
-                    <span>Loading...</span>
-                  </>
-                ) : isFollowing ? (
-                  <>
-                    <UserMinus className="w-4 h-4" />
-                    <span>Unfollow</span>
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="w-4 h-4" />
-                    <span>Follow</span>
-                  </>
-                )}
-              </button>
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleFollowToggle}
+                  disabled={isFollowLoading}
+                  variant={isFollowing ? 'secondary' : 'default'}
+                  size="default"
+                >
+                  {isFollowLoading ? (
+                    'Loading...'
+                  ) : isFollowing ? (
+                    <>
+                      <UserMinus className="w-4 h-4" />
+                      <span>Unfollow</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-4 h-4" />
+                      <span>Follow</span>
+                    </>
+                  )}
+                </Button>
+              </div>
             )}
           </div>
 
@@ -832,40 +984,43 @@ function ProfilePageContent() {
         </div>
 
         {/* Profile Stats */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="grid grid-cols-2 gap-4">
+        <div className="bg-card rounded-lg border border-border p-6">
+          {/* <h3 className="text-lg font-semibold text-card-foreground mb-4">Social Stats</h3> */}
+          <div className="grid grid-cols-2 gap-6">
             <div
-              className="text-center cursor-pointer hover:text-blue-500 transition-colors"
+              className="text-center cursor-pointer hover:bg-accent/50 transition-colors p-4 rounded-lg group"
               onClick={handleFollowingClick}
             >
-              <div className="text-2xl font-bold">
+              <div className="text-3xl font-bold text-primary group-hover:text-primary/80 transition-colors">
                 {profileUser?.followed || 0}
               </div>
-              <div className="text-sm text-gray-500">Following</div>
+              <div className="text-sm text-muted-foreground mt-1">Following</div>
+              <div className="text-xs text-muted-foreground/70 mt-1">People they follow</div>
             </div>
             <div
-              className="text-center cursor-pointer hover:text-blue-500 transition-colors"
+              className="text-center cursor-pointer hover:bg-accent/50 transition-colors p-4 rounded-lg group"
               onClick={handleFollowersClick}
             >
-              <div className="text-2xl font-bold">
+              <div className="text-3xl font-bold text-primary group-hover:text-primary/80 transition-colors">
                 {profileUser?.followers || 0}
               </div>
-              <div className="text-sm text-gray-500">Followers</div>
+              <div className="text-sm text-muted-foreground mt-1">Followers</div>
+              <div className="text-xs text-muted-foreground/70 mt-1">People following them</div>
             </div>
           </div>
         </div>
 
         {/* Posts Tabs Section - Only show if user can view posts */}
         {canViewPosts() ? (
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="bg-card rounded-lg border border-border p-6">
             {/* Tab Buttons */}
-            <div className="flex space-x-1 mb-6 bg-gray-100 p-1 rounded-lg">
+            <div className="flex space-x-1 mb-6 bg-muted p-1 rounded-lg">
               <button
                 onClick={() => setActiveTab('posts')}
                 className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
                   activeTab === 'posts'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'bg-background text-primary shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 Posts
@@ -877,8 +1032,8 @@ function ProfilePageContent() {
                     onClick={() => setActiveTab('liked')}
                     className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
                       activeTab === 'liked'
-                        ? 'bg-white text-blue-600 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-700'
+                        ? 'bg-background text-primary shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     Liked
@@ -887,8 +1042,8 @@ function ProfilePageContent() {
                     onClick={() => setActiveTab('commented')}
                     className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
                       activeTab === 'commented'
-                        ? 'bg-white text-blue-600 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-700'
+                        ? 'bg-background text-primary shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     Commented
@@ -902,13 +1057,13 @@ function ProfilePageContent() {
               <>
                 {loadingPosts ? (
                   <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                    <span className="ml-2 text-gray-500">Loading posts...</span>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <span className="ml-2 text-muted-foreground">Loading posts...</span>
                   </div>
                 ) : userPosts.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-gray-500 text-lg">No posts yet.</p>
-                    <p className="text-gray-400 text-sm mt-2">
+                    <p className="text-muted-foreground text-lg">No posts yet.</p>
+                    <p className="text-muted-foreground/70 text-sm mt-2">
                       {userId
                         ? "This user hasn't posted anything yet."
                         : 'Create your first post to get started!'}
@@ -937,15 +1092,15 @@ function ProfilePageContent() {
               <>
                 {loadingPosts ? (
                   <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                    <span className="ml-2 text-gray-500">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <span className="ml-2 text-muted-foreground">
                       Loading liked posts...
                     </span>
                   </div>
                 ) : likedPosts.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-gray-500 text-lg">No liked posts yet.</p>
-                    <p className="text-gray-400 text-sm mt-2">
+                    <p className="text-muted-foreground text-lg">No liked posts yet.</p>
+                    <p className="text-muted-foreground/70 text-sm mt-2">
                       {userId
                         ? "This user hasn't liked any posts yet."
                         : 'Like some posts to see them here!'}
@@ -973,17 +1128,17 @@ function ProfilePageContent() {
               <>
                 {loadingPosts ? (
                   <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                    <span className="ml-2 text-gray-500">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <span className="ml-2 text-muted-foreground">
                       Loading commented posts...
                     </span>
                   </div>
                 ) : commentedPosts.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-gray-500 text-lg">
+                    <p className="text-muted-foreground text-lg">
                       No commented posts yet.
                     </p>
-                    <p className="text-gray-400 text-sm mt-2">
+                    <p className="text-muted-foreground/70 text-sm mt-2">
                       {userId
                         ? "This user hasn't commented on any posts yet."
                         : 'Comment on some posts to see them here!'}
@@ -1009,15 +1164,15 @@ function ProfilePageContent() {
           </div>
         ) : (
           /* Private Profile Message */
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="bg-card rounded-lg border border-border p-6">
             <div className="text-center py-8">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Lock className="w-8 h-8 text-gray-400" />
+              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                <Lock className="w-8 h-8 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-700 mb-2">
+              <h3 className="text-lg font-semibold text-card-foreground mb-2">
                 This profile is private
               </h3>
-              <p className="text-gray-500 text-sm mb-4">
+              <p className="text-muted-foreground text-sm mb-4">
                 {!user
                   ? 'Sign in to follow this user and see their posts, liked content, and comments.'
                   : userId
@@ -1028,14 +1183,14 @@ function ProfilePageContent() {
                 <div className="space-y-2">
                   <a
                     href="/login"
-                    className="inline-block px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                    className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
                   >
                     Sign In
                   </a>
-                  <p className="text-xs text-gray-400">or</p>
+                  <p className="text-xs text-muted-foreground">or</p>
                   <a
                     href="/register"
-                    className="inline-block px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="inline-block px-4 py-2 border border-border text-card-foreground rounded-lg hover:bg-accent transition-colors"
                   >
                     Create Account
                   </a>
@@ -1047,7 +1202,7 @@ function ProfilePageContent() {
                   <button
                     onClick={handleFollowToggle}
                     disabled={isFollowLoading}
-                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"
                   >
                     {isFollowLoading ? 'Loading...' : 'Follow to see content'}
                   </button>
@@ -1065,6 +1220,7 @@ function ProfilePageContent() {
         users={followersModal.type === 'followers' ? followers : following}
         title={followersModal.type === 'followers' ? 'Followers' : 'Following'}
         onUserClick={handleUserClick}
+        isOwnProfile={isOwnProfile()}
       />
 
       {/* Post Modal */}
@@ -1076,6 +1232,14 @@ function ProfilePageContent() {
         disableInteractions={!user}
         isAuthenticated={!!user}
       />
+
+      {/* Error Modal */}
+      <ErrorModal
+        isOpen={errorModal.isOpen}
+        onClose={() => setErrorModal({ isOpen: false, title: '', message: '' })}
+        title={errorModal.title}
+        message={errorModal.message}
+      />
     </div>
   );
 }
@@ -1085,7 +1249,7 @@ export default function ProfilePage() {
     <Suspense
       fallback={
         <div className="min-h-screen flex items-center justify-center">
-          <p className="text-gray-500 text-lg">Loading...</p>
+          <p className="text-muted-foreground text-lg">Loading...</p>
         </div>
       }
     >

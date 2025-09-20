@@ -110,7 +110,7 @@ func (s *Service) GetFollowRequestBetween(requesterID, targetID int64) (*models.
 // GetFollowers retourne la liste des utilisateurs qui suivent l'utilisateur donné (status accepted)
 func (s *Service) GetFollowers(userID int64) ([]models.User, error) {
 	rows, err := s.DB.Query(`
-			   SELECT u.id, u.nickname, u.email, u.is_private
+			   SELECT u.id, u.nickname, u.first_name, u.last_name, u.email, u.avatar, u.is_private
 			   FROM users u
 			   JOIN follow_requests f ON u.id = f.requester_id
 			   WHERE f.target_id = ? AND f.status = 'accepted'`, userID)
@@ -122,7 +122,7 @@ func (s *Service) GetFollowers(userID int64) ([]models.User, error) {
 	var users []models.User
 	for rows.Next() {
 		var u models.User
-		err := rows.Scan(&u.ID, &u.Nickname, &u.Email, &u.IsPrivate)
+		err := rows.Scan(&u.ID, &u.Nickname, &u.FirstName, &u.LastName, &u.Email, &u.Avatar, &u.IsPrivate)
 		if err != nil {
 			return nil, err
 		}
@@ -134,7 +134,7 @@ func (s *Service) GetFollowers(userID int64) ([]models.User, error) {
 // GetFollowing retourne la liste des utilisateurs suivis par l'utilisateur donné (status accepted)
 func (s *Service) GetFollowing(userID int64) ([]models.User, error) {
 	rows, err := s.DB.Query(`
-			   SELECT u.id, u.nickname, u.email, u.is_private
+			   SELECT u.id, u.nickname, u.first_name, u.last_name, u.email, u.avatar, u.is_private
 			   FROM users u
 			   JOIN follow_requests f ON u.id = f.target_id
 			   WHERE f.requester_id = ? AND f.status = 'accepted'`, userID)
@@ -146,7 +146,7 @@ func (s *Service) GetFollowing(userID int64) ([]models.User, error) {
 	var users []models.User
 	for rows.Next() {
 		var u models.User
-		err := rows.Scan(&u.ID, &u.Nickname, &u.Email, &u.IsPrivate)
+		err := rows.Scan(&u.ID, &u.Nickname, &u.FirstName, &u.LastName, &u.Email, &u.Avatar, &u.IsPrivate)
 		if err != nil {
 			return nil, err
 		}
