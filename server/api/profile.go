@@ -180,7 +180,7 @@ func getUserProfileFromDB(userID int64) (*models.User, error) {
 	var user models.User
 
 	query := `
-		SELECT id, nickname, first_name, last_name, email, date_of_birth, avatar, bio, is_private, created_at, followers, followed
+		SELECT id, nickname, first_name, last_name, email, date_of_birth, avatar, bio, is_private, created_at
 		FROM users
 		WHERE id = ?
 	`
@@ -196,12 +196,34 @@ func getUserProfileFromDB(userID int64) (*models.User, error) {
 		&user.Bio,
 		&user.IsPrivate,
 		&user.CreatedAt,
-		&user.Followers,
-		&user.Followed,
 	)
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Calculate follower count dynamically from follow_requests table
+	followerCountQuery := `
+		SELECT COUNT(*) 
+		FROM follow_requests 
+		WHERE target_id = ? AND status = 'accepted'
+	`
+	err = db.DBService.DB.QueryRow(followerCountQuery, userID).Scan(&user.Followers)
+	if err != nil {
+		fmt.Printf("[WARNING] Error calculating follower count for user %d: %v\n", userID, err)
+		user.Followers = 0
+	}
+
+	// Calculate following count dynamically from follow_requests table
+	followingCountQuery := `
+		SELECT COUNT(*) 
+		FROM follow_requests 
+		WHERE requester_id = ? AND status = 'accepted'
+	`
+	err = db.DBService.DB.QueryRow(followingCountQuery, userID).Scan(&user.Followed)
+	if err != nil {
+		fmt.Printf("[WARNING] Error calculating following count for user %d: %v\n", userID, err)
+		user.Followed = 0
 	}
 
 	return &user, nil

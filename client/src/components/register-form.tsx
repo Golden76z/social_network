@@ -100,7 +100,7 @@ export function RegisterForm({
   };
 
   return (
-    <div className={cn('flex flex-col gap-6 max-w-md mx-auto', className)} {...props}>
+    <div className={cn('flex flex-col gap-6 max-w-2xl mx-auto w-full px-8', className)} {...props}>
       <Card>
         <CardHeader>
           <CardTitle>Register your account</CardTitle>
