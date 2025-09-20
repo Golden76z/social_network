@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Conversation, PrivateMessage } from '@/lib/types/chat';
 import { chatAPI, GroupConversation } from '@/lib/api/chat';
 import { useWebSocketContext } from '@/context/webSocketProvider';
@@ -15,6 +16,7 @@ type UnifiedConversation =
   | { type: 'group'; data: GroupConversation };
 
 export default function MessagesPage() {
+  const searchParams = useSearchParams();
   const [privateConversations, setPrivateConversations] = useState<Conversation[]>([]);
   const [groupConversations, setGroupConversations] = useState<GroupConversation[]>([]);
   const [unifiedConversations, setUnifiedConversations] = useState<UnifiedConversation[]>([]);
@@ -28,6 +30,24 @@ export default function MessagesPage() {
   useEffect(() => {
     loadConversations();
   }, []);
+
+  // Handle URL parameters for navigation from sidebar
+  useEffect(() => {
+    const groupId = searchParams.get('group');
+    const userId = searchParams.get('user');
+    
+    if (groupId && groupConversations.length > 0) {
+      const groupConv = groupConversations.find(conv => conv.group_id === parseInt(groupId));
+      if (groupConv) {
+        setSelectedConversation({ type: 'group', data: groupConv });
+      }
+    } else if (userId && privateConversations.length > 0) {
+      const privateConv = privateConversations.find(conv => conv.other_user_id === parseInt(userId));
+      if (privateConv) {
+        setSelectedConversation({ type: 'private', data: privateConv });
+      }
+    }
+  }, [searchParams, groupConversations, privateConversations]);
 
   // Handle real-time message updates
   useEffect(() => {

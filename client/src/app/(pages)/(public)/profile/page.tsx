@@ -1,4 +1,5 @@
 'use client';
+// Version: 1.2.0 - Enhanced modal styling and button visibility fixes
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -12,12 +13,20 @@ import {
   Post,
 } from '@/lib/types';
 import { uploadAvatar } from '@/lib/api/upload';
-import { Lock, Unlock, UserMinus, UserPlus, Users, UserCheck } from 'lucide-react';
+import { Lock, Unlock, UserMinus, UserPlus, Users, UserCheck, X } from 'lucide-react';
 import { PostCard } from '@/components/PostCard';
 import { PostModal } from '@/components/PostModal';
 import { Avatar } from '@/components/Avatar';
 import { ProfileThumbnail } from '@/components/ProfileThumbnail';
 import Button from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ModernInput } from '@/components/ui/modern-input';
 import { ModernTextarea } from '@/components/ui/modern-textarea';
@@ -269,6 +278,8 @@ function ProfilePageContent() {
   const [following, setFollowing] = useState<UserDisplayInfo[]>([]);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
+  const [showCancelConfirmModal, setShowCancelConfirmModal] = useState(false);
+  const [isCancelingRequest, setIsCancelingRequest] = useState(false);
 
   const [formState, setFormState] = useState({
     first_name: '',
@@ -330,6 +341,14 @@ function ProfilePageContent() {
           if (!userId) return; // Need userId to load other user's profile
           profileData = await userApi.getUserById(parseInt(userId));
         }
+        console.log('📋 Profile data loaded:', {
+          id: profileData.id,
+          nickname: profileData.nickname,
+          isFollowing: profileData.isFollowing,
+          followers: profileData.followers,
+          isOwnProfile: isOwnProfile()
+        });
+        
         setProfileUser(profileData);
         setFormState({
           first_name: profileData.first_name,
@@ -493,10 +512,32 @@ function ProfilePageContent() {
 
   // Initialize isFollowing from profile data when viewing someone else
   useEffect(() => {
-    if (profileUser && !isOwnProfile() && typeof (profileUser as any).isFollowing !== 'undefined') {
-      setIsFollowing(!!(profileUser as any).isFollowing);
+    if (profileUser && !isOwnProfile()) {
+      // Handle private profiles differently
+      if (profileUser.is_private) {
+        console.log('🔄 Setting isFollowing from private profile data:', profileUser.followStatus);
+        // For private profiles, use followStatus
+        if (profileUser.followStatus === 'accepted') {
+          setIsFollowing(true);
+        } else if (profileUser.followStatus === 'pending') {
+          setIsFollowing(false); // Show as not following, but button will show "Pending"
+        } else {
+          setIsFollowing(false); // Show as not following
+        }
+      } else {
+        // For public profiles, use isFollowing boolean
+        console.log('🔄 Setting isFollowing from public profile data:', profileUser.isFollowing);
+        setIsFollowing(!!profileUser.isFollowing);
+      }
     }
   }, [profileUser, userId]);
+
+  // Debug log for button rendering
+  useEffect(() => {
+    if (userId && user && parseInt(userId) !== user.id) {
+      console.log('🔘 Follow button state - isFollowing:', isFollowing, 'loading:', isFollowLoading, 'userId:', userId, 'profileUser:', profileUser?.id);
+    }
+  }, [isFollowing, isFollowLoading, userId, user, profileUser]);
 
   // Show loading only if we're authenticated and still checking auth, or if we're loading
   if ((user && (!hasCheckedAuth || isLoading)) || (!user && isLoading)) {
@@ -648,33 +689,94 @@ function ProfilePageContent() {
   const handleFollowToggle = async () => {
     if (!userId || !user) return;
 
+    // Capture current state before making the API call
+    const currentFollowState = isFollowing;
+    
     setIsFollowLoading(true);
     try {
-      if (isFollowing) {
+      if (currentFollowState) {
+        console.log('🔄 Attempting to unfollow user:', userId);
         await userApi.unfollowUser(parseInt(userId));
-        setIsFollowing(false);
-        // Update followers count
-        if (profileUser) {
-          setProfileUser({
-            ...profileUser,
-            followers: profileUser.followers - 1,
-          });
+        console.log('✅ Unfollow successful');
+      } else {
+        console.log('🔄 Attempting to follow user:', userId);
+        const followResult = await userApi.followUser(parseInt(userId));
+        console.log('✅ Follow API call completed:', followResult);
+      }
+      
+      // Always refresh profile data to get the actual server state
+      console.log('🔄 Refreshing profile data...');
+      const refreshedProfile = await userApi.getUserById(parseInt(userId));
+      console.log('✅ Profile refreshed:', {
+        isFollowing: refreshedProfile.isFollowing,
+        followers: refreshedProfile.followers
+      });
+      
+      setProfileUser(refreshedProfile);
+      setIsFollowing(!!refreshedProfile.isFollowing);
+      
+    } catch (error: any) {
+      console.error('❌ Error toggling follow:', error);
+      
+      // For "already following" or "already pending" responses, treat as success and refresh
+      if (error.message?.includes('already following') || 
+          error.message?.includes('already pending')) {
+        console.log('⚠️ Follow relationship already exists, refreshing profile...');
+        try {
+          const refreshedProfile = await userApi.getUserById(parseInt(userId));
+          setProfileUser(refreshedProfile);
+          setIsFollowing(!!refreshedProfile.isFollowing);
+        } catch (refreshError) {
+          console.error('❌ Error refreshing profile after follow exists:', refreshError);
         }
       } else {
-        await userApi.followUser(parseInt(userId));
-        setIsFollowing(true);
-        // Update followers count
-        if (profileUser) {
-          setProfileUser({
-            ...profileUser,
-            followers: profileUser.followers + 1,
-          });
+        // For other errors, refresh to get current state
+        try {
+          const refreshedProfile = await userApi.getUserById(parseInt(userId));
+          setProfileUser(refreshedProfile);
+          setIsFollowing(!!refreshedProfile.isFollowing);
+        } catch (refreshError) {
+          console.error('❌ Error refreshing profile after follow error:', refreshError);
         }
       }
-    } catch (error) {
-      console.error('Error toggling follow:', error);
     } finally {
       setIsFollowLoading(false);
+    }
+  };
+
+  const handleCancelFollowRequest = async () => {
+    if (!userId || !user) return;
+
+    setIsCancelingRequest(true);
+    try {
+      console.log('🔄 Attempting to cancel follow request for user:', userId);
+      await userApi.cancelFollowRequest(parseInt(userId));
+      console.log('✅ Cancel follow request successful');
+      
+      // Refresh profile data to get the updated state
+      console.log('🔄 Refreshing profile data...');
+      const refreshedProfile = await userApi.getUserById(parseInt(userId));
+      console.log('✅ Profile refreshed:', {
+        isFollowing: refreshedProfile.isFollowing,
+        followStatus: refreshedProfile.followStatus
+      });
+      
+      setProfileUser(refreshedProfile);
+      setIsFollowing(!!refreshedProfile.isFollowing);
+      
+    } catch (error: any) {
+      console.error('❌ Error canceling follow request:', error);
+      // Refresh profile data anyway to get current state
+      try {
+        const refreshedProfile = await userApi.getUserById(parseInt(userId));
+        setProfileUser(refreshedProfile);
+        setIsFollowing(!!refreshedProfile.isFollowing);
+      } catch (refreshError) {
+        console.error('❌ Error refreshing profile after cancel error:', refreshError);
+      }
+    } finally {
+      setIsCancelingRequest(false);
+      setShowCancelConfirmModal(false);
     }
   };
 
@@ -956,26 +1058,44 @@ function ProfilePageContent() {
 
             {userId && user && parseInt(userId) !== user.id && (
               <div className="flex justify-end">
-                <Button
-                  onClick={handleFollowToggle}
-                  disabled={isFollowLoading}
-                  variant={isFollowing ? 'secondary' : 'default'}
-                  size="default"
-                >
-                  {isFollowLoading ? (
-                    'Loading...'
-                  ) : isFollowing ? (
-                    <>
-                      <UserMinus className="w-4 h-4" />
-                      <span>Unfollow</span>
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="w-4 h-4" />
-                      <span>Follow</span>
-                    </>
-                  )}
-                </Button>
+                {profileUser?.is_private && profileUser?.followStatus === 'pending' ? (
+                  <Button
+                    onClick={() => setShowCancelConfirmModal(true)}
+                    disabled={isCancelingRequest}
+                    variant="secondary"
+                    size="default"
+                  >
+                    {isCancelingRequest ? (
+                      'Canceling...'
+                    ) : (
+                      <>
+                        <X className="w-4 h-4" />
+                        <span>Cancel Request</span>
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleFollowToggle}
+                    disabled={isFollowLoading}
+                    variant={isFollowing ? 'secondary' : 'default'}
+                    size="default"
+                  >
+                    {isFollowLoading ? (
+                      'Loading...'
+                    ) : isFollowing ? (
+                      <>
+                        <UserMinus className="w-4 h-4" />
+                        <span>Unfollow</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="w-4 h-4" />
+                        <span>Follow</span>
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -1174,9 +1294,11 @@ function ProfilePageContent() {
               </h3>
               <p className="text-muted-foreground text-sm mb-4">
                 {!user
-                  ? 'Sign in to follow this user and see their posts, liked content, and comments.'
+                  ? 'Sign in to send a follow request and see their posts, liked content, and comments.'
                   : userId
-                  ? 'Follow this user to see their posts, liked content, and comments.'
+                  ? profileUser?.followStatus === 'pending'
+                    ? 'Your follow request is pending. You will be able to see their content once they accept your request.'
+                    : 'Send a follow request to see their posts, liked content, and comments.'
                   : "This user's posts are only visible to their followers."}
               </p>
               {!user ? (
@@ -1198,13 +1320,14 @@ function ProfilePageContent() {
               ) : (
                 !isOwnProfile() &&
                 user &&
-                !isFollowing && (
+                !isFollowing &&
+                !(profileUser?.is_private && profileUser?.followStatus === 'pending') && (
                   <button
                     onClick={handleFollowToggle}
                     disabled={isFollowLoading}
                     className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"
                   >
-                    {isFollowLoading ? 'Loading...' : 'Follow to see content'}
+                    {isFollowLoading ? 'Loading...' : 'Send follow request'}
                   </button>
                 )
               )}
@@ -1240,6 +1363,41 @@ function ProfilePageContent() {
         title={errorModal.title}
         message={errorModal.message}
       />
+
+      {/* Cancel Follow Request Confirmation Modal */}
+      <Dialog open={showCancelConfirmModal} onOpenChange={setShowCancelConfirmModal}>
+        <DialogContent className="sm:max-w-md bg-card border border-border shadow-lg">
+          <DialogHeader className="space-y-3">
+            <DialogTitle className="text-lg font-semibold text-card-foreground">
+              Cancel Follow Request
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
+              Are you sure you want to cancel your follow request to{' '}
+              <span className="font-medium text-card-foreground">{profileUser?.nickname}</span>? 
+              <br />
+              <span className="text-xs text-muted-foreground/80">This action cannot be undone.</span>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end sm:gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowCancelConfirmModal(false)}
+              disabled={isCancelingRequest}
+              className="w-full sm:w-auto"
+            >
+              Keep Request
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelFollowRequest}
+              disabled={isCancelingRequest}
+              className="w-full sm:w-auto"
+            >
+              {isCancelingRequest ? 'Canceling...' : 'Cancel Request'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
