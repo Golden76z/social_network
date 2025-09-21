@@ -32,9 +32,10 @@ type GroupResponse struct {
 // ===== GROUP POST =====
 
 type CreateGroupPostRequest struct {
-	GroupID int64  `json:"group_id"`
-	Title   string `json:"title"`
-	Body    string `json:"body"`
+	GroupID int64    `json:"group_id"`
+	Title   string   `json:"title"`
+	Body    string   `json:"body"`
+	Images  []string `json:"images,omitempty"`
 }
 
 type GroupPost struct {

@@ -27,7 +27,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
   }, [isAuthenticated, user]);
 
   // Only create WebSocket connection when we have a valid token
-  const webSocket = useWebSocket({ url, token: isAuthenticated ? token : null });
+  const webSocket = useWebSocket({ url, token: isAuthenticated && token ? token : undefined });
 
   return (
     <WebSocketContext.Provider value={webSocket}>

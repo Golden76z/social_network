@@ -2,10 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { Trash2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthProvider';
 import { PostCard } from '@/components/PostCard';
 import { PostModal } from '@/components/PostModal';
+import { CreatePostModal } from '@/components/CreatePostModal';
 import { postApi } from '@/lib/api/post';
+import { groupApi } from '@/lib/api/group';
 import { Post } from '@/lib/types';
 
 const HomePage: React.FC = () => {
@@ -16,6 +19,11 @@ const HomePage: React.FC = () => {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [postToDelete, setPostToDelete] = useState<Post | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch posts
   useEffect(() => {
@@ -62,22 +70,10 @@ const HomePage: React.FC = () => {
     }
   };
 
-  const handleCloseModal = async () => {
+  const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedPost(null);
-
-    // Always refresh posts when closing modal to ensure sync
-    try {
-      let updatedPosts;
-      if (user) {
-        updatedPosts = await postApi.getUserFeed();
-      } else {
-        updatedPosts = await postApi.getPublicPosts();
-      }
-      setPosts(updatedPosts || []);
-    } catch (error) {
-      console.error('Error refreshing posts after modal close:', error);
-    }
+    // No need to refresh posts - the like/comment actions already update the local state
   };
 
   const handleUserClick = (userId: number) => {
@@ -85,37 +81,85 @@ const HomePage: React.FC = () => {
   };
 
   const handleLike = async (postId: number) => {
-    try {
-      let updatedPosts;
-      if (user) {
-        updatedPosts = await postApi.getUserFeed();
-      } else {
-        updatedPosts = await postApi.getPublicPosts();
-      }
-      setPosts(updatedPosts || []);
-
-      if (selectedPost?.id === postId) {
-        const updatedPost = updatedPosts?.find((p) => p.id === postId);
-        if (updatedPost) {
-          setSelectedPost(updatedPost);
-        }
-      }
-    } catch (error) {
-      console.error('Error refreshing posts after like:', error);
-    }
+    // The PostCard component handles the optimistic update
+    // No need to refresh all posts from the API
   };
 
   const handleComment = (postId: number) => {
     handleViewDetails(postId);
   };
 
+  const handleEditPost = async (post: Post) => {
+    setEditingPost(post);
+    setIsEditModalOpen(true);
+  };
+
+  const handleDeletePost = (post: Post) => {
+    setPostToDelete(post);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDeletePost = async () => {
+    if (!postToDelete) return;
+
+    try {
+      setIsDeleting(true);
+      
+      // Check if this is a group post and use appropriate API
+      if (postToDelete.post_type === 'group_post') {
+        await groupApi.deleteGroupPost(postToDelete.id);
+      } else {
+        await postApi.deletePost(postToDelete.id);
+      }
+      
+      // Remove the post from the local state
+      setPosts(prevPosts => prevPosts.filter(p => p.id !== postToDelete.id));
+      // Close the modal if it's open
+      setIsModalOpen(false);
+      setSelectedPost(null);
+      setShowDeleteConfirm(false);
+      setPostToDelete(null);
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      // Error will be handled by the UI
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleCancelDeletePost = () => {
+    setShowDeleteConfirm(false);
+    setPostToDelete(null);
+  };
+
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditingPost(null);
+  };
+
+  const handleEditSuccess = async () => {
+    // Refresh posts after successful edit
+    try {
+      let postsData;
+      if (user) {
+        postsData = await postApi.getUserFeed();
+      } else {
+        postsData = await postApi.getPublicPosts();
+      }
+      setPosts(postsData || []);
+    } catch (error) {
+      console.error('Error refreshing posts:', error);
+    }
+    handleCloseEditModal();
+  };
+
   return (
     <div className="w-full">
-      <h1 className="text-2xl font-bold mb-4">
+      {/* <h1 className="text-2xl font-bold mb-4">
         {user
           ? `Welcome back, ${user.nickname || user.first_name}!`
           : 'Welcome!'}
-      </h1>
+      </h1> */}
 
       <div className="space-y-6">
         <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -157,6 +201,11 @@ const HomePage: React.FC = () => {
                   onViewDetails={handleViewDetails}
                   onUserClick={handleUserClick}
                   disableLikes={!user}
+                  currentUserId={user?.id}
+                  onEdit={handleEditPost}
+                  onDelete={handleDeletePost}
+                  isGroupPost={post.post_type === 'group_post'}
+                  isGroupAdmin={false} // TODO: Check if user is group admin
                 />
               ))}
             </div>
@@ -171,7 +220,78 @@ const HomePage: React.FC = () => {
         onLike={handleLike}
         disableInteractions={!user}
         isAuthenticated={!!user}
+        isGroupPost={selectedPost?.post_type === 'group_post'}
+        currentUserId={user?.id}
+        onEdit={handleEditPost}
+        onDelete={handleDeletePost}
       />
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && postToDelete && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              handleCancelDeletePost();
+            }
+          }}
+        >
+          <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <Trash2 className="w-5 h-5 text-destructive" />
+                Delete Post
+              </h3>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-foreground mb-4">
+                Are you sure you want to delete this post? This action cannot be undone.
+              </p>
+              
+              {/* Post preview */}
+              <div className="bg-muted p-3 rounded-lg border border-border">
+                <h4 className="font-medium text-foreground mb-1">{postToDelete.title}</h4>
+                <p className="text-sm text-muted-foreground line-clamp-2">
+                  {postToDelete.body}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={handleCancelDeletePost}
+                className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors text-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDeletePost}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2 rounded-lg btn-delete disabled:cursor-not-allowed"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Post'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Post Modal */}
+      {editingPost && (
+        <CreatePostModal
+          isOpen={isEditModalOpen}
+          onClose={handleCloseEditModal}
+          onSuccess={handleEditSuccess}
+          initialTitle={editingPost.title}
+          initialContent={editingPost.body}
+          initialImages={editingPost.images || []}
+          postId={editingPost.id}
+          isGroupPost={editingPost.post_type === 'group_post'}
+          groupId={editingPost.group_id}
+          groupName={editingPost.group_name}
+        />
+      )}
     </div>
   );
 };

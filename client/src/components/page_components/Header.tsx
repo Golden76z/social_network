@@ -18,7 +18,11 @@ import {
   Lock
 } from 'lucide-react';
 
-export default function Header() {
+interface HeaderProps {
+  onCreatePost: () => void;
+}
+
+export default function Header({ onCreatePost }: HeaderProps) {
   const router = useRouter();
   const { logout, isAuthenticated, user } = useAuth();
 
@@ -38,6 +42,7 @@ export default function Header() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
 
   return (
     <header className="w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
@@ -67,14 +72,15 @@ export default function Header() {
             <div className="hidden md:flex items-center gap-3 relative" ref={dropdownRef}>
           {isAuthenticated ? (
             <>
-              <Link href="/posts/create">
-                <button className="flex items-center space-x-3 px-5 py-3 rounded-xl border border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/15 backdrop-blur-sm transition-all duration-200 hover:shadow-md group">
-                  <Edit3 className="w-4 h-4 text-primary transition-colors" />
-                  <span className="text-sm font-medium text-primary transition-colors">
-                    Post
-                  </span>
-                </button>
-              </Link>
+              <button 
+                onClick={onCreatePost}
+                className="flex items-center space-x-3 px-5 py-3 rounded-xl border border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/15 backdrop-blur-sm transition-all duration-200 hover:shadow-md group"
+              >
+                <Edit3 className="w-4 h-4 text-primary transition-colors" />
+                <span className="text-sm font-medium text-primary transition-colors">
+                  Post
+                </span>
+              </button>
 
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -94,7 +100,7 @@ export default function Header() {
               </button>
 
               {dropdownOpen && (
-                <div className="absolute left-1/2 top-full mt-2 w-48 rounded-xl border border-border/50 bg-popover/95 backdrop-blur-md shadow-xl p-2 z-50 animate-in slide-in-from-top-2 duration-200 transform -translate-x-1/2">
+                <div className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-border/50 bg-popover/95 backdrop-blur-md shadow-xl p-2 z-50 animate-in slide-in-from-top-2 duration-200">
                   <div className="flex flex-col gap-1">
                     <Link
                       href="/profile"
@@ -165,14 +171,18 @@ export default function Header() {
 
           {isAuthenticated ? (
             <div className="space-y-2">
-              <Link href="/posts/create">
-                <button className="flex items-center justify-center gap-3 w-full px-5 py-3 rounded-xl border border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/15 backdrop-blur-sm transition-all duration-200 hover:shadow-md group">
-                  <Edit3 className="w-4 h-4 text-primary transition-colors" />
-                  <span className="text-sm font-medium text-primary transition-colors">
-                    Create Post
-                  </span>
-                </button>
-              </Link>
+              <button 
+                onClick={() => {
+                  onCreatePost();
+                  setMobileMenuOpen(false);
+                }}
+                className="flex items-center justify-center gap-3 w-full px-5 py-3 rounded-xl border border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/15 backdrop-blur-sm transition-all duration-200 hover:shadow-md group"
+              >
+                <Edit3 className="w-4 h-4 text-primary transition-colors" />
+                <span className="text-sm font-medium text-primary transition-colors">
+                  Create Post
+                </span>
+              </button>
               <Link
                 href="/profile"
                 className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-sm hover:bg-accent/50 transition-all duration-200 text-center border border-border/50"

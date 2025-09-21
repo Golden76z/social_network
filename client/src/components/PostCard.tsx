@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 // We use <img src="/uploads/..."/> per project choice; disable next/image here.
-import { Heart, MessageCircle, MoreHorizontal } from 'lucide-react';
+import { Heart, MessageCircle, MoreHorizontal, Edit, Trash2 } from 'lucide-react';
 import { Post } from '@/lib/types';
 import { reactionApi } from '@/lib/api/reaction';
 import { ProfileThumbnail } from './ProfileThumbnail';
@@ -12,6 +12,14 @@ interface PostCardProps {
   onViewDetails?: (postId: number) => void;
   onUserClick?: (userId: number) => void;
   disableLikes?: boolean; // New prop to disable like functionality
+  // Author permission props
+  currentUserId?: number;
+  onEdit?: (post: Post) => void;
+  onDelete?: (post: Post) => void;
+  isDeleting?: boolean;
+  // Group-specific props
+  isGroupPost?: boolean;
+  isGroupAdmin?: boolean;
 }
 
 export const PostCard: React.FC<PostCardProps> = ({
@@ -21,6 +29,12 @@ export const PostCard: React.FC<PostCardProps> = ({
   onViewDetails,
   onUserClick,
   disableLikes = false,
+  currentUserId,
+  onEdit,
+  onDelete,
+  isDeleting = false,
+  isGroupPost = false,
+  isGroupAdmin = false,
 }) => {
   const [isLiked, setIsLiked] = useState(post.user_liked || false);
   const [likeCount, setLikeCount] = useState(post.likes || 0);
@@ -107,8 +121,27 @@ export const PostCard: React.FC<PostCardProps> = ({
     onViewDetails?.(post.id);
   };
 
+  const handleEdit = () => {
+    onEdit?.(post);
+  };
+
+  const handleDelete = () => {
+    onDelete?.(post);
+  };
+
+  // Determine if current user can edit/delete this post
+  const canEdit = currentUserId && (
+    isGroupAdmin || // Group admin can edit any group post
+    (post.author_id === currentUserId || post.user_id === currentUserId) // Author can edit their own post
+  );
+  
+  const canDelete = currentUserId && (
+    isGroupAdmin || // Group admin can delete any group post
+    (post.author_id === currentUserId || post.user_id === currentUserId) // Author can delete their own post
+  );
+
   return (
-    <div className="bg-card rounded-lg border border-border p-4 mb-4 hover:shadow-md transition-shadow">
+    <div className="bg-card rounded-lg border border-border p-4 mb-4 hover:shadow-md transition-shadow relative">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-3">
@@ -140,9 +173,31 @@ export const PostCard: React.FC<PostCardProps> = ({
             </p>
           </div>
         </div>
-        <button className="p-1 hover:bg-accent rounded-full">
-          <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-        </button>
+        
+        {/* Action buttons - only show if user has permissions */}
+        {(canEdit || canDelete) && (
+          <div className="flex gap-1">
+            {canEdit && (
+              <button 
+                onClick={handleEdit}
+                className="p-1 bg-card/80 backdrop-blur-sm text-muted-foreground hover:text-foreground rounded-full transition-colors"
+                title="Edit post"
+              >
+                <Edit className="w-4 h-4" />
+              </button>
+            )}
+            {canDelete && (
+              <button 
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="p-1 bg-card/80 backdrop-blur-sm text-muted-foreground hover:text-red-500 disabled:opacity-50 rounded-full transition-colors"
+                title="Delete post"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Title */}

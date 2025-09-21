@@ -61,10 +61,30 @@ func (s *Service) CreateGroupPost(request models.CreateGroupPostRequest, userID 
 		}
 	}()
 
-	_, err = tx.Exec(`
+	result, err := tx.Exec(`
 		INSERT INTO group_posts (group_id, user_id, title, body)
 		VALUES (?, ?, ?, ?)`, request.GroupID, userID, request.Title, request.Body)
-	return err
+	if err != nil {
+		return err
+	}
+
+	postID, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+
+	// Insert images if any
+	for _, imageURL := range request.Images {
+		_, err := tx.Exec(`
+			INSERT INTO post_images (post_id, is_group_post, image_url)
+			VALUES (?, ?, ?)`,
+			postID, true, imageURL)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *Service) GetGroupPostsWithImagesByGroupID(groupID int64, offset int, userID int64) ([]*models.GroupPost, error) {
@@ -258,10 +278,10 @@ func (s *Service) GetGroupPostWithImagesByID(postID, userID int64) (*models.Grou
 }
 
 func (s *Service) UpdateGroupPost(request models.UpdateGroupPostRequest, userID int64) error {
-	// groupID, err := s.GetGroupIDFromPost(request.ID)
-	// if err != nil {
-	// 	return errors.New("post not found")
-	// }
+	groupID, err := s.GetGroupIDFromPost(request.ID)
+	if err != nil {
+		return errors.New("post not found")
+	}
 
 	// Checking if the user is the owner of the Post
 	isOwner, err := s.IsPostOwner(userID, request.ID)
@@ -269,11 +289,11 @@ func (s *Service) UpdateGroupPost(request models.UpdateGroupPostRequest, userID 
 		return err
 	}
 
-	// isAdmin, err := s.IsUserGroupAdmin(userID, groupID)
-	// if err != nil {
-	// 	return err
-	// }
-	if !isOwner {
+	isAdmin, err := s.IsUserGroupAdmin(userID, groupID)
+	if err != nil {
+		return err
+	}
+	if !isOwner && !isAdmin {
 		return errors.New("not authorized")
 	}
 
@@ -310,10 +330,10 @@ func (s *Service) UpdateGroupPost(request models.UpdateGroupPostRequest, userID 
 }
 
 func (s *Service) DeleteGroupPost(id int64, userID int64) error {
-	// groupID, err := s.GetGroupIDFromPost(id)
-	// if err != nil {
-	// 	return errors.New("post not found")
-	// }
+	groupID, err := s.GetGroupIDFromPost(id)
+	if err != nil {
+		return errors.New("post not found")
+	}
 
 	// Checking if the user is the owner of the Post
 	isOwner, err := s.IsPostOwner(userID, id)
@@ -321,11 +341,11 @@ func (s *Service) DeleteGroupPost(id int64, userID int64) error {
 		return err
 	}
 
-	// isAdmin, err := s.IsUserGroupAdmin(userID, groupID)
-	// if err != nil {
-	// 	return err
-	// }
-	if !isOwner {
+	isAdmin, err := s.IsUserGroupAdmin(userID, groupID)
+	if err != nil {
+		return err
+	}
+	if !isOwner && !isAdmin {
 		return errors.New("not authorized")
 	}
 
