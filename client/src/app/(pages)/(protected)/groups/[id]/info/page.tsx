@@ -11,6 +11,7 @@ import { useAuth } from '@/context/AuthProvider';
 import { UserPlus, Settings, Users, UserCheck, Calendar, MessageSquare, Plus, Edit, Trash2 } from 'lucide-react';
 import { PostCard } from '@/components/PostCard';
 import { PostModal } from '@/components/PostModal';
+import { CreatePostModal } from '@/components/CreatePostModal';
 import { UserDisplayInfo } from '@/lib/types';
 import { ProfileThumbnail } from '@/components/ProfileThumbnail';
 
@@ -728,7 +729,7 @@ export default function GroupPage() {
       setPostToDelete(null);
     } catch (error) {
       console.error('Failed to delete post:', error);
-      alert('Failed to delete post. Please try again.');
+      // Error will be handled by the UI
     } finally {
       setDeletingPost(null);
     }
@@ -785,15 +786,27 @@ export default function GroupPage() {
     }
   };
 
-  const handleClosePostModal = async () => {
+  const handleClosePostModal = () => {
     setShowPostModal(false);
     setSelectedPost(null);
-    
-    // Refresh posts when closing modal
+    // No need to refresh posts - the like/comment actions already update the local state
+  };
+
+  const handleEditGroupPost = async (post: any) => {
+    // Open edit modal for group post
+    setEditingPost(post);
+    setShowCreatePostModal(true);
+  };
+
+  const handleDeleteGroupPost = async (post: any) => {
     try {
+      await groupApi.deleteGroupPost(post.id);
       await loadPosts();
+      setShowPostModal(false);
+      setSelectedPost(null);
     } catch (error) {
-      console.error('Error refreshing posts after modal close:', error);
+      console.error('Failed to delete group post:', error);
+      // The PostModal will handle showing the error via its confirmation dialog
     }
   };
 
@@ -1563,93 +1576,26 @@ export default function GroupPage() {
       )}
 
       {/* Create Post Modal */}
-      {showCreatePostModal && (
-        <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowCreatePostModal(false);
-              setEditingPost(null);
-              setPostFormData({ title: '', body: '' });
-              setPostError('');
-            }
-          }}
-        >
-          <div className="bg-card border border-border rounded-lg p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <MessageSquare className="w-5 h-5" />
-                {editingPost ? 'Edit Post' : 'Create Post'}
-              </h3>
-              <button
-                onClick={() => {
-                  setShowCreatePostModal(false);
-                  setPostFormData({ title: '', body: '' });
-                  setPostError('');
-                }}
-                className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-accent transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              {postError && (
-                <div className="rounded-md bg-red-50 p-4 text-red-700 text-sm border border-red-200">
-                  {postError}
-                </div>
-              )}
-              
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Title *</label>
-                <input
-                  type="text"
-                  value={postFormData.title}
-                  onChange={(e) => setPostFormData(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                  placeholder="Enter post title"
-                  maxLength={100}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Content *</label>
-                <textarea
-                  value={postFormData.body}
-                  onChange={(e) => setPostFormData(prev => ({ ...prev, body: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-                  placeholder="Write your post content..."
-                  rows={6}
-                  maxLength={1000}
-                />
-                <div className="text-xs text-muted-foreground text-right">
-                  {postFormData.body.length}/1000 characters
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6 pt-4 border-t border-border">
-              <button
-                onClick={() => {
-                  setShowCreatePostModal(false);
-                  setPostFormData({ title: '', body: '' });
-                  setPostError('');
-                }}
-                className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={editingPost ? handleUpdatePost : handleCreatePost}
-                disabled={creatingPost || !postFormData.title.trim() || !postFormData.body.trim()}
-                className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {creatingPost ? (editingPost ? 'Updating...' : 'Creating...') : (editingPost ? 'Update Post' : 'Create Post')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CreatePostModal
+        isOpen={showCreatePostModal}
+        onClose={() => {
+          setShowCreatePostModal(false);
+          setEditingPost(null);
+          setPostFormData({ title: '', body: '' });
+          setPostError('');
+        }}
+        onSuccess={() => {
+          // Refresh posts after successful creation
+          loadPosts();
+        }}
+        isGroupPost={true}
+        groupId={group?.id}
+        groupName={group?.title}
+        postId={editingPost?.id}
+        initialTitle={editingPost?.title || ''}
+        initialContent={editingPost?.body || ''}
+        initialImages={editingPost?.images || []}
+      />
 
       {/* Create Event Modal */}
       {showCreateEventModal && (
@@ -1775,7 +1721,7 @@ export default function GroupPage() {
           <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full mx-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <Trash2 className="w-5 h-5 text-red-500" />
+                <Trash2 className="w-5 h-5 text-destructive" />
                 Remove Member
               </h3>
               <button
@@ -1808,7 +1754,7 @@ export default function GroupPage() {
                 </div>
               </div>
 
-              <div className="rounded-md bg-red-50 p-4 text-red-700 text-sm border border-red-200">
+              <div className="rounded-md bg-destructive/10 p-4 text-destructive text-sm border border-destructive/20">
                 <p className="font-medium mb-1">⚠️ Warning</p>
                 <p>Are you sure you want to remove this member from the group? This action cannot be undone and they will lose access to all group content.</p>
               </div>
@@ -1827,7 +1773,7 @@ export default function GroupPage() {
               <button
                 onClick={handleConfirmRemoveMember}
                 disabled={removingMember}
-                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 rounded-lg btn-delete disabled:cursor-not-allowed"
               >
                 {removingMember ? 'Removing...' : 'Remove Member'}
               </button>
@@ -1850,7 +1796,7 @@ export default function GroupPage() {
           <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full mx-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <Trash2 className="w-5 h-5 text-red-500" />
+                <Trash2 className="w-5 h-5 text-destructive" />
                 Delete Post
               </h3>
               <button
@@ -1870,7 +1816,7 @@ export default function GroupPage() {
                 <p className="text-sm text-muted-foreground line-clamp-3">{postToDelete.body}</p>
               </div>
 
-              <div className="rounded-md bg-red-50 p-4 text-red-700 text-sm border border-red-200">
+              <div className="rounded-md bg-destructive/10 p-4 text-destructive text-sm border border-destructive/20">
                 <p className="font-medium mb-1">⚠️ Warning</p>
                 <p>Are you sure you want to delete this post? This action cannot be undone and all comments and reactions will be lost.</p>
               </div>
@@ -1889,7 +1835,7 @@ export default function GroupPage() {
               <button
                 onClick={handleConfirmDeletePost}
                 disabled={deletingPost === postToDelete.id}
-                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 rounded-lg btn-delete disabled:cursor-not-allowed"
               >
                 {deletingPost === postToDelete.id ? 'Deleting...' : 'Delete Post'}
               </button>
@@ -2022,6 +1968,10 @@ export default function GroupPage() {
         disableInteractions={false}
         isAuthenticated={!!user}
         isGroupPost={true}
+        currentUserId={user?.id}
+        onEdit={handleEditGroupPost}
+        onDelete={handleDeleteGroupPost}
+        isGroupAdmin={isAdmin}
       />
     </div>
   );

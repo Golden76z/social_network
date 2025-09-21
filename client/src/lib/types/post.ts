@@ -10,6 +10,11 @@ export interface Post {
   created_at: string; // Changed from createdAt to match DB
   updated_at?: string; // Changed from updatedAt to match DB
 
+  // Post type and group information (for unified feed)
+  post_type?: 'user_post' | 'group_post'; // Type of post
+  group_id?: number; // Group ID if this is a group post
+  group_name?: string; // Group name if this is a group post
+
   // Author information
   author_id?: number; // If you add this field to your backend response
   author?: User; // User info if populated
@@ -63,6 +68,9 @@ export interface Comment {
   last_name?: string;
   avatar?: string;
 
+  // Images support
+  images?: string[];
+
   // Optional fields
   likes_count?: number;
   is_liked?: boolean;
@@ -71,6 +79,7 @@ export interface Comment {
 export interface CreateCommentRequest {
   body: string;
   post_id: number; // Changed to match likely DB schema
+  images?: string[];
 }
 
 export interface UpdateCommentRequest {
