@@ -153,6 +153,7 @@ export const PostModal: React.FC<PostModalProps> = ({
         await groupApi.createGroupComment({
           group_post_id: post.id,
           body: data.body.trim(),
+          images: data.images,
         });
       } else {
         // For regular posts, use regular comment API

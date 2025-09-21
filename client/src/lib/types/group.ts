@@ -33,6 +33,7 @@ export interface CreateGroupPostRequest {
   group_id: number;
   title: string;
   body: string;
+  images?: string[];
 }
 
 export interface GroupPost {
@@ -43,7 +44,7 @@ export interface GroupPost {
   created_at: string;
   updated_at: string;
   visibility: string;
-  images: string[];
+  images: string[] | null;
   likes: number;
   dislikes: number;
   user_liked: boolean;
@@ -68,6 +69,7 @@ export interface DeleteGroupPostRequest {
 export interface CreateGroupCommentRequest {
   group_post_id: number;
   body: string;
+  images?: string[];
 }
 
 export interface UpdateGroupCommentRequest {

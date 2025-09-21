@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Comment } from '@/lib/types';
 import { ProfileThumbnail } from './ProfileThumbnail';
 import { ImageModal } from './ImageModal';
@@ -9,6 +10,7 @@ interface CommentItemProps {
 }
 
 export function CommentItem({ comment, src }: CommentItemProps) {
+  const router = useRouter();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
 
@@ -54,6 +56,26 @@ export function CommentItem({ comment, src }: CommentItemProps) {
     }
   };
 
+  const handleUserClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('Comment data:', comment);
+    console.log('Comment user_id:', comment.user_id);
+    console.log('Comment username:', comment.username);
+    console.log('Comment author_id (if different):', (comment as any).author_id);
+    
+    // Try both user_id and author_id fields in case there's a mismatch
+    const targetUserId = comment.user_id || (comment as any).author_id;
+    
+    if (targetUserId) {
+      console.log('Navigating to profile for user_id:', targetUserId);
+      router.push(`/profile?user_id=${targetUserId}`);
+    } else {
+      console.warn('No user_id or author_id found in comment:', comment);
+    }
+  };
+
   return (
     <>
       <div className="flex space-x-3">
@@ -61,12 +83,16 @@ export function CommentItem({ comment, src }: CommentItemProps) {
           src={src || (comment.avatar as string | undefined)}
           size="md"
           initials={(comment.username || comment.first_name || 'U') as string}
-          className="mt-3 flex-shrink-0"
+          className="mt-3 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={handleUserClick}
         />
         <div className="flex-1">
           <div className="bg-muted rounded-lg p-3">
             <div className="flex items-center space-x-2">
-              <p className="font-medium text-base">
+              <p 
+                className="font-medium text-base cursor-pointer hover:text-primary transition-colors"
+                onClick={handleUserClick}
+              >
                 {comment.username || comment.first_name || 'Unknown User'}
               </p>
               <p className="text-sm text-muted-foreground">{formatDate(comment.created_at)}</p>

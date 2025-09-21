@@ -162,19 +162,6 @@ export const SideBarRight: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Debug Section - Remove this after debugging */}
-      <div className="p-3 bg-yellow-100 border border-yellow-300 rounded-lg text-xs">
-        <div className="font-semibold mb-2">🐛 Debug Info:</div>
-        <div>Connection Status: {connectionStatus}</div>
-        <div>Connected: {isConnected ? '✅' : '❌'}</div>
-        <div>User ID: {user?.id || 'None'}</div>
-        <div>Groups: {groups?.length || 0} items</div>
-        <div>Groups Loading: {groupsLoading ? '⏳' : '✅'}</div>
-        <div>Mutual Friends: {mutualFollowers?.length || 0} items</div>
-        <div>Followers: {followers?.length || 0} items</div>
-        <div>Users Loading: {usersLoading ? '⏳' : '✅'}</div>
-        <div>Online Users: {onlineUsers?.length || 0} users</div>
-      </div>
 
       {/* Groups Section */}
       <div>
@@ -197,12 +184,12 @@ export const SideBarRight: React.FC = () => {
                   className="flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:bg-accent transition-colors group"
                 >
                   <div className="relative">
-                    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white text-sm font-medium">
+                    <div className="w-10 h-10 rounded-full border-2 border-primary/30 bg-primary/10 flex items-center justify-center text-primary text-sm font-medium overflow-hidden">
                       {group.avatar ? (
                         <img
                           src={group.avatar}
                           alt={group.title}
-                          className="w-full h-full rounded-lg object-cover"
+                          className="w-full h-full rounded-full object-cover"
                         />
                       ) : (
                         group.title.charAt(0).toUpperCase()
@@ -261,7 +248,7 @@ export const SideBarRight: React.FC = () => {
                       className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-accent transition-colors group"
                     >
                       <div className="relative">
-                        <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium">
+                        <div className="w-10 h-10 rounded-full border-2 border-primary/30 bg-primary/10 flex items-center justify-center text-primary text-sm font-medium overflow-hidden">
                           {mutualUser.avatar ? (
                             <img
                               src={mutualUser.avatar}
@@ -307,7 +294,7 @@ export const SideBarRight: React.FC = () => {
                       className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-accent transition-colors group"
                     >
                       <div className="relative">
-                        <div className="w-8 h-8 bg-primary/60 rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium">
+                        <div className="w-10 h-10 rounded-full border-2 border-primary/30 bg-primary/10 flex items-center justify-center text-primary text-sm font-medium overflow-hidden">
                           {mutualUser.avatar ? (
                             <img
                               src={mutualUser.avatar}
@@ -368,7 +355,7 @@ export const SideBarRight: React.FC = () => {
                     className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-accent transition-colors group"
                   >
                     <div className="relative">
-                      <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center text-secondary-foreground text-sm font-medium">
+                      <div className="w-10 h-10 rounded-full border-2 border-primary/30 bg-primary/10 flex items-center justify-center text-primary text-sm font-medium overflow-hidden">
                         {follower.avatar ? (
                           <img
                             src={follower.avatar}
@@ -416,7 +403,7 @@ export const SideBarRight: React.FC = () => {
                     className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-accent transition-colors group"
                   >
                     <div className="relative">
-                      <div className="w-8 h-8 bg-secondary/60 rounded-full flex items-center justify-center text-secondary-foreground text-sm font-medium">
+                      <div className="w-10 h-10 rounded-full border-2 border-primary/30 bg-primary/10 flex items-center justify-center text-primary text-sm font-medium overflow-hidden">
                         {follower.avatar ? (
                           <img
                             src={follower.avatar}

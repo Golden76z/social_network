@@ -230,9 +230,11 @@ func (s *Service) GetGroupPostWithImagesByID(postID, userID int64) (*models.Grou
 		return nil, errors.New("user is not a member of the group")
 	}
 
-	// Get post details with likes/dislikes
+	// Get post details with likes/dislikes and user information
 	var gp models.GroupPost
 	var userLikedInt, userDislikedInt int
+	var nickname, firstName, lastName string
+	var avatar sql.NullString
 	err = s.DB.QueryRow(`
         SELECT 
             gp.id, 
@@ -241,12 +243,18 @@ func (s *Service) GetGroupPostWithImagesByID(postID, userID int64) (*models.Grou
             gp.body, 
             gp.created_at, 
             gp.updated_at,
+            u.nickname,
+            u.first_name,
+            u.last_name,
+            u.avatar,
             (SELECT COUNT(*) FROM likes_dislikes WHERE group_post_id = gp.id AND type = 'like') AS likes,
             (SELECT COUNT(*) FROM likes_dislikes WHERE group_post_id = gp.id AND type = 'dislike') AS dislikes,
             EXISTS(SELECT 1 FROM likes_dislikes WHERE group_post_id = gp.id AND user_id = ? AND type = 'like') AS user_liked,
             EXISTS(SELECT 1 FROM likes_dislikes WHERE group_post_id = gp.id AND user_id = ? AND type = 'dislike') AS user_disliked
         FROM group_posts gp
+        JOIN users u ON gp.user_id = u.id
         WHERE gp.id = ?`, userID, userID, postID).Scan(&gp.ID, &gp.UserID, &gp.Title, &gp.Body, &gp.CreatedAt, &gp.UpdatedAt,
+		&nickname, &firstName, &lastName, &avatar,
 		&gp.Likes, &gp.Dislikes, &userLikedInt, &userDislikedInt)
 	if err != nil {
 		return nil, err
@@ -254,6 +262,16 @@ func (s *Service) GetGroupPostWithImagesByID(postID, userID int64) (*models.Grou
 	gp.Visibility = "public"
 	gp.UserLiked = userLikedInt == 1
 	gp.UserDisliked = userDislikedInt == 1
+
+	// Set user information
+	gp.AuthorNickname = nickname
+	gp.AuthorFirstName = firstName
+	gp.AuthorLastName = lastName
+	if avatar.Valid {
+		gp.AuthorAvatar = avatar.String
+	} else {
+		gp.AuthorAvatar = ""
+	}
 
 	// Get post images
 	rows, err := s.DB.Query(`

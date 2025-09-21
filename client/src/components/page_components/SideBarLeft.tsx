@@ -47,7 +47,7 @@ export const SideBarLeft: React.FC<SideBarLeftProps> = ({
       }
     >
       {navigationItems.map(({ icon: Icon, label, href }) => {
-        const isActive = pathname === href;
+        const isActive = pathname === href || (pathname === '/home' && href === '/') || (pathname === '/' && href === '/');
         
         const baseStyle = variant === 'bottom'
           ? isActive
@@ -64,7 +64,7 @@ export const SideBarLeft: React.FC<SideBarLeftProps> = ({
             className={
               variant === 'bottom'
                 ? `${baseStyle} flex flex-col items-center justify-center text-sm transition-colors`
-                : `w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-all duration-200 ${baseStyle}`
+                : `w-full flex items-center space-x-3 px-6 py-4 rounded-lg text-left transition-all duration-200 ${baseStyle}`
             }
           >
             <Icon className="w-6 h-6" />

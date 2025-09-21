@@ -6,6 +6,7 @@ import { GroupResponse } from '@/lib/types/group';
 import { groupApi } from '@/lib/api/group';
 import { useAuth } from '@/context/AuthProvider';
 import { GroupCard } from '@/components/GroupCard';
+import { CreateGroupModal } from '@/components/CreateGroupModal';
 import { UserCheck } from 'lucide-react';
 
 export default function GroupsPage() {
@@ -21,21 +22,27 @@ export default function GroupsPage() {
   const [activeTab, setActiveTab] = useState<'my-groups' | 'all-groups'>('my-groups');
   const [showJoinSuccessModal, setShowJoinSuccessModal] = useState(false);
   const [joinedGroup, setJoinedGroup] = useState<GroupResponse | null>(null);
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
 
-  // Handle escape key for modal
+  // Handle escape key for modals
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && showJoinSuccessModal) {
-        setShowJoinSuccessModal(false);
-        setJoinedGroup(null);
+      if (e.key === 'Escape') {
+        if (showJoinSuccessModal) {
+          setShowJoinSuccessModal(false);
+          setJoinedGroup(null);
+        }
+        if (showCreateGroupModal) {
+          setShowCreateGroupModal(false);
+        }
       }
     };
 
-    if (showJoinSuccessModal) {
+    if (showJoinSuccessModal || showCreateGroupModal) {
       document.addEventListener('keydown', handleEscape);
       return () => document.removeEventListener('keydown', handleEscape);
     }
-  }, [showJoinSuccessModal]);
+  }, [showJoinSuccessModal, showCreateGroupModal]);
 
   // Handle successful join request
   const handleJoinSuccess = (groupId: number) => {
@@ -167,7 +174,13 @@ export default function GroupsPage() {
   };
 
   const handleCreateGroup = () => {
-    router.push('/groups/create');
+    setShowCreateGroupModal(true);
+  };
+
+  const handleCreateGroupSuccess = () => {
+    setShowCreateGroupModal(false);
+    // Reload groups to show the new one
+    loadGroups();
   };
 
   const getMemberCount = (groupId: number) => {
@@ -207,34 +220,38 @@ export default function GroupsPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Groups</h1>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Groups</h1>
+          <p className="text-muted-foreground">Discover and join communities that interest you</p>
+        </div>
         <button 
           onClick={handleCreateGroup}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+          className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2"
         >
+          <span className="text-lg">+</span>
           Create Group
         </button>
       </div>
 
       {/* Toggle Buttons */}
-      <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg">
+      <div className="flex gap-2 mb-8 bg-muted/50 p-1 rounded-xl">
         <button 
           onClick={() => setActiveTab('my-groups')}
-          className={`flex-1 py-3 px-4 rounded-md text-sm font-medium transition-all duration-200 ${
+          className={`flex-1 py-3 px-6 rounded-lg text-sm font-medium transition-all duration-200 ${
             activeTab === 'my-groups'
-              ? 'bg-white text-primary shadow-sm border border-gray-200'
-              : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+              ? 'bg-card text-primary shadow-md border border-primary/20'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
           }`}
         >
           My Groups ({myGroups.length})
         </button>
         <button 
           onClick={() => setActiveTab('all-groups')}
-          className={`flex-1 py-3 px-4 rounded-md text-sm font-medium transition-all duration-200 ${
+          className={`flex-1 py-3 px-6 rounded-lg text-sm font-medium transition-all duration-200 ${
             activeTab === 'all-groups'
-              ? 'bg-white text-primary shadow-sm border border-gray-200'
-              : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+              ? 'bg-card text-primary shadow-md border border-primary/20'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
           }`}
         >
           All Groups ({allGroups.length})
@@ -242,7 +259,7 @@ export default function GroupsPage() {
       </div>
 
       {/* Groups Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="bg-card rounded-xl border border-border/50 p-8 shadow-sm">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold">
             {activeTab === 'my-groups' ? 'My Groups' : 'All Groups'}
@@ -274,24 +291,32 @@ export default function GroupsPage() {
             );
           } else {
             return (
-              <div className="text-center py-12 text-muted-foreground">
-                <div className="text-4xl mb-4">👥</div>
+              <div className="text-center py-16">
+                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-primary/20 to-primary/10 rounded-full flex items-center justify-center text-4xl">
+                  👥
+                </div>
                 {activeTab === 'my-groups' ? (
                   <>
-                    <p className="mb-4">You haven&apos;t joined any groups yet</p>
+                    <h3 className="text-xl font-semibold text-foreground mb-3">No Groups Yet</h3>
+                    <p className="text-muted-foreground mb-8 max-w-md mx-auto">
+                      You haven&apos;t joined any groups yet. Discover amazing communities and connect with like-minded people.
+                    </p>
                     <button 
                       onClick={() => setActiveTab('all-groups')}
-                      className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                      className="px-8 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all duration-200 shadow-lg hover:shadow-xl"
                     >
                       Discover Groups
                     </button>
                   </>
                 ) : (
                   <>
-                    <p className="mb-4">No groups available</p>
+                    <h3 className="text-xl font-semibold text-foreground mb-3">No Groups Available</h3>
+                    <p className="text-muted-foreground mb-8 max-w-md mx-auto">
+                      Be the first to create a group and start building your community.
+                    </p>
                     <button 
                       onClick={handleCreateGroup}
-                      className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                      className="px-8 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all duration-200 shadow-lg hover:shadow-xl"
                     >
                       Create First Group
                     </button>
@@ -359,6 +384,13 @@ export default function GroupsPage() {
           </div>
         </div>
       )}
+
+      {/* Create Group Modal */}
+      <CreateGroupModal
+        isOpen={showCreateGroupModal}
+        onClose={() => setShowCreateGroupModal(false)}
+        onSuccess={handleCreateGroupSuccess}
+      />
     </div>
   );
 }

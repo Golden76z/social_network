@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -64,6 +65,36 @@ func CreateGroupEventHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error creating event", http.StatusInternalServerError)
 		return
 	}
+
+	// Create notifications for all group members except the creator
+	group, err := db.DBService.GetGroupByID(req.GroupID)
+	if err == nil {
+		members, err := db.DBService.GetGroupMembers(req.GroupID, 0, creatorID)
+		if err == nil {
+			creator, err := db.DBService.GetUserByID(creatorID)
+			if err == nil {
+				for _, member := range members {
+					if member.UserID != creatorID { // Don't notify the creator
+						avatar := ""
+						if creator.Avatar.Valid {
+							avatar = creator.Avatar.String
+						}
+						notificationData := fmt.Sprintf(`{"group_id": %d, "group_name": "%s", "event_id": %d, "event_title": "%s", "creator_id": %d, "creator_nickname": "%s", "creator_avatar": "%s", "type": "group_event"}`,
+							req.GroupID, group.Title, 0, req.Title, creatorID, creator.Nickname, avatar) // event_id will be 0 for now, could be improved
+						notificationReq := models.CreateNotificationRequest{
+							UserID: member.UserID,
+							Type:   "group_event",
+							Data:   notificationData,
+						}
+						if err := db.DBService.CreateNotification(notificationReq); err != nil {
+							fmt.Printf("[WARNING] Failed to create notification for group event: %v\n", err)
+						}
+					}
+				}
+			}
+		}
+	}
+
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(`{"message": "Event created"}`))
 }

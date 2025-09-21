@@ -1,6 +1,6 @@
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
   process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
   'http://localhost:8080';
 
 export class ApiClient {
@@ -149,10 +149,11 @@ export class ApiClient {
     });
   }
 
-  async delete<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  async delete<T>(endpoint: string, data?: unknown, options: RequestInit = {}): Promise<T> {
     return this.request<T>(endpoint, {
       ...options,
       method: 'DELETE',
+      body: data ? JSON.stringify(data) : undefined,
     });
   }
 

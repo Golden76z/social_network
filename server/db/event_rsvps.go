@@ -1,6 +1,8 @@
 package db
 
 import (
+	"database/sql"
+
 	"github.com/Golden76z/social-network/models"
 )
 
@@ -11,6 +13,11 @@ type EventRSVP struct {
 	UserID    int64  `json:"user_id"`
 	Status    string `json:"status"`
 	CreatedAt string `json:"created_at"`
+	// User information
+	Nickname  string `json:"nickname,omitempty"`
+	FirstName string `json:"first_name,omitempty"`
+	LastName  string `json:"last_name,omitempty"`
+	Avatar    string `json:"avatar,omitempty"`
 }
 
 func (s *Service) CreateEventRSVP(request models.RSVPToEventRequest) error {
@@ -56,13 +63,19 @@ func (s *Service) GetEventRSVPByUserAndEvent(eventID, userID int64) (*EventRSVP,
 
 // Get RSVPs for an event with optional status filter and pagination
 func (s *Service) GetEventRSVPs(eventID int64, status string, limit, offset int) ([]EventRSVP, error) {
-	query := `SELECT id, event_id, user_id, status, created_at FROM event_rsvps WHERE event_id = ?`
+	query := `
+		SELECT 
+			er.id, er.event_id, er.user_id, er.status, er.created_at,
+			u.nickname, u.first_name, u.last_name, u.avatar
+		FROM event_rsvps er
+		JOIN users u ON er.user_id = u.id
+		WHERE er.event_id = ?`
 	args := []interface{}{eventID}
 	if status != "" {
-		query += " AND status = ?"
+		query += " AND er.status = ?"
 		args = append(args, status)
 	}
-	query += " LIMIT ? OFFSET ?"
+	query += " ORDER BY er.created_at DESC LIMIT ? OFFSET ?"
 	args = append(args, limit, offset)
 	rows, err := s.DB.Query(query, args...)
 	if err != nil {
@@ -72,8 +85,23 @@ func (s *Service) GetEventRSVPs(eventID int64, status string, limit, offset int)
 	var rsvps []EventRSVP
 	for rows.Next() {
 		var rsvp EventRSVP
-		if err := rows.Scan(&rsvp.ID, &rsvp.EventID, &rsvp.UserID, &rsvp.Status, &rsvp.CreatedAt); err != nil {
+		var nickname, firstName, lastName, avatar sql.NullString
+		if err := rows.Scan(&rsvp.ID, &rsvp.EventID, &rsvp.UserID, &rsvp.Status, &rsvp.CreatedAt,
+			&nickname, &firstName, &lastName, &avatar); err != nil {
 			return nil, err
+		}
+		// Handle NULL values
+		if nickname.Valid {
+			rsvp.Nickname = nickname.String
+		}
+		if firstName.Valid {
+			rsvp.FirstName = firstName.String
+		}
+		if lastName.Valid {
+			rsvp.LastName = lastName.String
+		}
+		if avatar.Valid {
+			rsvp.Avatar = avatar.String
 		}
 		rsvps = append(rsvps, rsvp)
 	}

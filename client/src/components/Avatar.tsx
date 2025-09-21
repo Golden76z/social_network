@@ -30,7 +30,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   const imageUrl = src && (src.startsWith('blob:') || src.startsWith('http') || src.startsWith('data:')) 
     ? src 
     : src 
-      ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${src}`
+      ? `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}${src}`
       : null;
   
   return (

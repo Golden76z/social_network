@@ -6,6 +6,7 @@ import { GroupResponse } from '@/lib/types/group';
 import { groupApi } from '@/lib/api/group';
 import { useAuth } from '@/context/AuthProvider';
 import { GroupCard } from '@/components/GroupCard';
+import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 
 export default function GroupDetailPage() {
   const params = useParams();
@@ -15,6 +16,8 @@ export default function GroupDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [memberCount, setMemberCount] = useState(0);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [leavingGroup, setLeavingGroup] = useState(false);
 
   const groupId = params.id as string;
 
@@ -68,13 +71,21 @@ export default function GroupDetailPage() {
     if (!group || !user) return;
     
     try {
+      setLeavingGroup(true);
       await groupApi.leaveGroup({ group_id: group.id, user_id: user.id });
       setMemberCount(prev => Math.max(0, prev - 1));
+      setShowLeaveConfirm(false);
       // Refresh the page to show updated membership status
       window.location.reload();
     } catch (error) {
       console.error('Failed to leave group:', error);
+    } finally {
+      setLeavingGroup(false);
     }
+  };
+
+  const handleLeaveClick = () => {
+    setShowLeaveConfirm(true);
   };
 
   const handleBack = () => {
@@ -161,7 +172,7 @@ export default function GroupDetailPage() {
                     View Posts
                   </button>
                   <button 
-                    onClick={handleLeaveGroup}
+                    onClick={handleLeaveClick}
                     className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     Leave Group
@@ -189,11 +200,24 @@ export default function GroupDetailPage() {
             isMember={isUserMember}
             memberCount={memberCount}
             onJoin={handleJoinGroup}
-            onLeave={handleLeaveGroup}
+            onLeave={handleLeaveClick}
             onView={() => {}} // Already viewing
           />
         </div>
       </div>
+
+      {/* Leave Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showLeaveConfirm}
+        onClose={() => setShowLeaveConfirm(false)}
+        onConfirm={handleLeaveGroup}
+        title="Leave Group"
+        message={`Are you sure you want to leave "${group?.title}"? You'll need to request to join again if you change your mind.`}
+        confirmText="Leave Group"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={leavingGroup}
+      />
     </div>
   );
 }

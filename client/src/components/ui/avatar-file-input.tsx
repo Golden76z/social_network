@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Button from './button';
 
 interface AvatarFileInputProps {
   onChange: (file: File | null) => void;
@@ -45,11 +44,15 @@ export const AvatarFileInput: React.FC<AvatarFileInputProps> = ({
         type="file"
         accept="image/jpeg,image/png,image/gif"
         onChange={handleFileChange}
-        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+        id="avatar-file-input"
       />
-      <Button variant="outline" size="default">
+      <button
+        type="button"
+        className="px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors pointer-events-none"
+      >
         Choose Photo
-      </Button>
+      </button>
     </div>
   );
 };

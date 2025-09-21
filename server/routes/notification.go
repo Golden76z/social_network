@@ -9,4 +9,6 @@ func setupNotificationsRoutes(r *Router) {
 	r.GET("/api/user/notifications", api.GetUserNotificationsHandler)
 	r.PUT("/api/user/notifications", api.UpdateUserNotificationsHandler)
 	r.DELETE("/api/user/notifications", api.DeleteUserNotificationsHandler)
+	r.POST("/api/user/notifications/accept", api.AcceptNotificationHandler)
+	r.POST("/api/user/notifications/decline", api.DeclineNotificationHandler)
 }

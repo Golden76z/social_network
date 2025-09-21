@@ -39,10 +39,7 @@ export const userApi = {
 
   // DELETE /api/user/follow (unfollow)
   unfollowUser: (userId: number): Promise<void> => {
-    return apiClient.delete<void>(userRoutes.follow, { 
-      body: JSON.stringify({ target_id: userId }),
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return apiClient.delete<void>(userRoutes.follow, { target_id: userId });
   },
 
   // POST /api/user/follow/cancel (cancel follow request)
