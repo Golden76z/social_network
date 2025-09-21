@@ -41,6 +41,23 @@ func (s *Service) CreateGroupComment(request models.CreateGroupCommentRequest, u
 		return errors.New("unauthorized: user is not an accepted member of the group or post does not exist")
 	}
 
+	// Get the comment ID
+	commentID, err := res.LastInsertId()
+	if err != nil {
+		return err
+	}
+
+	// Insert comment images if any
+	for _, imageURL := range request.Images {
+		_, err = tx.Exec(`
+            INSERT INTO comment_images (comment_id, is_group_comment, image_url)
+            VALUES (?, 1, ?)`,
+			commentID, imageURL)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -113,6 +130,27 @@ func (s *Service) GetGroupComments(groupPostID, userID int64, offset int) ([]mod
 		if avatar.Valid {
 			comment.Avatar = avatar.String
 		}
+
+		// Get comment images
+		imageRows, err := s.DB.Query(`
+            SELECT image_url FROM comment_images 
+            WHERE comment_id = ? AND is_group_comment = 1
+            ORDER BY created_at ASC`, comment.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		var images []string
+		for imageRows.Next() {
+			var imageURL string
+			if err := imageRows.Scan(&imageURL); err != nil {
+				imageRows.Close()
+				return nil, err
+			}
+			images = append(images, imageURL)
+		}
+		imageRows.Close()
+		comment.Images = images
 
 		comments = append(comments, comment)
 	}

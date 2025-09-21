@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 // We use <img src="/uploads/..."/> per project choice; disable next/image here.
-import { Heart, MessageCircle, MoreHorizontal, Edit, Trash2 } from 'lucide-react';
+import { Heart, MessageCircle, MoreHorizontal, Edit, Trash2, Users } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { Post } from '@/lib/types';
 import { reactionApi } from '@/lib/api/reaction';
 import { ProfileThumbnail } from './ProfileThumbnail';
@@ -36,6 +37,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   isGroupPost = false,
   isGroupAdmin = false,
 }) => {
+  const router = useRouter();
   const [isLiked, setIsLiked] = useState(post.user_liked || false);
   const [likeCount, setLikeCount] = useState(post.likes || 0);
   const [isLoading, setIsLoading] = useState(false);
@@ -158,16 +160,30 @@ export const PostCard: React.FC<PostCardProps> = ({
             initials={(post as Post & { author_nickname?: string }).author_nickname || 'U'}
           />
           <div>
-            <p
-              className="font-semibold text-base cursor-pointer hover:text-primary transition-colors"
-              onClick={() =>
-                (post.author_id || post.user_id) &&
-                onUserClick?.(post.author_id || post.user_id)
-              }
-            >
-              {(post as Post & { author_nickname?: string }).author_nickname ||
-                'Unknown User'}
-            </p>
+            <div className="flex items-center gap-2">
+              <p
+                className="font-semibold text-base cursor-pointer hover:text-primary transition-colors"
+                onClick={() =>
+                  (post.author_id || post.user_id) &&
+                  onUserClick?.(post.author_id || post.user_id)
+                }
+              >
+                {(post as Post & { author_nickname?: string }).author_nickname ||
+                  'Unknown User'}
+              </p>
+              {post.post_type === 'group_post' && post.group_name && (
+                <>
+                  <span className="text-muted-foreground text-sm">•</span>
+                  <button
+                    onClick={() => post.group_id && router.push(`/groups/${post.group_id}/info`)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-full text-sm text-primary hover:bg-primary/20 hover:border-primary/30 transition-all duration-200 cursor-pointer"
+                  >
+                    <Users className="w-4 h-4" />
+                    <span className="font-medium">{post.group_name}</span>
+                  </button>
+                </>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">
               {formatDate(post.created_at)}
             </p>

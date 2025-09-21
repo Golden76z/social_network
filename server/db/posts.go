@@ -108,8 +108,10 @@ func (s *Service) GetPostByID(postID int64, currentUserID int64) (*models.PostRe
 		return nil, err
 	}
 
-	if images.Valid {
+	if images.Valid && images.String != "" {
 		post.Images = strings.Split(images.String, ",")
+	} else {
+		post.Images = []string{}
 	}
 
 	if visibility == "private" && post.AuthorID != currentUserID {
@@ -126,6 +128,7 @@ func (s *Service) GetPostByID(postID int64, currentUserID int64) (*models.PostRe
 }
 
 func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostResponse, error) {
+	fmt.Printf("[DEBUG] GetUserFeed called with userID=%d, limit=%d, offset=%d\n", currentUserID, limit, offset)
 	query := `
         SELECT * FROM (
             SELECT
@@ -138,7 +141,11 @@ func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostRe
                 p.body,
                 p.created_at,
                 p.updated_at,
-                GROUP_CONCAT(pi.image_url) AS images,
+                CASE 
+                    WHEN COUNT(pi.image_url) > 0 
+                    THEN GROUP_CONCAT(pi.image_url) 
+                    ELSE '' 
+                END AS images,
                 (SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
                 (SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
                 EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'like') AS user_liked,
@@ -172,7 +179,11 @@ func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostRe
                 gp.body,
                 gp.created_at,
                 gp.updated_at,
-                GROUP_CONCAT(pi.image_url) AS images,
+                CASE 
+                    WHEN COUNT(pi.image_url) > 0 
+                    THEN GROUP_CONCAT(pi.image_url) 
+                    ELSE '' 
+                END AS images,
                 (SELECT COUNT(*) FROM likes_dislikes WHERE group_post_id = gp.id AND type = 'like') AS likes,
                 (SELECT COUNT(*) FROM likes_dislikes WHERE group_post_id = gp.id AND type = 'dislike') AS dislikes,
                 EXISTS(SELECT 1 FROM likes_dislikes WHERE group_post_id = gp.id AND user_id = ? AND type = 'like') AS user_liked,
@@ -192,7 +203,7 @@ func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostRe
                     SELECT 1 FROM group_members
                     WHERE group_id = gp.group_id AND user_id = ?
                 )
-            GROUP BY gp.id
+            GROUP BY gp.id, g.id, g.title
         ) AS feed
         ORDER BY
             feed.created_at DESC
@@ -230,12 +241,19 @@ func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostRe
 			&post.GroupName,
 		)
 
+		fmt.Printf("[DEBUG] Scanned post: ID=%d, Type=%s, GroupID=%v, GroupName=%v, Title='%s'\n",
+			post.ID, post.PostType, post.GroupID, post.GroupName, post.Title)
+
 		if err != nil {
 			return nil, err
 		}
 
-		if images.Valid {
+		if images.Valid && images.String != "" {
 			post.Images = strings.Split(images.String, ",")
+			fmt.Printf("[DEBUG] Post %d (%s) has images: %v\n", post.ID, post.PostType, post.Images)
+		} else {
+			post.Images = []string{}
+			fmt.Printf("[DEBUG] Post %d (%s) has no images (Valid: %v, String: '%s')\n", post.ID, post.PostType, images.Valid, images.String)
 		}
 
 		posts = append(posts, post)
@@ -316,10 +334,11 @@ func (s *Service) GetPostsByUser(userID int64, currentUserID int64) ([]*models.P
 
 // GetLikedPosts retrieves posts liked by a specific user
 func (s *Service) GetLikedPosts(userID int64) ([]*models.Post, error) {
+	fmt.Printf("[DEBUG] GetLikedPosts called with userID=%d\n", userID)
 	query := `
 		SELECT 
 			p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
-			u.nickname, u.first_name, u.last_name,
+			u.nickname, u.first_name, u.last_name, u.avatar,
 			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
 			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
 			1 AS user_liked,
@@ -342,11 +361,12 @@ func (s *Service) GetLikedPosts(userID int64) ([]*models.Post, error) {
 		var post models.Post
 		var userLikedInt, userDislikedInt int
 		var authorNickname, authorFirstName, authorLastName string
+		var authorAvatar sql.NullString
 
 		err := rows.Scan(
 			&post.ID, &post.UserID, &post.Title, &post.Body, &post.Visibility,
 			&post.CreatedAt, &post.UpdatedAt,
-			&authorNickname, &authorFirstName, &authorLastName,
+			&authorNickname, &authorFirstName, &authorLastName, &authorAvatar,
 			&post.Likes, &post.Dislikes, &userLikedInt, &userDislikedInt,
 		)
 		if err != nil {
@@ -358,6 +378,11 @@ func (s *Service) GetLikedPosts(userID int64) ([]*models.Post, error) {
 		post.AuthorNickname = authorNickname
 		post.AuthorFirstName = authorFirstName
 		post.AuthorLastName = authorLastName
+		if authorAvatar.Valid {
+			post.AuthorAvatar = authorAvatar.String
+		} else {
+			post.AuthorAvatar = ""
+		}
 
 		// Get images for this post
 		imageRows, err := s.DB.Query(`
@@ -390,7 +415,7 @@ func (s *Service) GetCommentedPosts(userID int64) ([]*models.Post, error) {
 	query := `
 		SELECT DISTINCT
 			p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
-			u.nickname, u.first_name, u.last_name,
+			u.nickname, u.first_name, u.last_name, u.avatar,
 			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
 			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
 			EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'like') AS user_liked,
@@ -413,11 +438,12 @@ func (s *Service) GetCommentedPosts(userID int64) ([]*models.Post, error) {
 		var post models.Post
 		var userLikedInt, userDislikedInt int
 		var authorNickname, authorFirstName, authorLastName string
+		var authorAvatar sql.NullString
 
 		err := rows.Scan(
 			&post.ID, &post.UserID, &post.Title, &post.Body, &post.Visibility,
 			&post.CreatedAt, &post.UpdatedAt,
-			&authorNickname, &authorFirstName, &authorLastName,
+			&authorNickname, &authorFirstName, &authorLastName, &authorAvatar,
 			&post.Likes, &post.Dislikes, &userLikedInt, &userDislikedInt,
 		)
 		if err != nil {
@@ -429,6 +455,11 @@ func (s *Service) GetCommentedPosts(userID int64) ([]*models.Post, error) {
 		post.AuthorNickname = authorNickname
 		post.AuthorFirstName = authorFirstName
 		post.AuthorLastName = authorLastName
+		if authorAvatar.Valid {
+			post.AuthorAvatar = authorAvatar.String
+		} else {
+			post.AuthorAvatar = ""
+		}
 
 		// Get images for this post
 		imageRows, err := s.DB.Query(`
@@ -461,7 +492,7 @@ func (s *Service) GetLikedPostsByUser(userID int64) ([]*models.Post, error) {
 	query := `
 		SELECT 
 			p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
-			u.nickname, u.first_name, u.last_name,
+			u.nickname, u.first_name, u.last_name, u.avatar,
 			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
 			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
 			1 AS user_liked,
@@ -484,11 +515,12 @@ func (s *Service) GetLikedPostsByUser(userID int64) ([]*models.Post, error) {
 		var post models.Post
 		var userLikedInt, userDislikedInt int
 		var authorNickname, authorFirstName, authorLastName string
+		var authorAvatar sql.NullString
 
 		err := rows.Scan(
 			&post.ID, &post.UserID, &post.Title, &post.Body, &post.Visibility,
 			&post.CreatedAt, &post.UpdatedAt,
-			&authorNickname, &authorFirstName, &authorLastName,
+			&authorNickname, &authorFirstName, &authorLastName, &authorAvatar,
 			&post.Likes, &post.Dislikes, &userLikedInt, &userDislikedInt,
 		)
 		if err != nil {
@@ -500,6 +532,11 @@ func (s *Service) GetLikedPostsByUser(userID int64) ([]*models.Post, error) {
 		post.AuthorNickname = authorNickname
 		post.AuthorFirstName = authorFirstName
 		post.AuthorLastName = authorLastName
+		if authorAvatar.Valid {
+			post.AuthorAvatar = authorAvatar.String
+		} else {
+			post.AuthorAvatar = ""
+		}
 
 		// Get images for this post
 		imageRows, err := s.DB.Query(`
@@ -532,7 +569,7 @@ func (s *Service) GetCommentedPostsByUser(userID int64) ([]*models.Post, error) 
 	query := `
 		SELECT DISTINCT
 			p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
-			u.nickname, u.first_name, u.last_name,
+			u.nickname, u.first_name, u.last_name, u.avatar,
 			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
 			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
 			EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'like') AS user_liked,
@@ -555,11 +592,12 @@ func (s *Service) GetCommentedPostsByUser(userID int64) ([]*models.Post, error) 
 		var post models.Post
 		var userLikedInt, userDislikedInt int
 		var authorNickname, authorFirstName, authorLastName string
+		var authorAvatar sql.NullString
 
 		err := rows.Scan(
 			&post.ID, &post.UserID, &post.Title, &post.Body, &post.Visibility,
 			&post.CreatedAt, &post.UpdatedAt,
-			&authorNickname, &authorFirstName, &authorLastName,
+			&authorNickname, &authorFirstName, &authorLastName, &authorAvatar,
 			&post.Likes, &post.Dislikes, &userLikedInt, &userDislikedInt,
 		)
 		if err != nil {
@@ -571,6 +609,11 @@ func (s *Service) GetCommentedPostsByUser(userID int64) ([]*models.Post, error) 
 		post.AuthorNickname = authorNickname
 		post.AuthorFirstName = authorFirstName
 		post.AuthorLastName = authorLastName
+		if authorAvatar.Valid {
+			post.AuthorAvatar = authorAvatar.String
+		} else {
+			post.AuthorAvatar = ""
+		}
 
 		// Get images for this post
 		imageRows, err := s.DB.Query(`
@@ -732,7 +775,7 @@ func (s *Service) GetPublicPosts() ([]*models.Post, error) {
 	query := `
 		SELECT 
 			p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
-			u.nickname, u.first_name, u.last_name,
+			u.nickname, u.first_name, u.last_name, u.avatar,
 			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
 			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
 			0 AS user_liked,
@@ -755,11 +798,12 @@ func (s *Service) GetPublicPosts() ([]*models.Post, error) {
 		var post models.Post
 		var userLikedInt, userDislikedInt int
 		var authorNickname, authorFirstName, authorLastName string
+		var authorAvatar sql.NullString
 
 		err := rows.Scan(
 			&post.ID, &post.UserID, &post.Title, &post.Body, &post.Visibility,
 			&post.CreatedAt, &post.UpdatedAt,
-			&authorNickname, &authorFirstName, &authorLastName,
+			&authorNickname, &authorFirstName, &authorLastName, &authorAvatar,
 			&post.Likes, &post.Dislikes, &userLikedInt, &userDislikedInt,
 		)
 		if err != nil {
@@ -771,6 +815,11 @@ func (s *Service) GetPublicPosts() ([]*models.Post, error) {
 		post.AuthorNickname = authorNickname
 		post.AuthorFirstName = authorFirstName
 		post.AuthorLastName = authorLastName
+		if authorAvatar.Valid {
+			post.AuthorAvatar = authorAvatar.String
+		} else {
+			post.AuthorAvatar = ""
+		}
 
 		// Get images for this post
 		imageRows, err := s.DB.Query(`

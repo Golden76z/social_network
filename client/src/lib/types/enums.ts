@@ -10,13 +10,6 @@ export enum PostType {
     VIDEO = 'video',
 }
 
-export enum NotificationType {
-    LIKE = 'like',
-    COMMENT = 'comment',
-    FOLLOW = 'follow',
-    GROUP_INVITE = 'group_invite',
-    EVENT_REMINDER = 'event_reminder',
-}
 
 export enum ReactionType {
     LIKE = 'like',

@@ -116,17 +116,28 @@ func CreateFollowHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create notification for the target user about the follow request
-	notificationData := fmt.Sprintf(`{"requester_id": %d, "requester_nickname": "%s", "type": "follow_request"}`,
-		userID, targetUser.Nickname)
-	notificationReq := models.CreateNotificationRequest{
-		UserID: req.TargetID,
-		Type:   "follow_request",
-		Data:   notificationData,
-	}
+	// Get requester's information for the notification
+	requester, err := db.DBService.GetUserByID(userID)
+	if err != nil {
+		fmt.Printf("[WARNING] Failed to get requester info for notification: %v\n", err)
+		// Continue without notification
+	} else {
+		avatar := ""
+		if requester.Avatar.Valid {
+			avatar = requester.Avatar.String
+		}
+		notificationData := fmt.Sprintf(`{"requester_id": %d, "requester_nickname": "%s", "requester_avatar": "%s", "type": "follow_request"}`,
+			userID, requester.Nickname, avatar)
+		notificationReq := models.CreateNotificationRequest{
+			UserID: req.TargetID,
+			Type:   "follow_request",
+			Data:   notificationData,
+		}
 
-	// Don't fail the follow request if notification creation fails
-	if err := db.DBService.CreateNotification(notificationReq); err != nil {
-		fmt.Printf("[WARNING] Failed to create notification for follow request: %v\n", err)
+		// Don't fail the follow request if notification creation fails
+		if err := db.DBService.CreateNotification(notificationReq); err != nil {
+			fmt.Printf("[WARNING] Failed to create follow request notification: %v\n", err)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -310,19 +321,15 @@ func DeleteFollowHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Search for the follow request in both directions (unfollow or cancel request)
+	// Search for the follow request where current user is the requester
 	followReq, err := db.DBService.GetFollowRequestBetween(userID, req.TargetID)
 	if err != nil {
-		// Peut-être que c'est l'autre qui nous suit
-		followReq, err = db.DBService.GetFollowRequestBetween(req.TargetID, userID)
-		if err != nil {
-			http.Error(w, "Follow request not found", http.StatusNotFound)
-			return
-		}
+		http.Error(w, "Follow request not found", http.StatusNotFound)
+		return
 	}
 
-	// Only the requester or the target can delete the relationship
-	if followReq.RequesterID != userID && followReq.TargetID != userID {
+	// Only the requester can delete their own follow request (unfollow)
+	if followReq.RequesterID != userID {
 		http.Error(w, "Not authorized to delete this follow request", http.StatusForbidden)
 		return
 	}
@@ -331,6 +338,12 @@ func DeleteFollowHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Error deleting follow request", http.StatusInternalServerError)
 		return
+	}
+
+	// Clean up related notifications
+	err = db.DBService.DeleteNotificationsByTypeAndData("follow_request", fmt.Sprintf(`{"requester_id":%d}`, followReq.RequesterID))
+	if err != nil {
+		fmt.Printf("[WARNING] Failed to clean up follow request notifications: %v\n", err)
 	}
 
 	// If the relationship was accepted, decrement counters
@@ -386,8 +399,12 @@ func AcceptFollowRequestHandler(w http.ResponseWriter, r *http.Request) {
 	// Create notification for the requester
 	requester, err := db.DBService.GetUserByID(req.RequesterID)
 	if err == nil {
-		notificationData := fmt.Sprintf(`{"target_id": %d, "target_nickname": "%s", "type": "follow_accepted"}`,
-			currentUserID, requester.Nickname)
+		avatar := ""
+		if requester.Avatar.Valid {
+			avatar = requester.Avatar.String
+		}
+		notificationData := fmt.Sprintf(`{"target_id": %d, "target_nickname": "%s", "target_avatar": "%s", "type": "follow_accepted"}`,
+			currentUserID, requester.Nickname, avatar)
 		notificationReq := models.CreateNotificationRequest{
 			UserID: req.RequesterID,
 			Type:   "follow_accepted",
@@ -476,6 +493,12 @@ func CancelFollowRequestHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Error canceling follow request", http.StatusInternalServerError)
 		return
+	}
+
+	// Clean up related notifications
+	err = db.DBService.DeleteNotificationsByTypeAndData("follow_request", fmt.Sprintf(`{"requester_id":%d}`, followReq.RequesterID))
+	if err != nil {
+		fmt.Printf("[WARNING] Failed to clean up follow request notifications: %v\n", err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

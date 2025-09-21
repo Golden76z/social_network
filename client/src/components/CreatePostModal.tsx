@@ -136,6 +136,7 @@ export function CreatePostModal({
             group_id: groupId,
             title,
             body: content,
+            images: imageUrls,
           });
         } else {
           await postApi.createPost({
