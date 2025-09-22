@@ -414,6 +414,16 @@ func (c *Client) handleGroupMessage(msg Message) {
 
 	log.Printf("Broadcasting group message from user %d to group %s", c.UserID, msg.GroupID)
 	c.Hub.BroadcastMessage(message)
+
+	// Also send back to sender for confirmation (same as private messages)
+	log.Printf("Sending group message confirmation back to sender (user %d)", c.UserID)
+	select {
+	case c.Send <- message:
+		log.Printf("Group message confirmation sent successfully to sender (user %d)", c.UserID)
+	default:
+		log.Printf("Failed to send group message confirmation to sender (user %d) - send channel full", c.UserID)
+	}
+
 	log.Printf("Group message broadcasted successfully")
 }
 
