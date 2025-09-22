@@ -12,7 +12,16 @@ func (h *Hub) JoinGroup(client *Client, groupID string) error {
 
 	group, exists := h.groups[groupID]
 	if !exists {
-		return fmt.Errorf("group %s does not exist", groupID)
+		// Create the group if it doesn't exist
+		group = &Group{
+			ID:        groupID,
+			Name:      fmt.Sprintf("Group %s", groupID),
+			Members:   make(map[string]*Client),
+			Broadcast: make(chan Message, 256),
+			CreatedAt: time.Now(),
+		}
+		h.groups[groupID] = group
+		log.Printf("Created new group %s in websocket hub", groupID)
 	}
 
 	// Check if user has permission to join
@@ -27,6 +36,8 @@ func (h *Hub) JoinGroup(client *Client, groupID string) error {
 	client.mu.Lock()
 	client.Groups[groupID] = group
 	client.mu.Unlock()
+
+	log.Printf("User %d joined group %s", client.UserID, groupID)
 
 	// Notify other group members
 	h.broadcastToGroup(groupID, Message{

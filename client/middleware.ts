@@ -20,9 +20,8 @@ const authRoutes = ['/login', '/register'];
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
-  // Check if user is authenticated (you'll need to implement this based on your auth system)
-  // For now, we'll check for a simple cookie or session
-  const isAuthenticated = request.cookies.has('session') || request.cookies.has('auth-token');
+  // Check if user is authenticated by looking for the JWT token cookie
+  const isAuthenticated = request.cookies.has('jwt_token');
   
   // Handle profile routes - allow unauthenticated access to public profiles
   if (profileRoutes.some(route => pathname.startsWith(route))) {

@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS comment_images (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  comment_id INTEGER NOT NULL,
+  is_group_comment BOOLEAN DEFAULT 0,
+  image_url VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
+  FOREIGN KEY (comment_id) REFERENCES group_comments(id) ON DELETE CASCADE
+);

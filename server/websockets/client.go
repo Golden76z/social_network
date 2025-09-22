@@ -2,9 +2,11 @@ package websockets
 
 import (
 	"log"
+	"strconv"
 	"time"
 
 	//"github.com/Golden76z/social-network/config"
+	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/utils"
 	"github.com/gorilla/websocket"
 )
@@ -38,6 +40,9 @@ func (c *Client) ReadPump() {
 		msg.Username = c.Username
 		msg.Timestamp = time.Now()
 
+		// Debug: Log all incoming messages
+		log.Printf("🔍 Received WebSocket message from user %d: type=%s, content=%s, data=%v", c.UserID, msg.Type, msg.Content, msg.Data)
+
 		// Handle different message types
 		switch msg.Type {
 		case MessageTypeChat:
@@ -53,6 +58,14 @@ func (c *Client) ReadPump() {
 				}
 			}
 			c.Hub.broadcast <- msg
+
+		case MessageTypePrivateMessage:
+			// Handle private message
+			c.handlePrivateMessage(msg)
+
+		case MessageTypeGroupMessage:
+			// Handle group message
+			c.handleGroupMessage(msg)
 
 		case MessageTypePing:
 			// Validate session and respond with pong
@@ -110,9 +123,12 @@ func (c *Client) handlePing(msg Message) {
 	// Extract JWT from the ping message (client should send it)
 	tokenString, ok := msg.Data.(string)
 	if !ok {
+		log.Printf("Ping message data type: %T, value: %v", msg.Data, msg.Data)
 		c.sendError("Invalid ping format - missing JWT token")
 		return
 	}
+
+	log.Printf("Received ping from user %d, validating token", c.UserID)
 
 	// Validate JWT token
 	//cfg := config.GetConfig()
@@ -157,10 +173,13 @@ func (c *Client) handlePing(msg Message) {
 		Data:      "pong",
 	}
 
+	log.Printf("Sending pong response to user %d", c.UserID)
 	select {
 	case c.Send <- pongMsg:
+		log.Printf("Pong sent successfully to user %d", c.UserID)
 	default:
 		// Send channel is full, disconnect client
+		log.Printf("Send channel full for user %d, disconnecting", c.UserID)
 		go func() {
 			c.Hub.unregister <- c
 		}()
@@ -281,6 +300,109 @@ func (c *Client) sendError(errorMsg string) {
 // 		log.Printf("Failed to send notification to client %s", c.ID)
 // 	}
 // }
+
+// handlePrivateMessage handles private message requests
+func (c *Client) handlePrivateMessage(msg Message) {
+	// Extract receiver ID from message data
+	data, ok := msg.Data.(map[string]interface{})
+	if !ok {
+		c.sendError("Invalid private message format")
+		return
+	}
+
+	receiverIDFloat, ok := data["receiver_id"].(float64)
+	if !ok {
+		c.sendError("Invalid receiver_id")
+		return
+	}
+	receiverID := int(receiverIDFloat)
+
+	// Validate message content
+	if msg.Content == "" || len(msg.Content) > 1000 {
+		c.sendError("Message content must be between 1 and 1000 characters")
+		return
+	}
+
+	// Save message to database
+	err := db.DBService.CreatePrivateMessage(c.UserID, receiverID, msg.Content)
+	if err != nil {
+		c.sendError("Failed to save message")
+		log.Printf("Failed to save private message: %v", err)
+		return
+	}
+
+	// Send message to the specific receiver
+	message := Message{
+		Type:      MessageTypePrivateMessage,
+		Content:   msg.Content,
+		UserID:    c.UserID,
+		Username:  c.Username,
+		Timestamp: time.Now(),
+		Data: map[string]interface{}{
+			"sender_id":   c.UserID,
+			"receiver_id": receiverID,
+		},
+	}
+
+	log.Printf("Broadcasting private message from user %d to user %d", c.UserID, receiverID)
+
+	// Broadcast to the specific user
+	c.Hub.BroadcastToUser(receiverID, message)
+
+	// Also send back to sender for confirmation
+	c.Send <- message
+
+	log.Printf("Private message broadcasted successfully")
+}
+
+// handleGroupMessage handles group message requests
+func (c *Client) handleGroupMessage(msg Message) {
+	// Validate group membership
+	if msg.GroupID == "" {
+		c.sendError("Group ID is required")
+		return
+	}
+
+	if !c.isInGroup(msg.GroupID) {
+		c.sendError("You are not a member of this group")
+		return
+	}
+
+	// Validate message content
+	if msg.Content == "" || len(msg.Content) > 1000 {
+		c.sendError("Message content must be between 1 and 1000 characters")
+		return
+	}
+
+	// Parse group ID
+	groupID, err := strconv.Atoi(msg.GroupID)
+	if err != nil {
+		c.sendError("Invalid group ID")
+		return
+	}
+
+	// Save message to database
+	err = db.DBService.CreateGroupMessage(groupID, c.UserID, msg.Content)
+	if err != nil {
+		c.sendError("Failed to save message")
+		log.Printf("Failed to save group message: %v", err)
+		return
+	}
+
+	// Broadcast to the group
+	message := Message{
+		Type:      MessageTypeGroupMessage,
+		Content:   msg.Content,
+		GroupID:   msg.GroupID,
+		UserID:    c.UserID,
+		Username:  c.Username,
+		Timestamp: time.Now(),
+	}
+
+	log.Printf("Broadcasting group message from user %d to group %s", c.UserID, msg.GroupID)
+	c.Hub.BroadcastMessage(message)
+	log.Printf("Group message broadcasted successfully")
+}
 
 // GetClientInfo returns basic client information
 func (c *Client) GetClientInfo() map[string]any {

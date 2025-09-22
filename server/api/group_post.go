@@ -36,6 +36,12 @@ func CreateGroupPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate images if provided
+	if len(req.Images) > 4 {
+		http.Error(w, "Maximum 4 images allowed per post", http.StatusBadRequest)
+		return
+	}
+
 	// Create the group post in the database
 	errDB := db.DBService.CreateGroupPost(req, int64(userID))
 	if errDB != nil {

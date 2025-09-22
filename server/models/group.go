@@ -32,9 +32,10 @@ type GroupResponse struct {
 // ===== GROUP POST =====
 
 type CreateGroupPostRequest struct {
-	GroupID int64  `json:"group_id"`
-	Title   string `json:"title"`
-	Body    string `json:"body"`
+	GroupID int64    `json:"group_id"`
+	Title   string   `json:"title"`
+	Body    string   `json:"body"`
+	Images  []string `json:"images,omitempty"`
 }
 
 type GroupPost struct {
@@ -69,8 +70,9 @@ type DeleteGroupPostRequest struct {
 // ===== GROUP COMMENT =====
 
 type CreateGroupCommentRequest struct {
-	GroupPostID int64  `json:"group_post_id"`
-	Body        string `json:"body"`
+	GroupPostID int64    `json:"group_post_id"`
+	Body        string   `json:"body"`
+	Images      []string `json:"images,omitempty"`
 }
 
 type UpdateGroupCommentRequest struct {

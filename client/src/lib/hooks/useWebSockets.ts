@@ -8,6 +8,8 @@ export interface WebSocketMessage {
   data?: unknown;
   timestamp: string;
   room_id?: string;
+  group_id?: string;
+  GroupID?: string;
 }
 
 export interface WebSocketUser {
@@ -50,22 +52,35 @@ export function useWebSocket({
   const socketRef = useRef<WebSocket | null>(null);
 
   const connect = useCallback(() => {
+    if (!token) {
+      console.log('🔌 WebSocket: No token provided, skipping connection');
+      setConnectionStatus('disconnected');
+      return;
+    }
+
+    console.log('🔌 WebSocket connect called with token: Present');
     setConnectionStatus('connecting');
     const wsUrl = new URL(url);
-    if (token) wsUrl.searchParams.append('token', token);
+    wsUrl.searchParams.append('token', token);
 
+    console.log('🔌 Connecting to WebSocket URL:', wsUrl.toString());
     const ws = new WebSocket(wsUrl.toString());
     socketRef.current = ws;
 
     ws.onopen = (): void => {
+      console.log('🔌 WebSocket connected successfully');
       setConnectionStatus('connected');
       setSocket(ws);
       reconnectCount.current = 0;
 
       if (heartbeatTimer.current) clearInterval(heartbeatTimer.current);
       heartbeatTimer.current = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'ping', timestamp: new Date().toISOString() }));
+        if (ws.readyState === WebSocket.OPEN && token) {
+          ws.send(JSON.stringify({ 
+            type: 'ping', 
+            timestamp: new Date().toISOString(),
+            data: token // Include JWT token in ping message
+          }));
         }
       }, heartbeatIntervalMS);
     };
@@ -73,17 +88,19 @@ export function useWebSocket({
     ws.onmessage = (ev): void => {
       try {
         const msg = JSON.parse(ev.data) as WebSocketMessage;
+        console.log('🔌 WebSocket received message:', msg);
         setLastMessage(msg);
 
         if (msg.type === 'user_list' && Array.isArray(msg.data)) {
           setOnlineUsers(msg.data as WebSocketUser[]);
         }
-      } catch {
-        // ignore invalid JSON
+      } catch (err) {
+        console.error('🔌 Failed to parse WebSocket message:', err);
       }
     };
 
     ws.onclose = (ev): void => {
+      console.log('🔌 WebSocket closed with code:', ev.code, 'reason:', ev.reason);
       setConnectionStatus('disconnected');
       setSocket(null);
       socketRef.current = null;
@@ -91,6 +108,7 @@ export function useWebSocket({
 
       if (ev.code !== 1000 && reconnectCount.current < reconnectAttempts) {
         const delay = reconnectIntervalMS * 1.5 ** reconnectCount.current;
+        console.log('🔌 Attempting to reconnect in', delay, 'ms (attempt', reconnectCount.current + 1, ')');
         reconnectTimeout.current = setTimeout(() => {
           reconnectCount.current += 1;
           connect();
@@ -99,6 +117,7 @@ export function useWebSocket({
     };
 
     ws.onerror = (): void => {
+      console.error('🔌 WebSocket error occurred');
       setConnectionStatus('error');
     };
   }, [url, token, reconnectAttempts, reconnectIntervalMS, heartbeatIntervalMS]);
@@ -107,7 +126,10 @@ export function useWebSocket({
     (message: Partial<WebSocketMessage>) => {
       if (socket?.readyState === WebSocket.OPEN) {
         const msg = { ...message, timestamp: new Date().toISOString() };
+        console.log('🔌 Sending WebSocket message:', msg);
         socket.send(JSON.stringify(msg));
+      } else {
+        console.log('🔌 WebSocket not ready, message not sent:', message);
       }
     },
     [socket]

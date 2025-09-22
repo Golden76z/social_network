@@ -61,10 +61,30 @@ func (s *Service) CreateGroupPost(request models.CreateGroupPostRequest, userID 
 		}
 	}()
 
-	_, err = tx.Exec(`
+	result, err := tx.Exec(`
 		INSERT INTO group_posts (group_id, user_id, title, body)
 		VALUES (?, ?, ?, ?)`, request.GroupID, userID, request.Title, request.Body)
-	return err
+	if err != nil {
+		return err
+	}
+
+	postID, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+
+	// Insert images if any
+	for _, imageURL := range request.Images {
+		_, err := tx.Exec(`
+			INSERT INTO post_images (post_id, is_group_post, image_url)
+			VALUES (?, ?, ?)`,
+			postID, true, imageURL)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *Service) GetGroupPostsWithImagesByGroupID(groupID int64, offset int, userID int64) ([]*models.GroupPost, error) {
@@ -210,9 +230,11 @@ func (s *Service) GetGroupPostWithImagesByID(postID, userID int64) (*models.Grou
 		return nil, errors.New("user is not a member of the group")
 	}
 
-	// Get post details with likes/dislikes
+	// Get post details with likes/dislikes and user information
 	var gp models.GroupPost
 	var userLikedInt, userDislikedInt int
+	var nickname, firstName, lastName string
+	var avatar sql.NullString
 	err = s.DB.QueryRow(`
         SELECT 
             gp.id, 
@@ -221,12 +243,18 @@ func (s *Service) GetGroupPostWithImagesByID(postID, userID int64) (*models.Grou
             gp.body, 
             gp.created_at, 
             gp.updated_at,
+            u.nickname,
+            u.first_name,
+            u.last_name,
+            u.avatar,
             (SELECT COUNT(*) FROM likes_dislikes WHERE group_post_id = gp.id AND type = 'like') AS likes,
             (SELECT COUNT(*) FROM likes_dislikes WHERE group_post_id = gp.id AND type = 'dislike') AS dislikes,
             EXISTS(SELECT 1 FROM likes_dislikes WHERE group_post_id = gp.id AND user_id = ? AND type = 'like') AS user_liked,
             EXISTS(SELECT 1 FROM likes_dislikes WHERE group_post_id = gp.id AND user_id = ? AND type = 'dislike') AS user_disliked
         FROM group_posts gp
+        JOIN users u ON gp.user_id = u.id
         WHERE gp.id = ?`, userID, userID, postID).Scan(&gp.ID, &gp.UserID, &gp.Title, &gp.Body, &gp.CreatedAt, &gp.UpdatedAt,
+		&nickname, &firstName, &lastName, &avatar,
 		&gp.Likes, &gp.Dislikes, &userLikedInt, &userDislikedInt)
 	if err != nil {
 		return nil, err
@@ -234,6 +262,16 @@ func (s *Service) GetGroupPostWithImagesByID(postID, userID int64) (*models.Grou
 	gp.Visibility = "public"
 	gp.UserLiked = userLikedInt == 1
 	gp.UserDisliked = userDislikedInt == 1
+
+	// Set user information
+	gp.AuthorNickname = nickname
+	gp.AuthorFirstName = firstName
+	gp.AuthorLastName = lastName
+	if avatar.Valid {
+		gp.AuthorAvatar = avatar.String
+	} else {
+		gp.AuthorAvatar = ""
+	}
 
 	// Get post images
 	rows, err := s.DB.Query(`
@@ -258,10 +296,10 @@ func (s *Service) GetGroupPostWithImagesByID(postID, userID int64) (*models.Grou
 }
 
 func (s *Service) UpdateGroupPost(request models.UpdateGroupPostRequest, userID int64) error {
-	// groupID, err := s.GetGroupIDFromPost(request.ID)
-	// if err != nil {
-	// 	return errors.New("post not found")
-	// }
+	groupID, err := s.GetGroupIDFromPost(request.ID)
+	if err != nil {
+		return errors.New("post not found")
+	}
 
 	// Checking if the user is the owner of the Post
 	isOwner, err := s.IsPostOwner(userID, request.ID)
@@ -269,11 +307,11 @@ func (s *Service) UpdateGroupPost(request models.UpdateGroupPostRequest, userID 
 		return err
 	}
 
-	// isAdmin, err := s.IsUserGroupAdmin(userID, groupID)
-	// if err != nil {
-	// 	return err
-	// }
-	if !isOwner {
+	isAdmin, err := s.IsUserGroupAdmin(userID, groupID)
+	if err != nil {
+		return err
+	}
+	if !isOwner && !isAdmin {
 		return errors.New("not authorized")
 	}
 
@@ -310,10 +348,10 @@ func (s *Service) UpdateGroupPost(request models.UpdateGroupPostRequest, userID 
 }
 
 func (s *Service) DeleteGroupPost(id int64, userID int64) error {
-	// groupID, err := s.GetGroupIDFromPost(id)
-	// if err != nil {
-	// 	return errors.New("post not found")
-	// }
+	groupID, err := s.GetGroupIDFromPost(id)
+	if err != nil {
+		return errors.New("post not found")
+	}
 
 	// Checking if the user is the owner of the Post
 	isOwner, err := s.IsPostOwner(userID, id)
@@ -321,11 +359,11 @@ func (s *Service) DeleteGroupPost(id int64, userID int64) error {
 		return err
 	}
 
-	// isAdmin, err := s.IsUserGroupAdmin(userID, groupID)
-	// if err != nil {
-	// 	return err
-	// }
-	if !isOwner {
+	isAdmin, err := s.IsUserGroupAdmin(userID, groupID)
+	if err != nil {
+		return err
+	}
+	if !isOwner && !isAdmin {
 		return errors.New("not authorized")
 	}
 
