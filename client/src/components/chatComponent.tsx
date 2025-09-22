@@ -17,13 +17,13 @@ export function ChatComponent(): JSX.Element {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (lastMessage?.type === 'chat') {
+    if (lastMessage?.type === 'chat' || lastMessage?.type === 'private_message') {
       setMessages(prev => [
         ...prev,
         {
           id: `${lastMessage.timestamp}-${lastMessage.user_id}`,
           username: lastMessage.username,
-          content: lastMessage.content,
+          content: lastMessage.content || '',
           timestamp: lastMessage.timestamp,
         },
       ]);

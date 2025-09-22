@@ -50,14 +50,5 @@ export interface ChatMessage {
   groupId?: string;
 }
 
-export interface WebSocketMessage {
-  type: string;
-  user_id?: number;
-  username?: string;
-  content?: string;
-  group_id?: string;
-  data?: any;
-  timestamp: string;
-}
 
 export type MessageType = 'text' | 'image' | 'file' | 'emoji';

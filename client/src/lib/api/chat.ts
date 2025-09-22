@@ -8,7 +8,9 @@ export interface GroupConversation {
   last_message_time: string;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+import { config } from '@/config/environment';
+
+const API_BASE_URL = config.API_BASE_URL;
 
 class ChatAPI {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -28,7 +30,9 @@ class ChatAPI {
       throw new Error(`API Error: ${response.status} - ${errorText}`);
     }
 
-    return response.json();
+    const data = await response.json();
+    console.log('🔍 Raw API response:', data);
+    return data;
   }
 
   // Get all conversations for the current user
@@ -49,9 +53,27 @@ class ChatAPI {
       limit: limit.toString(),
       offset: offset.toString(),
     });
-    
+
+    console.log('🔍 ChatAPI.getMessages called with:', { userId, limit, offset });
+    console.log('🔍 Request URL:', `/api/chat/messages?${params}`);
+
     try {
-      return await this.request<PrivateMessage[]>(`/api/chat/messages?${params}`);
+      const result = await this.request<PrivateMessage[]>(`/api/chat/messages?${params}`);
+      console.log('🔍 ChatAPI.getMessages result:', result);
+
+      // Handle null response from backend (backend returns null when no messages)
+      if (result === null || result === undefined) {
+        console.log('🔍 Backend returned null, converting to empty array');
+        return [];
+      }
+
+      // Ensure we return an array
+      if (!Array.isArray(result)) {
+        console.log('🔍 Backend returned non-array, converting to empty array');
+        return [];
+      }
+
+      return result;
     } catch (error) {
       console.error('Failed to get messages:', error);
       // Return empty array instead of throwing error to prevent null data issues

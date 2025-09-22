@@ -21,21 +21,23 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const messagesTopRef = useRef<HTMLDivElement>(null);
-  const { sendMessage: sendWebSocketMessage, lastMessage } = useWebSocketContext();
+  const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { sendMessage: sendWebSocketMessage, lastMessage, connectionStatus, socket } = useWebSocketContext();
 
   useEffect(() => {
     loadMessages();
   }, [conversation.other_user_id]);
 
   useEffect(() => {
+    console.log('🔍 PrivateChat useEffect triggered with lastMessage:', lastMessage);
     if (lastMessage?.type === 'private_message') {
       console.log('🔍 PrivateChat received WebSocket message:', lastMessage);
       const messageData = lastMessage.data as any;
       const senderId = messageData?.sender_id || lastMessage.user_id;
       const receiverId = messageData?.receiver_id;
-      
+
       console.log('🔍 Message data:', { senderId, receiverId, currentUserId, otherUserId: conversation.other_user_id });
-      
+
       // Check if this message is for the current conversation
       if ((senderId === conversation.other_user_id && receiverId === currentUserId) ||
           (senderId === currentUserId && receiverId === conversation.other_user_id)) {
@@ -48,6 +50,16 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
           isOwn: lastMessage.user_id === currentUserId,
         };
         setMessages(prev => [...prev, newMessage]);
+
+        // If this is our own message (confirmation), reset sending state
+        if (lastMessage.user_id === currentUserId) {
+          console.log('🔍 Received confirmation of our own message, resetting sending state');
+          setSending(false);
+          if (fallbackTimeoutRef.current) {
+            clearTimeout(fallbackTimeoutRef.current);
+            fallbackTimeoutRef.current = null;
+          }
+        }
       } else {
         console.log('🔍 Message is not for this conversation, ignoring');
       }
@@ -72,6 +84,8 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
       }
       
       console.log('🔍 Loading messages for conversation:', conversation.other_user_id, 'offset:', offset, 'limit: 20');
+      console.log('🔍 Conversation object:', conversation);
+      console.log('🔍 other_user_id type:', typeof conversation.other_user_id);
       const data = await chatAPI.getMessages(conversation.other_user_id, 20, offset);
       console.log('🔍 Received data:', data, 'count:', data?.length);
       
@@ -121,16 +135,29 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
     setInput('');
     setSending(true);
 
-    try {
-      // Send via API
-      console.log('📤 Calling chatAPI.sendMessage...');
-      await chatAPI.sendMessage({
-        receiver_id: conversation.other_user_id,
-        body: messageContent,
-      });
-      console.log('📤 chatAPI.sendMessage completed successfully');
+    // Fallback timeout in case WebSocket confirmation doesn't come back
+    fallbackTimeoutRef.current = setTimeout(() => {
+      console.log('⚠️ WebSocket confirmation timeout, resetting sending state');
+      setSending(false);
+      fallbackTimeoutRef.current = null;
+    }, 10000); // 10 second timeout
 
-      // Send via WebSocket for real-time delivery
+    try {
+      // Check WebSocket connection status before sending
+      console.log('📤 WebSocket status:', connectionStatus, 'Socket ready:', socket?.readyState === WebSocket.OPEN);
+
+      if (connectionStatus !== 'connected' || socket?.readyState !== WebSocket.OPEN) {
+        console.error('❌ WebSocket not connected, cannot send message');
+        setError('WebSocket connection not ready. Please refresh the page.');
+        setSending(false);
+        if (fallbackTimeoutRef.current) {
+          clearTimeout(fallbackTimeoutRef.current);
+          fallbackTimeoutRef.current = null;
+        }
+        return;
+      }
+
+      // Send via WebSocket only - backend handles DB save and broadcasting
       console.log('📤 Sending via WebSocket...');
       sendWebSocketMessage({
         type: 'private_message',
@@ -141,22 +168,18 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
       });
       console.log('📤 WebSocket message sent');
 
-      // Add message to local state immediately
-      const newMessage: ChatMessage = {
-        id: `${Date.now()}-${currentUserId}`,
-        username: 'You',
-        content: messageContent,
-        timestamp: new Date().toISOString(),
-        isOwn: true,
-      };
-      setMessages(prev => [...prev, newMessage]);
+      // Don't add to local state - wait for WebSocket confirmation
+      // The backend will send the message back to us via WebSocket
 
     } catch (err) {
       console.error('❌ Failed to send message:', err);
       setError(err instanceof Error ? err.message : 'Failed to send message');
       setInput(messageContent); // Restore input on error
-    } finally {
-      setSending(false);
+      setSending(false); // Reset sending state on error
+      if (fallbackTimeoutRef.current) {
+        clearTimeout(fallbackTimeoutRef.current);
+        fallbackTimeoutRef.current = null;
+      }
     }
   };
 
@@ -196,7 +219,7 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
       <div className="p-4 border-b bg-white">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
-            {conversation.other_user_avatar ? (
+            {conversation.other_user_avatar && typeof conversation.other_user_avatar === 'string' ? (
               <img
                 src={conversation.other_user_avatar}
                 alt={getDisplayName()}
