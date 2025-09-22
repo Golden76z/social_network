@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -59,6 +60,26 @@ func CreateGroupInvitationHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error creating invitation", http.StatusInternalServerError)
 		return
 	}
+
+	// Create notification for the invited user
+	invitedUser, err := db.DBService.GetUserByID(req.UserID)
+	if err == nil {
+		avatar := ""
+		if invitedUser.Avatar.Valid {
+			avatar = invitedUser.Avatar.String
+		}
+		notificationData := fmt.Sprintf(`{"group_id": %d, "group_name": "%s", "inviter_id": %d, "inviter_nickname": "%s", "inviter_avatar": "%s", "type": "group_invite"}`,
+			req.GroupID, group.Title, creatorID, invitedUser.Nickname, avatar)
+		notificationReq := models.CreateNotificationRequest{
+			UserID: req.UserID,
+			Type:   "group_invite",
+			Data:   notificationData,
+		}
+		if err := db.DBService.CreateNotification(notificationReq); err != nil {
+			fmt.Printf("[WARNING] Failed to create notification for group invitation: %v\n", err)
+		}
+	}
+
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(`{"message": "Invitation sent"}`))
 }

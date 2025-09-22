@@ -111,3 +111,48 @@ func (s *Service) GetUserNotifications(userID int64, limit, offset int, unreadOn
 
 	return notifications, nil
 }
+
+// DeleteNotificationsByTypeAndData deletes notifications matching the given type and data pattern
+func (s *Service) DeleteNotificationsByTypeAndData(notificationType, dataPattern string) error {
+	tx, err := s.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		} else {
+			_ = tx.Commit()
+		}
+	}()
+
+	_, err = tx.Exec(`
+		DELETE FROM notifications 
+		WHERE type = ? AND data LIKE ?
+	`, notificationType, "%"+dataPattern+"%")
+
+	return err
+}
+
+// MarkNotificationAsExpired marks a notification as expired by updating its data
+func (s *Service) MarkNotificationAsExpired(notificationID int64) error {
+	tx, err := s.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		} else {
+			_ = tx.Commit()
+		}
+	}()
+
+	_, err = tx.Exec(`
+		UPDATE notifications 
+		SET data = json_set(data, '$.expired', true, '$.message', 'This request has been cancelled')
+		WHERE id = ?
+	`, notificationID)
+
+	return err
+}

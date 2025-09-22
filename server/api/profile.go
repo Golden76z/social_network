@@ -72,8 +72,33 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 	var response models.UserProfileResponse
 	isOwnProfile := targetUserID == int64(currentUserID)
 
+	// Check if current user is following the target user (only for other users' profiles)
+	var isFollowing *bool
+	var followStatus *string
+	if !isOwnProfile {
+		fmt.Printf("[DEBUG] Checking if user %d is following user %d\n", currentUserID, targetUserID)
+		following, err := db.DBService.IsFollowing(int64(currentUserID), targetUserID)
+		if err == nil {
+			isFollowing = &following
+			fmt.Printf("[DEBUG] IsFollowing result: %v\n", following)
+		} else {
+			fmt.Printf("[DEBUG] IsFollowing error: %v\n", err)
+		}
+
+		// For private profiles, also get the follow request status
+		if profile.IsPrivate {
+			status, err := db.DBService.GetFollowRequestStatus(int64(currentUserID), targetUserID)
+			if err == nil {
+				followStatus = &status
+				fmt.Printf("[DEBUG] Follow status for private profile: %v\n", status)
+			} else {
+				fmt.Printf("[DEBUG] Follow status error: %v\n", err)
+			}
+		}
+	}
+
 	if isOwnProfile {
-		// Own profile - return full information
+		// Own profile - return full information (isFollowing is nil)
 		response = models.UserProfileResponse{
 			ID:          profile.ID,
 			Nickname:    profile.Nickname,
@@ -84,35 +109,67 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 			Avatar:      profile.GetAvatar(),
 			Bio:         profile.GetBio(),
 			IsPrivate:   profile.IsPrivate,
+			CreatedAt:   profile.CreatedAt,
 			Followers:   profile.Followers,
 			Followed:    profile.Followed,
+			IsFollowing: nil, // Always nil for own profile
 		}
 	} else if profile.IsPrivate {
-		// Private profile - return minimal information
-		response = models.UserProfileResponse{
-			ID:        profile.ID,
-			Nickname:  profile.Nickname,
-			Avatar:    profile.GetAvatar(),
-			IsPrivate: profile.IsPrivate,
-			Followers: profile.Followers,
-			Followed:  profile.Followed,
+		// Private profile - check if current user can see the profile
+		canSeeProfile := false
+		if isFollowing != nil && *isFollowing {
+			canSeeProfile = true
+		}
+
+		if canSeeProfile {
+			// User is following, return full profile information
+			response = models.UserProfileResponse{
+				ID:           profile.ID,
+				Nickname:     profile.Nickname,
+				FirstName:    profile.FirstName,
+				LastName:     profile.LastName,
+				Avatar:       profile.GetAvatar(),
+				Bio:          profile.GetBio(),
+				IsPrivate:    profile.IsPrivate,
+				CreatedAt:    profile.CreatedAt,
+				Followers:    profile.Followers,
+				Followed:     profile.Followed,
+				IsFollowing:  isFollowing,
+				FollowStatus: followStatus,
+			}
+		} else {
+			// User is not following, return minimal information
+			response = models.UserProfileResponse{
+				ID:           profile.ID,
+				Nickname:     profile.Nickname,
+				Avatar:       profile.GetAvatar(),
+				IsPrivate:    profile.IsPrivate,
+				CreatedAt:    profile.CreatedAt,
+				Followers:    profile.Followers,
+				Followed:     profile.Followed,
+				IsFollowing:  isFollowing,
+				FollowStatus: followStatus,
+			}
 		}
 	} else {
 		// Public profile - return profile without sensitive data
 		response = models.UserProfileResponse{
-			ID:        profile.ID,
-			Nickname:  profile.Nickname,
-			FirstName: profile.FirstName,
-			LastName:  profile.LastName,
-			Avatar:    profile.GetAvatar(),
-			Bio:       profile.GetBio(),
-			IsPrivate: profile.IsPrivate,
-			Followers: profile.Followers,
-			Followed:  profile.Followed,
+			ID:          profile.ID,
+			Nickname:    profile.Nickname,
+			FirstName:   profile.FirstName,
+			LastName:    profile.LastName,
+			Avatar:      profile.GetAvatar(),
+			Bio:         profile.GetBio(),
+			IsPrivate:   profile.IsPrivate,
+			CreatedAt:   profile.CreatedAt,
+			Followers:   profile.Followers,
+			Followed:    profile.Followed,
+			IsFollowing: isFollowing,
 		}
 	}
 
 	// Set response headers and send a JSON response
+	fmt.Printf("[DEBUG] Sending profile response - isFollowing: %v\n", response.IsFollowing)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
@@ -123,7 +180,7 @@ func getUserProfileFromDB(userID int64) (*models.User, error) {
 	var user models.User
 
 	query := `
-		SELECT id, nickname, first_name, last_name, email, date_of_birth, avatar, bio, is_private, followers, followed
+		SELECT id, nickname, first_name, last_name, email, date_of_birth, avatar, bio, is_private, created_at
 		FROM users
 		WHERE id = ?
 	`
@@ -138,12 +195,35 @@ func getUserProfileFromDB(userID int64) (*models.User, error) {
 		&user.Avatar,
 		&user.Bio,
 		&user.IsPrivate,
-		&user.Followers,
-		&user.Followed,
+		&user.CreatedAt,
 	)
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Calculate follower count dynamically from follow_requests table
+	followerCountQuery := `
+		SELECT COUNT(*) 
+		FROM follow_requests 
+		WHERE target_id = ? AND status = 'accepted'
+	`
+	err = db.DBService.DB.QueryRow(followerCountQuery, userID).Scan(&user.Followers)
+	if err != nil {
+		fmt.Printf("[WARNING] Error calculating follower count for user %d: %v\n", userID, err)
+		user.Followers = 0
+	}
+
+	// Calculate following count dynamically from follow_requests table
+	followingCountQuery := `
+		SELECT COUNT(*) 
+		FROM follow_requests 
+		WHERE requester_id = ? AND status = 'accepted'
+	`
+	err = db.DBService.DB.QueryRow(followingCountQuery, userID).Scan(&user.Followed)
+	if err != nil {
+		fmt.Printf("[WARNING] Error calculating following count for user %d: %v\n", userID, err)
+		user.Followed = 0
 	}
 
 	return &user, nil
@@ -216,10 +296,38 @@ func UpdateUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if privacy status changed from private to public
+	var privacyChanged bool
+	var wasPrivate bool
+	if updateRequest.IsPrivate != nil {
+		// Get current privacy status
+		var currentIsPrivate bool
+		err = tx.QueryRow("SELECT is_private FROM users WHERE id = ?", currentUserID).Scan(&currentIsPrivate)
+		if err != nil {
+			fmt.Printf("[ERROR] Failed to get current privacy status: %v\n", err)
+			http.Error(w, "Failed to get current privacy status", http.StatusInternalServerError)
+			return
+		}
+
+		// Check if changing from private to public
+		wasPrivate = currentIsPrivate
+		privacyChanged = wasPrivate && !*updateRequest.IsPrivate
+	}
+
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
 		http.Error(w, "Failed to commit update", http.StatusInternalServerError)
 		return
+	}
+
+	// Handle privacy change: auto-accept all pending follow requests
+	if privacyChanged {
+		fmt.Printf("[INFO] User %d changed from private to public, auto-accepting pending requests\n", currentUserID)
+		err = autoAcceptPendingFollowRequests(int64(currentUserID))
+		if err != nil {
+			fmt.Printf("[WARNING] Failed to auto-accept pending requests: %v\n", err)
+			// Don't fail the profile update, just log the warning
+		}
 	}
 
 	// Build updated fields map for response
@@ -364,5 +472,138 @@ func checkUniqueConstraints(req *models.UpdateUserProfileRequest, userID int64) 
 		}
 	}
 
+	return nil
+}
+
+// GetPublicUserProfileHandler allows fetching a user's profile without authentication.
+// It returns limited data for private profiles and fuller data for public profiles.
+func GetPublicUserProfileHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET method allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse the target user id
+	idParam := r.URL.Query().Get("id")
+	if idParam == "" {
+		http.Error(w, "Missing user id", http.StatusBadRequest)
+		return
+	}
+	targetUserID, err := strconv.ParseInt(idParam, 10, 64)
+	if err != nil || targetUserID <= 0 {
+		http.Error(w, "Invalid user id", http.StatusBadRequest)
+		return
+	}
+
+	// Fetch user profile from database
+	profile, err := getUserProfileFromDB(targetUserID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	// Check if there's an authenticated user (optional for public endpoint)
+	var isFollowing *bool
+	currentUserID, hasAuth := r.Context().Value(middleware.UserIDKey).(int)
+	if hasAuth && int64(currentUserID) != targetUserID {
+		// User is authenticated and viewing someone else's profile
+		following, err := db.DBService.IsFollowing(int64(currentUserID), targetUserID)
+		if err == nil {
+			isFollowing = &following
+		}
+	}
+
+	// For public endpoint, never include sensitive fields like email/dob for other users
+	// Private profile => minimal information
+	// Public profile => public-safe information
+	var response models.UserProfileResponse
+	if profile.IsPrivate {
+		response = models.UserProfileResponse{
+			ID:          profile.ID,
+			Nickname:    profile.Nickname,
+			Avatar:      profile.GetAvatar(),
+			IsPrivate:   profile.IsPrivate,
+			CreatedAt:   profile.CreatedAt,
+			Followers:   profile.Followers,
+			Followed:    profile.Followed,
+			IsFollowing: isFollowing,
+		}
+	} else {
+		response = models.UserProfileResponse{
+			ID:          profile.ID,
+			Nickname:    profile.Nickname,
+			FirstName:   profile.FirstName,
+			LastName:    profile.LastName,
+			Avatar:      profile.GetAvatar(),
+			Bio:         profile.GetBio(),
+			IsPrivate:   profile.IsPrivate,
+			CreatedAt:   profile.CreatedAt,
+			Followers:   profile.Followers,
+			Followed:    profile.Followed,
+			IsFollowing: isFollowing,
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+// autoAcceptPendingFollowRequests automatically accepts all pending follow requests when a user changes from private to public
+func autoAcceptPendingFollowRequests(userID int64) error {
+	fmt.Printf("[INFO] Auto-accepting pending follow requests for user %d\n", userID)
+
+	// Get all pending follow requests for this user
+	pendingRequests, err := db.DBService.GetPendingFollowRequests(userID)
+	if err != nil {
+		return fmt.Errorf("failed to get pending follow requests: %w", err)
+	}
+
+	fmt.Printf("[INFO] Found %d pending follow requests\n", len(pendingRequests))
+
+	// Process each pending request
+	for _, request := range pendingRequests {
+		fmt.Printf("[INFO] Auto-accepting request from user %d\n", request.RequesterID)
+
+		// Update request status to accepted
+		err = db.DBService.UpdateFollowRequestStatus(request.ID, "accepted")
+		if err != nil {
+			fmt.Printf("[ERROR] Failed to accept request %d: %v\n", request.ID, err)
+			continue
+		}
+
+		// Increment counters
+		err1 := db.DBService.IncrementFollowingCount(request.RequesterID)
+		err2 := db.DBService.IncrementFollowersCount(userID)
+		if err1 != nil {
+			fmt.Printf("[WARNING] Failed to increment following count for user %d: %v\n", request.RequesterID, err1)
+		}
+		if err2 != nil {
+			fmt.Printf("[WARNING] Failed to increment followers count for user %d: %v\n", userID, err2)
+		}
+
+		// Create notification for the requester
+		requester, err := db.DBService.GetUserByID(request.RequesterID)
+		if err == nil {
+			notificationData := fmt.Sprintf(`{"target_id": %d, "target_nickname": "%s", "type": "follow_accepted"}`,
+				userID, requester.Nickname)
+			notificationReq := models.CreateNotificationRequest{
+				UserID: request.RequesterID,
+				Type:   "follow_accepted",
+				Data:   notificationData,
+			}
+			if err := db.DBService.CreateNotification(notificationReq); err != nil {
+				fmt.Printf("[WARNING] Failed to create notification for auto-acceptance: %v\n", err)
+			}
+		}
+
+		fmt.Printf("[INFO] Successfully auto-accepted request from user %d\n", request.RequesterID)
+	}
+
+	fmt.Printf("[INFO] Completed auto-acceptance of %d pending follow requests\n", len(pendingRequests))
 	return nil
 }

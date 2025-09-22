@@ -56,6 +56,39 @@ func (s *Service) DecrementFollowersCount(userID int64) error {
 	return err
 }
 
+// SyncFollowCounts synchronizes the stored follower/following counts with actual counts from follow_requests table
+func (s *Service) SyncFollowCounts(userID int64) error {
+	// Get actual follower count
+	var actualFollowers int
+	err := s.DB.QueryRow(`
+		SELECT COUNT(*) 
+		FROM follow_requests 
+		WHERE target_id = ? AND status = 'accepted'
+	`, userID).Scan(&actualFollowers)
+	if err != nil {
+		return err
+	}
+
+	// Get actual following count
+	var actualFollowing int
+	err = s.DB.QueryRow(`
+		SELECT COUNT(*) 
+		FROM follow_requests 
+		WHERE requester_id = ? AND status = 'accepted'
+	`, userID).Scan(&actualFollowing)
+	if err != nil {
+		return err
+	}
+
+	// Update stored counts
+	_, err = s.DB.Exec(`
+		UPDATE users 
+		SET followers = ?, followed = ? 
+		WHERE id = ?
+	`, actualFollowers, actualFollowing, userID)
+	return err
+}
+
 func (s *Service) CreateUser(req models.User) error {
 	tx, err := s.DB.Begin()
 	if err != nil {

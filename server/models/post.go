@@ -22,6 +22,7 @@ type Post struct {
 	AuthorNickname  string   `json:"author_nickname"`
 	AuthorFirstName string   `json:"author_first_name"`
 	AuthorLastName  string   `json:"author_last_name"`
+	AuthorAvatar    string   `json:"author_avatar"`
 }
 
 // Create request (client → server)

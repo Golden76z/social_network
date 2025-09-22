@@ -11,10 +11,12 @@ export const routes = {
   // User routes
   user: {
     profile: '/api/user/profile',
+    publicProfile: '/api/public/user/profile',
     notifications: '/api/user/notifications',
     follow: '/api/user/follow',
     follower: '/api/user/follower',
     following: '/api/user/following',
+    mutualFriends: '/api/user/mutual-friends',
   },
   // Post routes - Simplified to match your actual backend
   post: {

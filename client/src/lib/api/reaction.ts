@@ -47,6 +47,6 @@ export const reactionApi = {
 
   // DELETE /api/reaction - Delete reaction
   deleteReaction: (data: DeleteReactionRequest): Promise<{ response: string }> => {
-    return apiClient.delete('/api/reaction', { body: JSON.stringify(data) });
+    return apiClient.delete('/api/reaction', data);
   },
 };

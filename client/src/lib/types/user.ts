@@ -15,6 +15,7 @@ export interface User {
   
   export interface UserProfile extends User {
     isFollowing?: boolean;
+    followStatus?: string; // For private profiles: "none", "pending", "accepted", "declined"
   }
   
   export interface CreateUserRequest {
@@ -51,5 +52,8 @@ export interface User {
     id: number;
     nickname: string;
     fullName: string;
+    first_name?: string;
+    last_name?: string;
     avatar?: string;
+    is_private?: boolean;
   }

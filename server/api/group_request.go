@@ -82,6 +82,28 @@ func CreateGroupRequestHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	fmt.Println("✅ Group request created successfully")
 
+	// Create notification for the group owner
+	group, err := db.DBService.GetGroupByID(req.GroupID)
+	if err == nil {
+		requester, err := db.DBService.GetUserByID(int64(userID))
+		if err == nil {
+			avatar := ""
+			if requester.Avatar.Valid {
+				avatar = requester.Avatar.String
+			}
+			notificationData := fmt.Sprintf(`{"group_id": %d, "group_name": "%s", "requester_id": %d, "requester_nickname": "%s", "requester_avatar": "%s", "type": "group_request"}`,
+				req.GroupID, group.Title, userID, requester.Nickname, avatar)
+			notificationReq := models.CreateNotificationRequest{
+				UserID: group.CreatorID,
+				Type:   "group_request",
+				Data:   notificationData,
+			}
+			if err := db.DBService.CreateNotification(notificationReq); err != nil {
+				fmt.Printf("[WARNING] Failed to create notification for group request: %v\n", err)
+			}
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	response := map[string]interface{}{

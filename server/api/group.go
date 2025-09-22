@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -91,9 +92,15 @@ func GetGroupHandler(w http.ResponseWriter, r *http.Request) {
 		var groups []models.GroupResponse
 		for rows.Next() {
 			var g models.GroupResponse
-			if err := rows.Scan(&g.ID, &g.Title, &g.Avatar, &g.Bio, &g.CreatorID, &g.CreatedAt, &g.UpdatedAt); err != nil {
+			var avatar sql.NullString
+			if err := rows.Scan(&g.ID, &g.Title, &avatar, &g.Bio, &g.CreatorID, &g.CreatedAt, &g.UpdatedAt); err != nil {
 				http.Error(w, "Error scanning groups", http.StatusInternalServerError)
 				return
+			}
+			if avatar.Valid {
+				g.Avatar = avatar.String
+			} else {
+				g.Avatar = ""
 			}
 			groups = append(groups, g)
 		}

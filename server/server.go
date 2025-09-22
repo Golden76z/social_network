@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Golden76z/social-network/api"
 	"github.com/Golden76z/social-network/config"
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/db/migrations"
@@ -26,6 +27,9 @@ func main() {
 	if err := config.Load(); err != nil {
 		log.Fatal("Failed to load config:", err)
 	}
+
+	// Set server start time for health endpoint
+	api.SetStartTime(time.Now())
 
 	// Get config instance
 	cfg := config.GetConfig()
@@ -93,9 +97,14 @@ func startServer(handler http.Handler, cfg *config.Config) {
 		}()
 	}
 
-	server := &http.Server{
-		Addr:         ":" + cfg.Port,
-		Handler:      handler,
+    // Serve static uploads at /uploads/
+    mux := http.NewServeMux()
+    mux.Handle("/", handler)
+    mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))))
+
+    server := &http.Server{
+        Addr:         ":" + cfg.Port,
+        Handler:      mux,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  120 * time.Second,

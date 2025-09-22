@@ -83,12 +83,26 @@ func CreateGroupMemberHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Notify group creator (if needed you can expand recipients later)
-	group, _ := db.DBService.GetGroupByID(groupID)
-	_ = db.DBService.CreateNotification(models.CreateNotificationRequest{
-		UserID: group.CreatorID,
-		Type:   "group_join_request",
-		Data:   fmt.Sprintf("{\"group_id\":%d,\"user_id\":%d}", groupID, currentUserID),
-	})
+	group, err := db.DBService.GetGroupByID(groupID)
+	if err == nil {
+		requester, err := db.DBService.GetUserByID(int64(currentUserID))
+		if err == nil {
+			avatar := ""
+			if requester.Avatar.Valid {
+				avatar = requester.Avatar.String
+			}
+			notificationData := fmt.Sprintf(`{"group_id": %d, "group_name": "%s", "requester_id": %d, "requester_nickname": "%s", "requester_avatar": "%s", "type": "group_request"}`,
+				groupID, group.Title, currentUserID, requester.Nickname, avatar)
+			notificationReq := models.CreateNotificationRequest{
+				UserID: group.CreatorID,
+				Type:   "group_request",
+				Data:   notificationData,
+			}
+			if err := db.DBService.CreateNotification(notificationReq); err != nil {
+				fmt.Printf("[WARNING] Failed to create notification for group request: %v\n", err)
+			}
+		}
+	}
 
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(`{"response": "Join request created"}`))

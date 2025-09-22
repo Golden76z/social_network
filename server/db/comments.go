@@ -19,11 +19,34 @@ func (s *Service) CreateComment(req models.CreateCommentRequest) error {
 			_ = tx.Commit()
 		}
 	}()
-	_, err = tx.Exec(`
+
+	// Insert comment
+	result, err := tx.Exec(`
         INSERT INTO comments (post_id, user_id, body)
         VALUES (?, ?, ?)`,
 		req.PostID, req.UserID, req.Body)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Get the comment ID
+	commentID, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+
+	// Insert comment images if any
+	for _, imageURL := range req.Images {
+		_, err = tx.Exec(`
+            INSERT INTO comment_images (comment_id, is_group_comment, image_url)
+            VALUES (?, 0, ?)`,
+			commentID, imageURL)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *Service) GetCommentByID(commentID int64) (*models.Comment, error) {
@@ -35,6 +58,27 @@ func (s *Service) GetCommentByID(commentID int64) (*models.Comment, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Get comment images
+	imageRows, err := s.DB.Query(`
+        SELECT image_url FROM comment_images 
+        WHERE comment_id = ? AND is_group_comment = 0
+        ORDER BY created_at ASC`, commentID)
+	if err != nil {
+		return nil, err
+	}
+	defer imageRows.Close()
+
+	var images []string
+	for imageRows.Next() {
+		var imageURL string
+		if err := imageRows.Scan(&imageURL); err != nil {
+			return nil, err
+		}
+		images = append(images, imageURL)
+	}
+	comment.Images = images
+
 	return &comment, nil
 }
 
@@ -118,6 +162,27 @@ func (s *Service) GetCommentsByPostID(postID int64, limit, offset int) ([]models
 		if avatar.Valid {
 			c.Avatar = avatar.String
 		}
+
+		// Get comment images
+		imageRows, err := s.DB.Query(`
+            SELECT image_url FROM comment_images 
+            WHERE comment_id = ? AND is_group_comment = 0
+            ORDER BY created_at ASC`, c.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		var images []string
+		for imageRows.Next() {
+			var imageURL string
+			if err := imageRows.Scan(&imageURL); err != nil {
+				imageRows.Close()
+				return nil, err
+			}
+			images = append(images, imageURL)
+		}
+		imageRows.Close()
+		c.Images = images
 
 		comments = append(comments, c)
 	}

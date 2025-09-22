@@ -8,10 +8,18 @@ import { groupApi } from '@/lib/api/group';
 import { reactionApi } from '@/lib/api/reaction';
 import { userApi } from '@/lib/api/user';
 import { useAuth } from '@/context/AuthProvider';
-import { UserPlus, Settings, Users, UserCheck, Calendar, MessageSquare, Plus, Edit, Trash2 } from 'lucide-react';
+import { UserPlus, Settings, Users, UserCheck, Calendar, MessageSquare, Plus, Edit, Trash2, Clock, MapPin, Users2, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
 import { PostCard } from '@/components/PostCard';
 import { PostModal } from '@/components/PostModal';
+import { CreatePostModal } from '@/components/CreatePostModal';
 import { UserDisplayInfo } from '@/lib/types';
+import { ProfileThumbnail } from '@/components/ProfileThumbnail';
+import { AvatarFileInput } from '@/components/ui/avatar-file-input';
+import { ModernInput } from '@/components/ui/modern-input';
+import { ModernTextarea } from '@/components/ui/modern-textarea';
+import { ModernSection } from '@/components/ui/modern-section';
+import { ConfirmationModal } from '@/components/ui/confirmation-modal';
+import { uploadPostImage } from '@/lib/api/upload';
 
 interface GroupMember {
   id: number;
@@ -54,6 +62,7 @@ export default function GroupPage() {
   const [loadingMutualFollowers, setLoadingMutualFollowers] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<Set<number>>(new Set());
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [leavingGroup, setLeavingGroup] = useState(false);
   const [groupRequests, setGroupRequests] = useState<any[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [showRequestsModal, setShowRequestsModal] = useState(false);
@@ -69,6 +78,8 @@ export default function GroupPage() {
   // Modal states
   const [showCreatePostModal, setShowCreatePostModal] = useState(false);
   const [showCreateEventModal, setShowCreateEventModal] = useState(false);
+  const [showRSVPModal, setShowRSVPModal] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<GroupEvent | null>(null);
   const [postFormData, setPostFormData] = useState({ title: '', body: '' });
   const [eventFormData, setEventFormData] = useState({ title: '', description: '', event_date: '', event_time: '' });
   const [creatingPost, setCreatingPost] = useState(false);
@@ -105,6 +116,9 @@ export default function GroupPage() {
       user_liked: groupPost.user_liked || false,
       user_disliked: groupPost.user_disliked || false,
       author_nickname: groupPost.author_nickname || 'Group Member', // Use actual nickname or fallback
+      author_first_name: groupPost.author_first_name,
+      author_last_name: groupPost.author_last_name,
+      author_avatar: groupPost.author_avatar,
     };
   };
   const [showDeleteEventModal, setShowDeleteEventModal] = useState(false);
@@ -116,6 +130,10 @@ export default function GroupPage() {
     bio: '',
     avatar: '',
   });
+
+  // Avatar change state
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
 
   const groupId = params.id as string;
 
@@ -225,14 +243,18 @@ export default function GroupPage() {
         if (showJoinSuccessModal) {
           setShowJoinSuccessModal(false);
         }
+        if (showRSVPModal) {
+          setShowRSVPModal(false);
+          setSelectedEvent(null);
+        }
       }
     };
 
-    if (showInviteModal || showRequestsModal || showLeaveConfirm || showCreatePostModal || showCreateEventModal || showRemoveMemberModal || showDeletePostModal || showDeleteEventModal || showJoinSuccessModal) {
+    if (showInviteModal || showRequestsModal || showLeaveConfirm || showCreatePostModal || showCreateEventModal || showRemoveMemberModal || showDeletePostModal || showDeleteEventModal || showJoinSuccessModal || showRSVPModal) {
       document.addEventListener('keydown', handleEscape);
       return () => document.removeEventListener('keydown', handleEscape);
     }
-  }, [showInviteModal, showRequestsModal, showLeaveConfirm, showCreatePostModal, showCreateEventModal, showRemoveMemberModal, showDeletePostModal, showDeleteEventModal, showJoinSuccessModal]);
+  }, [showInviteModal, showRequestsModal, showLeaveConfirm, showCreatePostModal, showCreateEventModal, showRemoveMemberModal, showDeletePostModal, showDeleteEventModal, showJoinSuccessModal, showRSVPModal]);
 
   const handleJoinGroup = async () => {
     if (!group || hasPendingRequest) return;
@@ -270,6 +292,7 @@ export default function GroupPage() {
     if (!group || !user) return;
     
     try {
+      setLeavingGroup(true);
       await groupApi.leaveGroup({ group_id: group.id, user_id: user.id });
       setIsMember(false);
       setIsAdmin(false);
@@ -280,6 +303,8 @@ export default function GroupPage() {
       setShowLeaveConfirm(false);
     } catch (error) {
       console.error('Failed to leave group:', error);
+    } finally {
+      setLeavingGroup(false);
     }
   };
 
@@ -298,14 +323,58 @@ export default function GroupPage() {
       setSaving(true);
       setError(null);
 
-      const payload: UpdateGroupRequest = {
-        title: formState.title,
-        bio: formState.bio,
-        avatar: formState.avatar,
-      };
+      // Upload avatar first if there's a new one
+      let avatarUrl = group?.avatar;
+      if (avatarFile) {
+        try {
+          const { url } = await uploadPostImage(avatarFile);
+          avatarUrl = url;
+          // Clean up preview
+          if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+          setAvatarPreview(null);
+          setAvatarFile(null);
+        } catch (e: any) {
+          setError('Failed to upload avatar. Please try again.');
+          return; // Don't proceed with group update if avatar upload fails
+        }
+      }
 
+      // Build payload with only non-empty fields (matching Go struct expectations)
+      const payload: any = {};
+      
+      if (formState.title && formState.title.trim() !== '') {
+        payload.title = formState.title.trim();
+      }
+      
+      if (formState.bio && formState.bio.trim() !== '') {
+        payload.bio = formState.bio.trim();
+      }
+      
+      if (avatarUrl && avatarUrl.trim() !== '') {
+        payload.avatar = avatarUrl.trim();
+      }
+
+      console.log('Sending payload:', payload);
+      console.log('Group ID:', group.id);
       const updatedGroup = await groupApi.updateGroup(group.id, payload);
-      setGroup(updatedGroup);
+      console.log('Updated group:', updatedGroup);
+      
+      // Preserve all original group data and only update the modified fields
+      const finalGroup = {
+        ...group, // Keep all original data
+        ...updatedGroup, // Apply updates from API response
+        avatar: avatarUrl || updatedGroup.avatar || group.avatar // Ensure avatar is properly set
+      };
+      
+      setGroup(finalGroup);
+      
+      // Update form state with the new group data
+      setFormState({
+        title: finalGroup.title,
+        bio: finalGroup.bio || '',
+        avatar: finalGroup.avatar || '',
+      });
+      
       setIsEditing(false);
     } catch (err) {
       console.error('Update failed:', err);
@@ -323,6 +392,10 @@ export default function GroupPage() {
     });
     setIsEditing(false);
     setError(null);
+    // reset avatar selection
+    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    setAvatarPreview(null);
+    setAvatarFile(null);
   };
 
   const getMutualFollowers = async () => {
@@ -516,6 +589,11 @@ export default function GroupPage() {
       console.error('Failed to cancel RSVP:', error);
       alert('Failed to cancel RSVP. Please try again.');
     }
+  };
+
+  const handleShowRSVPModal = (event: GroupEvent) => {
+    setSelectedEvent(event);
+    setShowRSVPModal(true);
   };
 
   const handleCreatePost = async () => {
@@ -727,7 +805,7 @@ export default function GroupPage() {
       setPostToDelete(null);
     } catch (error) {
       console.error('Failed to delete post:', error);
-      alert('Failed to delete post. Please try again.');
+      // Error will be handled by the UI
     } finally {
       setDeletingPost(null);
     }
@@ -784,15 +862,27 @@ export default function GroupPage() {
     }
   };
 
-  const handleClosePostModal = async () => {
+  const handleClosePostModal = () => {
     setShowPostModal(false);
     setSelectedPost(null);
-    
-    // Refresh posts when closing modal
+    // No need to refresh posts - the like/comment actions already update the local state
+  };
+
+  const handleEditGroupPost = async (post: any) => {
+    // Open edit modal for group post
+    setEditingPost(post);
+    setShowCreatePostModal(true);
+  };
+
+  const handleDeleteGroupPost = async (post: any) => {
     try {
+      await groupApi.deleteGroupPost(post.id);
       await loadPosts();
+      setShowPostModal(false);
+      setSelectedPost(null);
     } catch (error) {
-      console.error('Error refreshing posts after modal close:', error);
+      console.error('Failed to delete group post:', error);
+      // The PostModal will handle showing the error via its confirmation dialog
     }
   };
 
@@ -833,54 +923,91 @@ export default function GroupPage() {
       <div className="space-y-6">
         {/* Group Header */}
         <div className="bg-card rounded-lg border border-border p-6">
-          <div className="flex items-start gap-4">
-            <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white text-2xl">
-              {group.avatar ? (
-                <img 
-                  src={group.avatar} 
-                  alt={group.title}
-                  className="w-full h-full object-cover rounded-lg"
-                />
-              ) : (
-                '👥'
-              )}
+          <div className="flex items-start gap-6">
+            {/* Group Avatar - Enhanced with light purple outline */}
+            <div className="flex-shrink-0">
+              <div className="w-24 h-24 rounded-full border-6 border-muted-foreground/20 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center overflow-hidden shadow-lg">
+                {avatarPreview ? (
+                  <img 
+                    src={avatarPreview}
+                    alt={group.title}
+                    className="w-full h-full object-cover rounded-full"
+                  />
+                ) : group.avatar ? (
+                  <img 
+                    src={group.avatar.startsWith('http') ? group.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${group.avatar}`}
+                    alt={group.title}
+                    className="w-full h-full object-cover rounded-full"
+                  />
+                ) : (
+                  <span className="text-4xl font-bold text-muted-foreground/60">
+                    {group.title.charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
             </div>
-            <div className="flex-1 space-y-2">
+            <div className="flex-1 space-y-4">
               {isEditing ? (
-                <>
-                  <input
-                    type="text"
-                    className="w-full border border-border rounded px-3 py-2 text-lg font-semibold bg-background text-foreground"
-                    value={formState.title}
-                    onChange={(e) => setFormState(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="Group Title"
-                  />
-                  <textarea
-                    rows={3}
-                    className="w-full border border-border rounded px-3 py-2 text-sm bg-background text-foreground"
-                    value={formState.bio}
-                    onChange={(e) => setFormState(prev => ({ ...prev, bio: e.target.value }))}
-                    placeholder="Group Description"
-                  />
-                  <input
-                    type="url"
-                    className="w-full border border-border rounded px-3 py-2 text-sm bg-background text-foreground"
-                    value={formState.avatar}
-                    onChange={(e) => setFormState(prev => ({ ...prev, avatar: e.target.value }))}
-                    placeholder="Avatar URL (optional)"
-                  />
-                </>
+                <div className="space-y-4">
+                  {/* Avatar change controls */}
+                  <ModernSection>
+                    <div className="flex items-center gap-4">
+                      <div className="flex gap-2">
+                        <AvatarFileInput
+                          onChange={(file) => {
+                            if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+                            if (file) {
+                              setAvatarPreview(URL.createObjectURL(file));
+                              setAvatarFile(file);
+                            }
+                          }}
+                          onError={(title, message) => {
+                            alert(`${title}: ${message}`);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </ModernSection>
+
+                  {/* Group Information */}
+                  <ModernSection title="Group Information">
+                    <ModernInput
+                      type="text"
+                      value={formState.title}
+                      onChange={(e) => setFormState(prev => ({ ...prev, title: e.target.value }))}
+                      placeholder="Group Title"
+                    />
+                    <ModernTextarea
+                      rows={2}
+                      value={formState.bio}
+                      onChange={(e) => setFormState(prev => ({ ...prev, bio: e.target.value }))}
+                      placeholder="Group Description"
+                    />
+                  </ModernSection>
+                </div>
               ) : (
-                <>
-                  <h2 className="text-xl font-semibold">{group.title}</h2>
-                  <p className="text-sm text-muted-foreground">{group.bio || 'No description available.'}</p>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span>{members.length} {members.length === 1 ? 'member' : 'members'}</span>
-                    <span>•</span>
-                    <span>Created {new Date(group.created_at).toLocaleDateString()}</span>
-                    {isAdmin && <span className="px-2 py-1 bg-primary/10 text-primary rounded text-xs">Admin</span>}
+                <div className="space-y-4">
+                  {/* Group Title and Info */}
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-bold text-card-foreground">{group.title}</h2>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-muted-foreground">{members.length} {members.length === 1 ? 'member' : 'members'}</span>
+                      <span className="text-muted-foreground text-sm">•</span>
+                      <span className="text-sm text-muted-foreground">Created {new Date(group.created_at).toLocaleDateString()}</span>
+                      {isAdmin && <span className="px-2 py-1 bg-primary/10 text-primary rounded text-xs">Admin</span>}
+                    </div>
                   </div>
-                </>
+
+                  {/* Bio Section */}
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-medium text-card-foreground">About</h3>
+                    <div className="p-4 bg-muted/30 rounded-lg border border-border">
+                      <p className="text-card-foreground leading-relaxed">
+                        {group.bio || 'No description available yet.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
 
@@ -891,7 +1018,7 @@ export default function GroupPage() {
                   <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                    className="px-4 py-2 bg-primary/80 text-primary-foreground rounded-lg hover:bg-primary disabled:opacity-50 transition-colors"
                   >
                     {saving ? 'Saving...' : 'Save'}
                   </button>
@@ -908,35 +1035,37 @@ export default function GroupPage() {
                     <>
                       {/* Admin buttons */}
                       {isAdmin && (
-                        <>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={handleInvite}
+                              className="px-4 py-2 bg-primary/80 text-primary-foreground rounded-lg hover:bg-primary transition-colors flex items-center gap-2"
+                            >
+                              <UserPlus className="w-4 h-4" />
+                              Invite
+                            </button>
+                            <button
+                              onClick={handleManageRequests}
+                              className="px-4 py-2 bg-green-500/60 text-white rounded-lg hover:bg-green-500/80 transition-colors flex items-center gap-2"
+                            >
+                              <Users className="w-4 h-4" />
+                              Requests
+                            </button>
+                          </div>
                           <button
                             onClick={handleEdit}
-                            className="px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors flex items-center gap-2"
+                            className="px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors flex items-center justify-center gap-2"
                           >
                             <Settings className="w-4 h-4" />
                             Edit
                           </button>
-                          <button
-                            onClick={handleInvite}
-                            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
-                          >
-                            <UserPlus className="w-4 h-4" />
-                            Invite
-                          </button>
-                          <button
-                            onClick={handleManageRequests}
-                            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
-                          >
-                            <Users className="w-4 h-4" />
-                            Requests
-                          </button>
-                        </>
+                        </div>
                       )}
                       {/* Regular member button */}
                       {!isAdmin && (
                         <button
                           onClick={handleInvite}
-                          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
+                          className="px-4 py-2 bg-primary/80 text-primary-foreground rounded-lg hover:bg-primary transition-colors flex items-center gap-2"
                         >
                           <UserPlus className="w-4 h-4" />
                           Invite
@@ -958,7 +1087,7 @@ export default function GroupPage() {
                       className={`px-4 py-2 rounded-lg transition-colors disabled:opacity-50 ${
                         hasPendingRequest 
                           ? 'bg-muted text-muted-foreground cursor-not-allowed' 
-                          : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                          : 'bg-primary/80 text-primary-foreground hover:bg-primary'
                       }`}
                     >
                       {hasPendingRequest ? 'Request Sent' : 'Request Join'}
@@ -1115,7 +1244,7 @@ export default function GroupPage() {
                   </h3>
                   <button 
                     onClick={() => setShowCreateEventModal(true)}
-                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
+                    className="px-4 py-2 bg-primary/80 text-primary-foreground rounded-lg hover:bg-primary transition-colors flex items-center gap-2"
                   >
                     <Plus className="w-4 h-4" />
                     Create Event
@@ -1123,40 +1252,67 @@ export default function GroupPage() {
                 </div>
                 
                 {loadingEvents ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                    <p className="text-muted-foreground">Loading events...</p>
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-muted-foreground text-lg">Loading events...</p>
                   </div>
                 ) : events.length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="grid gap-6">
                     {events.slice(0, 5).map((event) => {
                       const rsvps = eventRSVPs.get(event.id) || [];
                       const userRSVP = user ? rsvps.find((rsvp: any) => rsvp.user_id === user.id) : null;
+                      const goingCount = rsvps.filter((rsvp: any) => rsvp.status === 'come').length;
+                      const maybeCount = rsvps.filter((rsvp: any) => rsvp.status === 'interested').length;
+                      const notGoingCount = rsvps.filter((rsvp: any) => rsvp.status === 'not_come').length;
+                      const eventDate = new Date(event.event_datetime);
+                      const isPastEvent = eventDate < new Date();
                       
                       return (
-                        <div key={event.id} className="border border-border rounded-lg p-4">
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-semibold text-foreground">{event.title}</h4>
-                              {event.creator_nickname && (
-                                <span className="text-sm text-muted-foreground">
-                                  by {event.creator_nickname}
-                                </span>
-                              )}
+                        <div 
+                          key={event.id} 
+                          className="group relative bg-gradient-to-br from-card to-card/50 border border-border/50 rounded-xl p-6 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 hover:border-primary/20 cursor-pointer"
+                          onClick={() => handleShowRSVPModal(event)}
+                        >
+                          {/* Event Header */}
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+                                  <Calendar className="w-5 h-5 text-primary" />
+                                </div>
+                                <div>
+                                  <h4 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors">
+                                    {event.title}
+                                  </h4>
+                                  {event.creator_nickname && (
+                                    <p className="text-sm text-muted-foreground">
+                                      Created by <span className="font-medium text-primary">{event.creator_nickname}</span>
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                            {(isAdmin || (user && event.creator_id === user.id)) && (
-                              <div className="flex gap-2">
+                            {((user && event.creator_id === user.id) || isAdmin) && (
+                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                {(user && event.creator_id === user.id) && (
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEditEvent(event);
+                                    }}
+                                    className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                                    title="Edit event"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </button>
+                                )}
                                 <button 
-                                  onClick={() => handleEditEvent(event)}
-                                  className="p-1 text-muted-foreground hover:text-foreground"
-                                  title="Edit event"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </button>
-                                <button 
-                                  onClick={() => handleDeleteEvent(event)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteEvent(event);
+                                  }}
                                   disabled={deletingEvent === event.id}
-                                  className="p-1 text-muted-foreground hover:text-red-500 disabled:opacity-50"
+                                  className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors disabled:opacity-50"
                                   title="Delete event"
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -1164,63 +1320,157 @@ export default function GroupPage() {
                               </div>
                             )}
                           </div>
-                          <p className="text-muted-foreground text-sm mb-3">{event.description}</p>
-                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
-                            <span>{new Date(event.event_datetime).toLocaleString()}</span>
-                            <span>{rsvps.length} RSVPs</span>
+
+                          {/* Event Description */}
+                          <p className="text-muted-foreground text-sm mb-4 line-clamp-2 leading-relaxed">
+                            {event.description}
+                          </p>
+
+                          {/* Event Details */}
+                          <div className="flex items-center gap-4 mb-4 text-sm">
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Clock className="w-4 h-4" />
+                              <span className={isPastEvent ? 'text-destructive' : 'text-foreground'}>
+                                {eventDate.toLocaleDateString('en-US', { 
+                                  weekday: 'short', 
+                                  year: 'numeric', 
+                                  month: 'short', 
+                                  day: 'numeric' 
+                                })}
+                              </span>
+                              <span className="text-muted-foreground">
+                                {eventDate.toLocaleTimeString('en-US', { 
+                                  hour: 'numeric', 
+                                  minute: '2-digit',
+                                  hour12: true 
+                                })}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* RSVP Stats */}
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-4 text-sm">
+                              <div className="flex items-center gap-1">
+                                <CheckCircle className="w-4 h-4 text-green-500/80" />
+                                <span className="text-green-600/80 font-medium">{goingCount}</span>
+                                <span className="text-muted-foreground">Going</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <AlertCircle className="w-4 h-4 text-yellow-500/80" />
+                                <span className="text-yellow-600/80 font-medium">{maybeCount}</span>
+                                <span className="text-muted-foreground">Maybe</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <XCircle className="w-4 h-4 text-red-500/80" />
+                                <span className="text-red-600/80 font-medium">{notGoingCount}</span>
+                                <span className="text-muted-foreground">Not Going</span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleShowRSVPModal(event);
+                              }}
+                              className="flex items-center gap-2 px-3 py-1.5 text-sm text-primary hover:text-primary-foreground hover:bg-primary rounded-lg transition-colors"
+                            >
+                              <Users2 className="w-4 h-4" />
+                              View All ({rsvps.length})
+                            </button>
                           </div>
                           
-                          {/* RSVP Buttons */}
+                          {/* RSVP Actions */}
                           <div className="flex gap-2">
                             {userRSVP ? (
-                              <div className="flex gap-2">
-                                <span className="px-3 py-1 bg-primary/10 text-primary rounded text-xs">
-                                  {userRSVP.status === 'come' ? 'Going' : 
-                                   userRSVP.status === 'interested' ? 'Maybe' : 'Not Going'}
-                                </span>
+                              <div className="flex gap-2 flex-wrap">
+                                <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 text-primary rounded-lg text-sm font-medium">
+                                  {userRSVP.status === 'come' ? (
+                                    <>
+                                      <CheckCircle className="w-4 h-4" />
+                                      Going
+                                    </>
+                                  ) : userRSVP.status === 'interested' ? (
+                                    <>
+                                      <AlertCircle className="w-4 h-4" />
+                                      Maybe
+                                    </>
+                                  ) : (
+                                    <>
+                                      <XCircle className="w-4 h-4" />
+                                      Not Going
+                                    </>
+                                  )}
+                                </div>
                                 <button 
-                                  onClick={() => handleUpdateRSVP(userRSVP.id, 'come')}
-                                  className="px-3 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUpdateRSVP(userRSVP.id, 'come');
+                                  }}
+                                  className="flex items-center gap-1 px-3 py-2 bg-green-500/80 text-white rounded-lg text-sm hover:bg-green-500 transition-colors"
                                 >
+                                  <CheckCircle className="w-4 h-4" />
                                   Going
                                 </button>
                                 <button 
-                                  onClick={() => handleUpdateRSVP(userRSVP.id, 'interested')}
-                                  className="px-3 py-1 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUpdateRSVP(userRSVP.id, 'interested');
+                                  }}
+                                  className="flex items-center gap-1 px-3 py-2 bg-yellow-500/80 text-white rounded-lg text-sm hover:bg-yellow-500 transition-colors"
                                 >
+                                  <AlertCircle className="w-4 h-4" />
                                   Maybe
                                 </button>
                                 <button 
-                                  onClick={() => handleUpdateRSVP(userRSVP.id, 'not_come')}
-                                  className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUpdateRSVP(userRSVP.id, 'not_come');
+                                  }}
+                                  className="flex items-center gap-1 px-3 py-2 bg-red-500/80 text-white rounded-lg text-sm hover:bg-red-500 transition-colors"
                                 >
+                                  <XCircle className="w-4 h-4" />
                                   Not Going
                                 </button>
                                 <button 
-                                  onClick={() => handleCancelRSVP(userRSVP.id)}
-                                  className="px-3 py-1 border border-border rounded text-xs hover:bg-accent transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCancelRSVP(userRSVP.id);
+                                  }}
+                                  className="px-3 py-2 border border-border text-muted-foreground rounded-lg text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
                                 >
                                   Cancel
                                 </button>
                               </div>
                             ) : (
-                              <div className="flex gap-2">
+                              <div className="flex gap-2 flex-wrap">
                                 <button 
-                                  onClick={() => handleRSVP(event.id, 'come')}
-                                  className="px-3 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRSVP(event.id, 'come');
+                                  }}
+                                  className="flex items-center gap-1 px-3 py-2 bg-green-500/80 text-white rounded-lg text-sm hover:bg-green-500 transition-colors"
                                 >
+                                  <CheckCircle className="w-4 h-4" />
                                   Going
                                 </button>
                                 <button 
-                                  onClick={() => handleRSVP(event.id, 'interested')}
-                                  className="px-3 py-1 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRSVP(event.id, 'interested');
+                                  }}
+                                  className="flex items-center gap-1 px-3 py-2 bg-yellow-500/80 text-white rounded-lg text-sm hover:bg-yellow-500 transition-colors"
                                 >
+                                  <AlertCircle className="w-4 h-4" />
                                   Maybe
                                 </button>
                                 <button 
-                                  onClick={() => handleRSVP(event.id, 'not_come')}
-                                  className="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRSVP(event.id, 'not_come');
+                                  }}
+                                  className="flex items-center gap-1 px-3 py-2 bg-red-500/80 text-white rounded-lg text-sm hover:bg-red-500 transition-colors"
                                 >
+                                  <XCircle className="w-4 h-4" />
                                   Not Going
                                 </button>
                               </div>
@@ -1230,10 +1480,10 @@ export default function GroupPage() {
                       );
                     })}
                     {events.length > 5 && (
-                      <div className="text-center pt-4">
+                      <div className="text-center pt-6">
                         <button 
                           onClick={() => router.push(`/groups/${group.id}/events`)}
-                          className="px-6 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors"
+                          className="px-8 py-3 bg-gradient-to-r from-primary/80 to-primary/60 text-primary-foreground rounded-xl hover:from-primary hover:to-primary/80 transition-all duration-300 shadow-lg hover:shadow-primary/25 font-medium"
                         >
                           View All Events ({events.length})
                         </button>
@@ -1265,10 +1515,22 @@ export default function GroupPage() {
             <div className="grid gap-4">
               {members.map((member) => (
                 <div key={member.id} className="flex items-center gap-3 p-3 border border-border rounded-lg">
-                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
-                    {member.nickname?.charAt(0) || member.first_name?.charAt(0) || 'U'}
+                  <div 
+                    className="cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => router.push(`/profile/${member.user_id}`)}
+                  >
+                    <ProfileThumbnail
+                      src={member.avatar}
+                      alt="member avatar"
+                      size="md"
+                      rounded
+                      initials={member.nickname || member.first_name || 'U'}
+                    />
                   </div>
-                  <div className="flex-1">
+                  <div 
+                    className="flex-1 cursor-pointer hover:text-primary transition-colors"
+                    onClick={() => router.push(`/profile/${member.user_id}`)}
+                  >
                     <p className="font-medium">
                       {member.nickname || 
                        (member.first_name && member.last_name ? `${member.first_name} ${member.last_name}` : member.first_name) || 
@@ -1354,9 +1616,13 @@ export default function GroupPage() {
                         }`}
                         onClick={() => handleUserSelection(mutualUser.id)}
                       >
-                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                          {mutualUser.nickname?.charAt(0) || 'U'}
-                        </div>
+                        <ProfileThumbnail
+                          src={(mutualUser as any).avatar}
+                          alt="user avatar"
+                          size="sm"
+                          rounded
+                          initials={mutualUser.nickname || 'U'}
+                        />
                         <div className="flex-1">
                           <p className="font-medium text-sm">
                             {mutualUser.nickname || 'Unknown User'}
@@ -1428,40 +1694,17 @@ export default function GroupPage() {
       )}
 
       {/* Leave Confirmation Modal */}
-      {showLeaveConfirm && (
-        <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowLeaveConfirm(false);
-            }
-          }}
-        >
-          <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="text-center">
-              <div className="text-4xl mb-4">⚠️</div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Leave Group</h3>
-              <p className="text-muted-foreground mb-6">
-                Are you sure you want to leave "{group?.title}"? You'll need to request to join again if you change your mind.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowLeaveConfirm(false)}
-                  className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleLeaveGroup}
-                  className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-                >
-                  Leave Group
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmationModal
+        isOpen={showLeaveConfirm}
+        onClose={() => setShowLeaveConfirm(false)}
+        onConfirm={handleLeaveGroup}
+        title="Leave Group"
+        message={`Are you sure you want to leave "${group?.title}"? You'll need to request to join again if you change your mind.`}
+        confirmText="Leave Group"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={leavingGroup}
+      />
 
       {/* Group Requests Management Modal */}
       {showRequestsModal && (
@@ -1496,9 +1739,13 @@ export default function GroupPage() {
               <div className="space-y-3">
                 {groupRequests.map((request) => (
                   <div key={request.id} className="flex items-center gap-4 p-4 border border-border rounded-lg">
-                    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
-                      {request.nickname?.charAt(0) || request.first_name?.charAt(0) || 'U'}
-                    </div>
+                    <ProfileThumbnail
+                      src={request.avatar}
+                      alt="request user avatar"
+                      size="md"
+                      rounded
+                      initials={request.nickname || request.first_name || 'U'}
+                    />
                     <div className="flex-1">
                       <p className="font-medium">
                         {request.nickname || 
@@ -1550,93 +1797,26 @@ export default function GroupPage() {
       )}
 
       {/* Create Post Modal */}
-      {showCreatePostModal && (
-        <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowCreatePostModal(false);
-              setEditingPost(null);
-              setPostFormData({ title: '', body: '' });
-              setPostError('');
-            }
-          }}
-        >
-          <div className="bg-card border border-border rounded-lg p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <MessageSquare className="w-5 h-5" />
-                {editingPost ? 'Edit Post' : 'Create Post'}
-              </h3>
-              <button
-                onClick={() => {
-                  setShowCreatePostModal(false);
-                  setPostFormData({ title: '', body: '' });
-                  setPostError('');
-                }}
-                className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-accent transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              {postError && (
-                <div className="rounded-md bg-red-50 p-4 text-red-700 text-sm border border-red-200">
-                  {postError}
-                </div>
-              )}
-              
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Title *</label>
-                <input
-                  type="text"
-                  value={postFormData.title}
-                  onChange={(e) => setPostFormData(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                  placeholder="Enter post title"
-                  maxLength={100}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Content *</label>
-                <textarea
-                  value={postFormData.body}
-                  onChange={(e) => setPostFormData(prev => ({ ...prev, body: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-                  placeholder="Write your post content..."
-                  rows={6}
-                  maxLength={1000}
-                />
-                <div className="text-xs text-muted-foreground text-right">
-                  {postFormData.body.length}/1000 characters
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6 pt-4 border-t border-border">
-              <button
-                onClick={() => {
-                  setShowCreatePostModal(false);
-                  setPostFormData({ title: '', body: '' });
-                  setPostError('');
-                }}
-                className="flex-1 px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={editingPost ? handleUpdatePost : handleCreatePost}
-                disabled={creatingPost || !postFormData.title.trim() || !postFormData.body.trim()}
-                className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {creatingPost ? (editingPost ? 'Updating...' : 'Creating...') : (editingPost ? 'Update Post' : 'Create Post')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CreatePostModal
+        isOpen={showCreatePostModal}
+        onClose={() => {
+          setShowCreatePostModal(false);
+          setEditingPost(null);
+          setPostFormData({ title: '', body: '' });
+          setPostError('');
+        }}
+        onSuccess={() => {
+          // Refresh posts after successful creation
+          loadPosts();
+        }}
+        isGroupPost={true}
+        groupId={group?.id}
+        groupName={group?.title}
+        postId={editingPost?.id}
+        initialTitle={editingPost?.title || ''}
+        initialContent={editingPost?.body || ''}
+        initialImages={editingPost?.images || []}
+      />
 
       {/* Create Event Modal */}
       {showCreateEventModal && (
@@ -1762,7 +1942,7 @@ export default function GroupPage() {
           <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full mx-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <Trash2 className="w-5 h-5 text-red-500" />
+                <Trash2 className="w-5 h-5 text-destructive" />
                 Remove Member
               </h3>
               <button
@@ -1778,9 +1958,13 @@ export default function GroupPage() {
 
             <div className="space-y-4">
               <div className="flex items-center gap-3 p-3 border border-border rounded-lg bg-muted/50">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
-                  {memberToRemove.nickname?.charAt(0) || memberToRemove.first_name?.charAt(0) || 'U'}
-                </div>
+                <ProfileThumbnail
+                  src={memberToRemove.avatar}
+                  alt="member avatar"
+                  size="md"
+                  rounded
+                  initials={memberToRemove.nickname || memberToRemove.first_name || 'U'}
+                />
                 <div className="flex-1">
                   <p className="font-medium">
                     {memberToRemove.nickname || 
@@ -1791,7 +1975,7 @@ export default function GroupPage() {
                 </div>
               </div>
 
-              <div className="rounded-md bg-red-50 p-4 text-red-700 text-sm border border-red-200">
+              <div className="rounded-md bg-destructive/10 p-4 text-destructive text-sm border border-destructive/20">
                 <p className="font-medium mb-1">⚠️ Warning</p>
                 <p>Are you sure you want to remove this member from the group? This action cannot be undone and they will lose access to all group content.</p>
               </div>
@@ -1810,7 +1994,7 @@ export default function GroupPage() {
               <button
                 onClick={handleConfirmRemoveMember}
                 disabled={removingMember}
-                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 rounded-lg btn-delete disabled:cursor-not-allowed"
               >
                 {removingMember ? 'Removing...' : 'Remove Member'}
               </button>
@@ -1833,7 +2017,7 @@ export default function GroupPage() {
           <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full mx-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <Trash2 className="w-5 h-5 text-red-500" />
+                <Trash2 className="w-5 h-5 text-destructive" />
                 Delete Post
               </h3>
               <button
@@ -1853,7 +2037,7 @@ export default function GroupPage() {
                 <p className="text-sm text-muted-foreground line-clamp-3">{postToDelete.body}</p>
               </div>
 
-              <div className="rounded-md bg-red-50 p-4 text-red-700 text-sm border border-red-200">
+              <div className="rounded-md bg-destructive/10 p-4 text-destructive text-sm border border-destructive/20">
                 <p className="font-medium mb-1">⚠️ Warning</p>
                 <p>Are you sure you want to delete this post? This action cannot be undone and all comments and reactions will be lost.</p>
               </div>
@@ -1872,7 +2056,7 @@ export default function GroupPage() {
               <button
                 onClick={handleConfirmDeletePost}
                 disabled={deletingPost === postToDelete.id}
-                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 rounded-lg btn-delete disabled:cursor-not-allowed"
               >
                 {deletingPost === postToDelete.id ? 'Deleting...' : 'Delete Post'}
               </button>
@@ -2005,7 +2189,215 @@ export default function GroupPage() {
         disableInteractions={false}
         isAuthenticated={!!user}
         isGroupPost={true}
+        currentUserId={user?.id}
+        onEdit={handleEditGroupPost}
+        onDelete={handleDeleteGroupPost}
+        isGroupAdmin={isAdmin}
       />
+
+      {/* RSVP Modal */}
+      {showRSVPModal && selectedEvent && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowRSVPModal(false);
+              setSelectedEvent(null);
+            }
+          }}
+        >
+          <div className="bg-card border border-border rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+                  <Calendar className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-foreground">{selectedEvent.title}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(selectedEvent.event_datetime).toLocaleDateString('en-US', { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowRSVPModal(false);
+                  setSelectedEvent(null);
+                }}
+                className="text-muted-foreground hover:text-foreground p-2 rounded-lg hover:bg-accent transition-colors"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-muted-foreground mb-6 leading-relaxed">{selectedEvent.description}</p>
+
+            {/* RSVP Sections */}
+            {(() => {
+              const rsvps = eventRSVPs.get(selectedEvent.id) || [];
+              const goingRSVPs = rsvps.filter((rsvp: any) => rsvp.status === 'come');
+              const maybeRSVPs = rsvps.filter((rsvp: any) => rsvp.status === 'interested');
+              const notGoingRSVPs = rsvps.filter((rsvp: any) => rsvp.status === 'not_come');
+
+              return (
+                <div className="space-y-6">
+                  {/* Going Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-5 h-5 text-green-500" />
+                      <h4 className="font-semibold text-lg text-foreground">Going ({goingRSVPs.length})</h4>
+                    </div>
+                    {goingRSVPs.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {goingRSVPs.map((rsvp: any) => (
+                          <div key={rsvp.id} className="flex items-center gap-3 p-3 bg-green-50/50 dark:bg-green-950/10 rounded-lg border border-green-200/50 dark:border-green-800/30">
+                            <div 
+                              className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500/20 to-green-600/10 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={() => router.push(`/profile/${rsvp.user_id}`)}
+                            >
+                              {rsvp.avatar ? (
+                                <img
+                                  src={rsvp.avatar.startsWith('http') ? rsvp.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${rsvp.avatar}`}
+                                  alt={rsvp.nickname || 'User'}
+                                  className="w-8 h-8 rounded-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-green-600 font-medium text-sm">
+                                  {(rsvp.nickname || rsvp.first_name || 'U').charAt(0).toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                            <div 
+                              className="flex-1 min-w-0 cursor-pointer hover:text-green-600 dark:hover:text-green-200 transition-colors"
+                              onClick={() => router.push(`/profile/${rsvp.user_id}`)}
+                            >
+                              <p className="font-medium text-sm text-green-700 dark:text-green-300 truncate">
+                                {rsvp.nickname || `${rsvp.first_name || ''} ${rsvp.last_name || ''}`.trim() || 'Unknown User'}
+                              </p>
+                              <p className="text-xs text-green-600/70 dark:text-green-400/70">
+                                Responded {new Date(rsvp.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <CheckCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No one is going yet</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Maybe Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5 text-yellow-500" />
+                      <h4 className="font-semibold text-lg text-foreground">Maybe ({maybeRSVPs.length})</h4>
+                    </div>
+                    {maybeRSVPs.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {maybeRSVPs.map((rsvp: any) => (
+                          <div key={rsvp.id} className="flex items-center gap-3 p-3 bg-yellow-50/50 dark:bg-yellow-950/10 rounded-lg border border-yellow-200/50 dark:border-yellow-800/30">
+                            <div 
+                              className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={() => router.push(`/profile/${rsvp.user_id}`)}
+                            >
+                              {rsvp.avatar ? (
+                                <img
+                                  src={rsvp.avatar.startsWith('http') ? rsvp.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${rsvp.avatar}`}
+                                  alt={rsvp.nickname || 'User'}
+                                  className="w-8 h-8 rounded-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-yellow-600 font-medium text-sm">
+                                  {(rsvp.nickname || rsvp.first_name || 'U').charAt(0).toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                            <div 
+                              className="flex-1 min-w-0 cursor-pointer hover:text-yellow-600 dark:hover:text-yellow-200 transition-colors"
+                              onClick={() => router.push(`/profile/${rsvp.user_id}`)}
+                            >
+                              <p className="font-medium text-sm text-yellow-700 dark:text-yellow-300 truncate">
+                                {rsvp.nickname || `${rsvp.first_name || ''} ${rsvp.last_name || ''}`.trim() || 'Unknown User'}
+                              </p>
+                              <p className="text-xs text-yellow-600/70 dark:text-yellow-400/70">
+                                Responded {new Date(rsvp.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No maybes yet</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Not Going Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <XCircle className="w-5 h-5 text-red-500" />
+                      <h4 className="font-semibold text-lg text-foreground">Not Going ({notGoingRSVPs.length})</h4>
+                    </div>
+                    {notGoingRSVPs.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {notGoingRSVPs.map((rsvp: any) => (
+                          <div key={rsvp.id} className="flex items-center gap-3 p-3 bg-red-50/50 dark:bg-red-950/10 rounded-lg border border-red-200/50 dark:border-red-800/30">
+                            <div 
+                              className="w-8 h-8 rounded-full bg-gradient-to-br from-red-500/20 to-red-600/10 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={() => router.push(`/profile/${rsvp.user_id}`)}
+                            >
+                              {rsvp.avatar ? (
+                                <img
+                                  src={rsvp.avatar.startsWith('http') ? rsvp.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${rsvp.avatar}`}
+                                  alt={rsvp.nickname || 'User'}
+                                  className="w-8 h-8 rounded-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-red-600 font-medium text-sm">
+                                  {(rsvp.nickname || rsvp.first_name || 'U').charAt(0).toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                            <div 
+                              className="flex-1 min-w-0 cursor-pointer hover:text-red-600 dark:hover:text-red-200 transition-colors"
+                              onClick={() => router.push(`/profile/${rsvp.user_id}`)}
+                            >
+                              <p className="font-medium text-sm text-red-700 dark:text-red-300 truncate">
+                                {rsvp.nickname || `${rsvp.first_name || ''} ${rsvp.last_name || ''}`.trim() || 'Unknown User'}
+                              </p>
+                              <p className="text-xs text-red-600/70 dark:text-red-400/70">
+                                Responded {new Date(rsvp.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <XCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No one declined yet</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

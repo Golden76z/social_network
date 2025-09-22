@@ -258,7 +258,65 @@ func (s *Service) DeleteGroupMember(request models.LeaveGroupRequest, userID int
 		}
 	}()
 
-	// Only allow delete if the requester is the same person or the group admin
+	// Check if the user is the group admin
+	var isAdmin bool
+	err = tx.QueryRow(`
+		SELECT EXISTS(
+			SELECT 1 FROM group_members 
+			WHERE group_id = ? AND user_id = ? AND role = 'admin'
+		)
+	`, request.GroupID, request.UserID).Scan(&isAdmin)
+	if err != nil {
+		return fmt.Errorf("failed to check admin status: %w", err)
+	}
+
+	// If the user is the admin, delete the entire group
+	if isAdmin {
+		// Delete all group-related data
+		_, err = tx.Exec(`DELETE FROM group_messages WHERE group_id = ?`, request.GroupID)
+		if err != nil {
+			return fmt.Errorf("failed to delete group messages: %w", err)
+		}
+
+		_, err = tx.Exec(`DELETE FROM group_comments WHERE group_post_id IN (SELECT id FROM group_posts WHERE group_id = ?)`, request.GroupID)
+		if err != nil {
+			return fmt.Errorf("failed to delete group comments: %w", err)
+		}
+
+		_, err = tx.Exec(`DELETE FROM group_posts WHERE group_id = ?`, request.GroupID)
+		if err != nil {
+			return fmt.Errorf("failed to delete group posts: %w", err)
+		}
+
+		_, err = tx.Exec(`DELETE FROM group_requests WHERE group_id = ?`, request.GroupID)
+		if err != nil {
+			return fmt.Errorf("failed to delete group requests: %w", err)
+		}
+
+		_, err = tx.Exec(`DELETE FROM group_invitations WHERE group_id = ?`, request.GroupID)
+		if err != nil {
+			return fmt.Errorf("failed to delete group invitations: %w", err)
+		}
+
+		_, err = tx.Exec(`DELETE FROM group_events WHERE group_id = ?`, request.GroupID)
+		if err != nil {
+			return fmt.Errorf("failed to delete group events: %w", err)
+		}
+
+		_, err = tx.Exec(`DELETE FROM group_members WHERE group_id = ?`, request.GroupID)
+		if err != nil {
+			return fmt.Errorf("failed to delete group members: %w", err)
+		}
+
+		_, err = tx.Exec(`DELETE FROM groups WHERE id = ?`, request.GroupID)
+		if err != nil {
+			return fmt.Errorf("failed to delete group: %w", err)
+		}
+
+		return nil
+	}
+
+	// For non-admin users, just remove them from the group
 	res, err := tx.Exec(`
 		DELETE FROM group_members
 		WHERE group_id = ? AND user_id = ?
