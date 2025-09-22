@@ -148,12 +148,24 @@ export const SideBarRight: React.FC = () => {
     return user.nickname || 'Unknown User';
   };
 
-  const handleGroupClick = (groupId: number) => {
-    router.push(`/messages?group=${groupId}`);
+  const handleGroupClick = (groupId: number | any) => {
+    // Ensure groupId is a number
+    const safeGroupId = typeof groupId === 'number' ? groupId : parseInt(String(groupId));
+    if (isNaN(safeGroupId)) {
+      console.error('❌ Invalid groupId passed to handleGroupClick:', groupId);
+      return;
+    }
+    router.push(`/messages?group=${safeGroupId}`);
   };
 
-  const handleUserClick = (userId: number) => {
-    router.push(`/messages?user=${userId}`);
+  const handleUserClick = (userId: number | any) => {
+    // Ensure userId is a number
+    const safeUserId = typeof userId === 'number' ? userId : parseInt(String(userId));
+    if (isNaN(safeUserId)) {
+      console.error('❌ Invalid userId passed to handleUserClick:', userId);
+      return;
+    }
+    router.push(`/messages?user=${safeUserId}`);
   };
 
   const isUserOnline = (userId: number) => {

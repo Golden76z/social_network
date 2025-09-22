@@ -22,6 +22,7 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const messagesTopRef = useRef<HTMLDivElement>(null);
+  const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { sendMessage: sendWebSocketMessage, lastMessage } = useWebSocketContext();
 
   useEffect(() => {
@@ -32,9 +33,9 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
     if (lastMessage?.type === 'group_message') {
       console.log('🔍 GroupChat received WebSocket message:', lastMessage);
       const messageGroupId = lastMessage.group_id || (lastMessage as any).GroupID;
-      
+
       console.log('🔍 Message group ID:', messageGroupId, 'Current group ID:', groupId);
-      
+
       // Check if this message is for the current group
       if (messageGroupId === groupId.toString()) {
         console.log('🔍 Message is for this group, adding to messages');
@@ -47,6 +48,16 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
           groupId: groupId.toString(),
         };
         setMessages(prev => [...prev, newMessage]);
+
+        // If this is our own message (confirmation), reset sending state
+        if (lastMessage.user_id === currentUserId) {
+          console.log('🔍 Received confirmation of our own group message, resetting sending state');
+          setSending(false);
+          if (fallbackTimeoutRef.current) {
+            clearTimeout(fallbackTimeoutRef.current);
+            fallbackTimeoutRef.current = null;
+          }
+        }
       } else {
         console.log('🔍 Message is not for this group, ignoring');
       }
@@ -121,16 +132,15 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
     setInput('');
     setSending(true);
 
-    try {
-      // Send via API
-      console.log('📤 Calling chatAPI.sendGroupMessage...');
-      await chatAPI.sendGroupMessage({
-        group_id: groupId,
-        body: messageContent,
-      });
-      console.log('📤 chatAPI.sendGroupMessage completed successfully');
+    // Fallback timeout in case WebSocket confirmation doesn't come back
+    fallbackTimeoutRef.current = setTimeout(() => {
+      console.log('⚠️ WebSocket confirmation timeout, resetting sending state');
+      setSending(false);
+      fallbackTimeoutRef.current = null;
+    }, 10000); // 10 second timeout
 
-      // Send via WebSocket for real-time delivery
+    try {
+      // Send via WebSocket only - backend handles DB save and broadcasting
       console.log('📤 Sending via WebSocket...');
       sendWebSocketMessage({
         type: 'group_message',
@@ -139,23 +149,18 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
       });
       console.log('📤 WebSocket group message sent');
 
-      // Add message to local state immediately
-      const newMessage: ChatMessage = {
-        id: `${Date.now()}-${currentUserId}`,
-        username: 'You',
-        content: messageContent,
-        timestamp: new Date().toISOString(),
-        isOwn: true,
-        groupId: groupId.toString(),
-      };
-      setMessages(prev => [...prev, newMessage]);
+      // Don't add to local state - wait for WebSocket confirmation
+      // The backend will send the message back to us via WebSocket
 
     } catch (err) {
       console.error('❌ Failed to send group message:', err);
       setError(err instanceof Error ? err.message : 'Failed to send group message');
       setInput(messageContent); // Restore input on error
-    } finally {
-      setSending(false);
+      setSending(false); // Reset sending state on error
+      if (fallbackTimeoutRef.current) {
+        clearTimeout(fallbackTimeoutRef.current);
+        fallbackTimeoutRef.current = null;
+      }
     }
   };
 
