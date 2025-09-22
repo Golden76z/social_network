@@ -23,7 +23,7 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const messagesTopRef = useRef<HTMLDivElement>(null);
   const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const { sendMessage: sendWebSocketMessage, lastMessage } = useWebSocketContext();
+  const { sendMessage: sendWebSocketMessage, lastMessage, connectionStatus, socket } = useWebSocketContext();
 
   useEffect(() => {
     loadMessages();
@@ -39,15 +39,26 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
       // Check if this message is for the current group
       if (messageGroupId === groupId.toString()) {
         console.log('🔍 Message is for this group, adding to messages');
-        const newMessage: ChatMessage = {
-          id: `${lastMessage.timestamp}-${lastMessage.user_id}`,
-          username: lastMessage.username,
-          content: lastMessage.content || '',
-          timestamp: lastMessage.timestamp,
-          isOwn: lastMessage.user_id === currentUserId,
-          groupId: groupId.toString(),
-        };
-        setMessages(prev => [...prev, newMessage]);
+
+        // Check if message already exists to prevent duplicates
+        const messageId = `${lastMessage.timestamp}-${lastMessage.user_id}`;
+        setMessages(prev => {
+          const exists = prev.some(msg => msg.id === messageId);
+          if (exists) {
+            console.log('🔍 Group message already exists, skipping duplicate');
+            return prev;
+          }
+
+          const newMessage: ChatMessage = {
+            id: messageId,
+            username: lastMessage.username,
+            content: lastMessage.content || '',
+            timestamp: lastMessage.timestamp,
+            isOwn: lastMessage.user_id === currentUserId,
+            groupId: groupId.toString(),
+          };
+          return [...prev, newMessage];
+        });
 
         // If this is our own message (confirmation), reset sending state
         if (lastMessage.user_id === currentUserId) {
@@ -62,7 +73,7 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
         console.log('🔍 Message is not for this group, ignoring');
       }
     }
-  }, [lastMessage, currentUserId, groupId]);
+  }, [lastMessage?.timestamp, lastMessage?.user_id, currentUserId, groupId]);
 
 
 
@@ -140,8 +151,22 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
     }, 10000); // 10 second timeout
 
     try {
+      // Check WebSocket connection status before sending
+      console.log('📤 WebSocket status:', connectionStatus, 'Socket ready:', socket?.readyState === WebSocket.OPEN);
+
+      if (connectionStatus !== 'connected' || socket?.readyState !== WebSocket.OPEN) {
+        console.error('❌ WebSocket not connected, cannot send group message');
+        setError('WebSocket connection not ready. Please refresh the page.');
+        setSending(false);
+        if (fallbackTimeoutRef.current) {
+          clearTimeout(fallbackTimeoutRef.current);
+          fallbackTimeoutRef.current = null;
+        }
+        return;
+      }
+
       // Send via WebSocket only - backend handles DB save and broadcasting
-      console.log('📤 Sending via WebSocket...');
+      console.log('📤 Sending group message via WebSocket...');
       sendWebSocketMessage({
         type: 'group_message',
         content: messageContent,
