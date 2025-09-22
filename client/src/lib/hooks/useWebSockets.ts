@@ -89,7 +89,6 @@ export function useWebSocket({
       try {
         const msg = JSON.parse(ev.data) as WebSocketMessage;
         console.log('🔌 WebSocket received message:', msg);
-        console.log('🔌 Message type:', msg.type, 'user_id:', msg.user_id, 'timestamp:', msg.timestamp);
         setLastMessage(msg);
 
         if (msg.type === 'user_list' && Array.isArray(msg.data)) {
@@ -125,11 +124,9 @@ export function useWebSocket({
 
   const sendMessage = useCallback(
     (message: Partial<WebSocketMessage>) => {
-      console.log('🔌 sendMessage called, socket readyState:', socket?.readyState, 'WebSocket.OPEN:', WebSocket.OPEN);
       if (socket?.readyState === WebSocket.OPEN) {
         const msg = { ...message, timestamp: new Date().toISOString() };
         console.log('🔌 Sending WebSocket message:', msg);
-        console.log('🔌 Message JSON:', JSON.stringify(msg));
         socket.send(JSON.stringify(msg));
         console.log('🔌 Message sent successfully');
       } else {

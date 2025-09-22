@@ -29,7 +29,6 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
   }, [conversation.other_user_id]);
 
   useEffect(() => {
-    console.log('🔍 PrivateChat useEffect triggered with lastMessage:', lastMessage);
     if (lastMessage?.type === 'private_message') {
       console.log('🔍 PrivateChat received WebSocket message:', lastMessage);
       const messageData = lastMessage.data as any;
@@ -42,14 +41,25 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
       if ((senderId === conversation.other_user_id && receiverId === currentUserId) ||
           (senderId === currentUserId && receiverId === conversation.other_user_id)) {
         console.log('🔍 Message is for this conversation, adding to messages');
-        const newMessage: ChatMessage = {
-          id: `${lastMessage.timestamp}-${lastMessage.user_id}`,
-          username: lastMessage.username,
-          content: lastMessage.content || '',
-          timestamp: lastMessage.timestamp,
-          isOwn: lastMessage.user_id === currentUserId,
-        };
-        setMessages(prev => [...prev, newMessage]);
+
+        // Check if message already exists to prevent duplicates
+        const messageId = `${lastMessage.timestamp}-${lastMessage.user_id}`;
+        setMessages(prev => {
+          const exists = prev.some(msg => msg.id === messageId);
+          if (exists) {
+            console.log('🔍 Message already exists, skipping duplicate');
+            return prev;
+          }
+
+          const newMessage: ChatMessage = {
+            id: messageId,
+            username: lastMessage.username,
+            content: lastMessage.content || '',
+            timestamp: lastMessage.timestamp,
+            isOwn: lastMessage.user_id === currentUserId,
+          };
+          return [...prev, newMessage];
+        });
 
         // If this is our own message (confirmation), reset sending state
         if (lastMessage.user_id === currentUserId) {
@@ -64,7 +74,7 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
         console.log('🔍 Message is not for this conversation, ignoring');
       }
     }
-  }, [lastMessage, currentUserId, conversation.other_user_id]);
+  }, [lastMessage?.timestamp, lastMessage?.user_id, currentUserId, conversation.other_user_id]);
 
 
 
