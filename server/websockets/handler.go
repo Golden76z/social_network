@@ -41,22 +41,37 @@ var upgrader = websocket.Upgrader{
 
 func WebSocketHandler(hub *Hub, cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Extracting JWT from cookie
-		cookie, err := r.Cookie("jwt_token")
-		if err != nil {
-			http.Error(w, "Missing token", http.StatusUnauthorized)
-			return
+		var tokenString string
+
+		// Try to get JWT from query parameter first (for WebSocket connections)
+		if token := r.URL.Query().Get("token"); token != "" {
+			tokenString = token
+			log.Printf("WebSocket: Using token from query parameter")
+		} else {
+			// Fallback to cookie
+			cookie, err := r.Cookie("jwt_token")
+			if err != nil {
+				log.Printf("WebSocket: Missing token in both query parameter and cookie")
+				http.Error(w, "Missing token", http.StatusUnauthorized)
+				return
+			}
+			tokenString = cookie.Value
+			log.Printf("WebSocket: Using token from cookie")
 		}
 
-		// Get current user ID from context (injected by AuthMiddleware)
-		tokenString := cookie.Value
-
 		// Decoding the token and getting the User's informations
+		tokenPreview := tokenString
+		if len(tokenString) > 20 {
+			tokenPreview = tokenString[:20]
+		}
+		log.Printf("WebSocket: Validating token: %s...", tokenPreview)
 		claims, errTokenValidate := utils.ValidateToken(tokenString)
 		if errTokenValidate != nil {
+			log.Printf("WebSocket: Token validation failed: %v", errTokenValidate)
 			http.Error(w, "Error decoding JWT", http.StatusUnauthorized)
 			return
 		}
+		log.Printf("WebSocket: Token validated successfully for user: %s", claims.Username)
 
 		// Extracting userID and username from claims struct
 		userID := claims.UserID

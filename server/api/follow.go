@@ -2,8 +2,10 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/middleware"
@@ -58,34 +60,89 @@ func CreateFollowHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Check for existing follow request (pending or accepted)
 	existing, err := db.DBService.GetFollowRequestBetween(userID, req.TargetID)
-	if err == nil && (existing.Status == "pending" || existing.Status == "accepted") {
-		http.Error(w, "Follow request already exists", http.StatusConflict)
-		return
+	if err == nil {
+		if existing.Status == "accepted" {
+			// Already following - return success message
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]string{"message": "You are already following this user"})
+			return
+		}
+		if existing.Status == "pending" {
+			// Request already pending - return success message
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]string{"message": "Follow request already pending"})
+			return
+		}
+		// If there's a declined/rejected request, we can allow a new follow request
 	}
 
 	// If public profile, auto-accept
 	if !targetUser.IsPrivate {
 		err := db.DBService.CreateFollowRequest(userID, req.TargetID, "accepted")
 		if err != nil {
+			// Check if it's a unique constraint violation (duplicate key)
+			if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode(map[string]string{"message": "You are already following this user"})
+				return
+			}
 			http.Error(w, "Error creating follow relationship", http.StatusInternalServerError)
 			return
 		}
 		// Increment counts (pseudo-code, implement in DB as needed)
 		_ = db.DBService.IncrementFollowingCount(userID)
 		_ = db.DBService.IncrementFollowersCount(req.TargetID)
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{"message": "You are now following this user"}`))
+		json.NewEncoder(w).Encode(map[string]string{"message": "You are now following this user"})
 		return
 	}
 
 	// If private profile, create a pending request (allow resending if last was declined)
 	err = db.DBService.CreateFollowRequest(userID, req.TargetID, "pending")
 	if err != nil {
+		// Check if it's a unique constraint violation (duplicate key)
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]string{"message": "Follow request already pending"})
+			return
+		}
 		http.Error(w, "Error creating follow request", http.StatusInternalServerError)
 		return
 	}
+
+	// Create notification for the target user about the follow request
+	// Get requester's information for the notification
+	requester, err := db.DBService.GetUserByID(userID)
+	if err != nil {
+		fmt.Printf("[WARNING] Failed to get requester info for notification: %v\n", err)
+		// Continue without notification
+	} else {
+		avatar := ""
+		if requester.Avatar.Valid {
+			avatar = requester.Avatar.String
+		}
+		notificationData := fmt.Sprintf(`{"requester_id": %d, "requester_nickname": "%s", "requester_avatar": "%s", "type": "follow_request"}`,
+			userID, requester.Nickname, avatar)
+		notificationReq := models.CreateNotificationRequest{
+			UserID: req.TargetID,
+			Type:   "follow_request",
+			Data:   notificationData,
+		}
+
+		// Don't fail the follow request if notification creation fails
+		if err := db.DBService.CreateNotification(notificationReq); err != nil {
+			fmt.Printf("[WARNING] Failed to create follow request notification: %v\n", err)
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(`{"message": "Follow request sent"}`))
+	json.NewEncoder(w).Encode(map[string]string{"message": "Follow request sent"})
 }
 
 // GetFollowerHandler returns the list of users who follow the specified user (followers)
@@ -117,8 +174,23 @@ func GetFollowerHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error fetching followers", http.StatusInternalServerError)
 		return
 	}
+
+	// Transform User objects to UserDisplayInfo format
+	var displayInfo []map[string]interface{}
+	for _, user := range followers {
+		displayInfo = append(displayInfo, map[string]interface{}{
+			"id":         user.ID,
+			"nickname":   user.Nickname,
+			"fullName":   fmt.Sprintf("%s %s", user.FirstName, user.LastName),
+			"first_name": user.FirstName,
+			"last_name":  user.LastName,
+			"avatar":     user.GetAvatar(),
+			"is_private": user.IsPrivate,
+		})
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(followers)
+	json.NewEncoder(w).Encode(displayInfo)
 }
 
 // GetFollowingHandler returns the list of users the specified user is following
@@ -150,8 +222,23 @@ func GetFollowingHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error fetching following", http.StatusInternalServerError)
 		return
 	}
+
+	// Transform User objects to UserDisplayInfo format
+	var displayInfo []map[string]interface{}
+	for _, user := range following {
+		displayInfo = append(displayInfo, map[string]interface{}{
+			"id":         user.ID,
+			"nickname":   user.Nickname,
+			"fullName":   fmt.Sprintf("%s %s", user.FirstName, user.LastName),
+			"first_name": user.FirstName,
+			"last_name":  user.LastName,
+			"avatar":     user.GetAvatar(),
+			"is_private": user.IsPrivate,
+		})
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(following)
+	json.NewEncoder(w).Encode(displayInfo)
 }
 
 // UpdateFollowHandler allows the target user to accept or decline a follow request. Only 'accepted' or 'declined' are valid statuses. If already in the requested status, returns an error.
@@ -234,19 +321,15 @@ func DeleteFollowHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Search for the follow request in both directions (unfollow or cancel request)
+	// Search for the follow request where current user is the requester
 	followReq, err := db.DBService.GetFollowRequestBetween(userID, req.TargetID)
 	if err != nil {
-		// Peut-être que c'est l'autre qui nous suit
-		followReq, err = db.DBService.GetFollowRequestBetween(req.TargetID, userID)
-		if err != nil {
-			http.Error(w, "Follow request not found", http.StatusNotFound)
-			return
-		}
+		http.Error(w, "Follow request not found", http.StatusNotFound)
+		return
 	}
 
-	// Only the requester or the target can delete the relationship
-	if followReq.RequesterID != userID && followReq.TargetID != userID {
+	// Only the requester can delete their own follow request (unfollow)
+	if followReq.RequesterID != userID {
 		http.Error(w, "Not authorized to delete this follow request", http.StatusForbidden)
 		return
 	}
@@ -257,12 +340,217 @@ func DeleteFollowHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Clean up related notifications
+	err = db.DBService.DeleteNotificationsByTypeAndData("follow_request", fmt.Sprintf(`{"requester_id":%d}`, followReq.RequesterID))
+	if err != nil {
+		fmt.Printf("[WARNING] Failed to clean up follow request notifications: %v\n", err)
+	}
+
 	// If the relationship was accepted, decrement counters
 	if followReq.Status == "accepted" {
 		_ = db.DBService.DecrementFollowingCount(followReq.RequesterID)
 		_ = db.DBService.DecrementFollowersCount(followReq.TargetID)
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"message": "Follow request deleted"}`))
+	json.NewEncoder(w).Encode(map[string]string{"message": "Follow request deleted"})
+}
+
+// AcceptFollowRequestHandler accepts a pending follow request
+func AcceptFollowRequestHandler(w http.ResponseWriter, r *http.Request) {
+	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		RequesterID int64 `json:"requester_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Find the pending follow request
+	followReq, err := db.DBService.GetFollowRequestBetween(req.RequesterID, int64(currentUserID))
+	if err != nil {
+		http.Error(w, "Follow request not found", http.StatusNotFound)
+		return
+	}
+
+	if followReq.Status != "pending" {
+		http.Error(w, "Follow request is not pending", http.StatusBadRequest)
+		return
+	}
+
+	// Update the follow request status to accepted
+	err = db.DBService.UpdateFollowRequestStatus(followReq.ID, "accepted")
+	if err != nil {
+		http.Error(w, "Error accepting follow request", http.StatusInternalServerError)
+		return
+	}
+
+	// Increment counters
+	_ = db.DBService.IncrementFollowingCount(req.RequesterID)
+	_ = db.DBService.IncrementFollowersCount(int64(currentUserID))
+
+	// Create notification for the requester
+	requester, err := db.DBService.GetUserByID(req.RequesterID)
+	if err == nil {
+		avatar := ""
+		if requester.Avatar.Valid {
+			avatar = requester.Avatar.String
+		}
+		notificationData := fmt.Sprintf(`{"target_id": %d, "target_nickname": "%s", "target_avatar": "%s", "type": "follow_accepted"}`,
+			currentUserID, requester.Nickname, avatar)
+		notificationReq := models.CreateNotificationRequest{
+			UserID: req.RequesterID,
+			Type:   "follow_accepted",
+			Data:   notificationData,
+		}
+		if err := db.DBService.CreateNotification(notificationReq); err != nil {
+			fmt.Printf("[WARNING] Failed to create notification for follow acceptance: %v\n", err)
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Follow request accepted"})
+}
+
+// DeclineFollowRequestHandler declines a pending follow request
+func DeclineFollowRequestHandler(w http.ResponseWriter, r *http.Request) {
+	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		RequesterID int64 `json:"requester_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Find the pending follow request
+	followReq, err := db.DBService.GetFollowRequestBetween(req.RequesterID, int64(currentUserID))
+	if err != nil {
+		http.Error(w, "Follow request not found", http.StatusNotFound)
+		return
+	}
+
+	if followReq.Status != "pending" {
+		http.Error(w, "Follow request is not pending", http.StatusBadRequest)
+		return
+	}
+
+	// Update the follow request status to declined
+	err = db.DBService.UpdateFollowRequestStatus(followReq.ID, "declined")
+	if err != nil {
+		http.Error(w, "Error declining follow request", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Follow request declined"})
+}
+
+// CancelFollowRequestHandler cancels a pending follow request (for the requester)
+func CancelFollowRequestHandler(w http.ResponseWriter, r *http.Request) {
+	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		TargetID int64 `json:"target_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Find the pending follow request
+	followReq, err := db.DBService.GetFollowRequestBetween(int64(currentUserID), req.TargetID)
+	if err != nil {
+		http.Error(w, "Follow request not found", http.StatusNotFound)
+		return
+	}
+
+	if followReq.Status != "pending" {
+		http.Error(w, "Follow request is not pending", http.StatusBadRequest)
+		return
+	}
+
+	// Delete the follow request
+	err = db.DBService.DeleteFollowRequest(followReq.ID)
+	if err != nil {
+		http.Error(w, "Error canceling follow request", http.StatusInternalServerError)
+		return
+	}
+
+	// Clean up related notifications
+	err = db.DBService.DeleteNotificationsByTypeAndData("follow_request", fmt.Sprintf(`{"requester_id":%d}`, followReq.RequesterID))
+	if err != nil {
+		fmt.Printf("[WARNING] Failed to clean up follow request notifications: %v\n", err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Follow request canceled"})
+}
+
+// GetMutualFriendsHandler returns the list of users who follow the current user AND are followed back (mutual friends)
+func GetMutualFriendsHandler(w http.ResponseWriter, r *http.Request) {
+	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID := int64(currentUserID)
+
+	// Get target user ID from query parameter
+	targetUserIDStr := r.URL.Query().Get("userId")
+	var targetUserID int64
+	var err error
+
+	if targetUserIDStr == "" {
+		// No userId parameter, return current user's mutual friends
+		targetUserID = userID
+	} else {
+		targetUserID, err = strconv.ParseInt(targetUserIDStr, 10, 64)
+		if err != nil {
+			http.Error(w, "Invalid user ID format", http.StatusBadRequest)
+			return
+		}
+	}
+
+	mutualFriends, err := db.DBService.GetMutualFriends(targetUserID)
+	if err != nil {
+		http.Error(w, "Error fetching mutual friends", http.StatusInternalServerError)
+		return
+	}
+
+	// Transform User objects to UserDisplayInfo format
+	var displayInfo []map[string]interface{}
+	for _, user := range mutualFriends {
+		displayInfo = append(displayInfo, map[string]interface{}{
+			"id":         user.ID,
+			"nickname":   user.Nickname,
+			"fullName":   fmt.Sprintf("%s %s", user.FirstName, user.LastName),
+			"first_name": user.FirstName,
+			"last_name":  user.LastName,
+			"avatar":     user.GetAvatar(),
+			"is_private": user.IsPrivate,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(displayInfo)
 }

@@ -13,9 +13,13 @@ export const userApi = {
     return apiClient.put<User>(userRoutes.profile, data);
   },
   
-  // GET /api/user/profile?id=123
+  // GET /api/user/profile?id=123 (authenticated) or /api/public/user/profile?id=123 (public)
   getUserById: (userId: number): Promise<UserProfile> => {
-    return apiClient.get<UserProfile>(`${userRoutes.profile}?id=${userId}`);
+    // Use authenticated endpoint if user is logged in, otherwise use public endpoint
+    const endpoint = apiClient.isAuthenticated() 
+      ? `${userRoutes.profile}?id=${userId}`
+      : `${userRoutes.publicProfile}?id=${userId}`;
+    return apiClient.get<UserProfile>(endpoint);
   },
   
   // GET /api/user/follower?userId=123
@@ -30,11 +34,23 @@ export const userApi = {
 
   // POST /api/user/follow
   followUser: (userId: number): Promise<void> => {
-    return apiClient.post<void>(userRoutes.follow, { userId });
+    return apiClient.post<void>(userRoutes.follow, { target_id: userId });
   },
 
   // DELETE /api/user/follow (unfollow)
   unfollowUser: (userId: number): Promise<void> => {
-    return apiClient.delete<void>(`${userRoutes.follow}?userId=${userId}`);
+    return apiClient.delete<void>(userRoutes.follow, { target_id: userId });
+  },
+
+  // POST /api/user/follow/cancel (cancel follow request)
+  cancelFollowRequest: (userId: number): Promise<void> => {
+    return apiClient.post<void>('/api/user/follow/cancel', { 
+      target_id: userId 
+    });
+  },
+
+  // GET /api/user/mutual-friends?userId=123
+  getMutualFriends: (userId: number): Promise<UserDisplayInfo[]> => {
+    return apiClient.get<UserDisplayInfo[]>(`${userRoutes.mutualFriends}?userId=${userId}`);
   },
 };

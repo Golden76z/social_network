@@ -14,13 +14,17 @@ type Comment struct {
 	FirstName string `json:"first_name,omitempty"`
 	LastName  string `json:"last_name,omitempty"`
 	Avatar    string `json:"avatar,omitempty"`
+
+	// Images support
+	Images []string `json:"images,omitempty"`
 }
 
 // Regular post comments
 type CreateCommentRequest struct {
-	PostID int64  `json:"post_id"`
-	UserID int64  `json:"user_id"`
-	Body   string `json:"body"`
+	PostID int64    `json:"post_id"`
+	UserID int64    `json:"user_id"`
+	Body   string   `json:"body"`
+	Images []string `json:"images,omitempty"`
 }
 
 type UpdateCommentRequest struct {

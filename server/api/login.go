@@ -2,8 +2,10 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/models"
@@ -53,15 +55,63 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Creating a session for the user
-	errSession := utils.CookieSession(req.Username, w)
-	if errSession != nil {
-		http.Error(w, "Error creating session with cookies", http.StatusBadRequest)
+	fmt.Printf("Creating session for user: %s\n", req.Username)
+
+	// Generate JWT token
+	token, err := utils.JWTGeneration(req.Username, w)
+	if err != nil {
+		fmt.Printf("Error generating JWT: %v\n", err)
+		http.Error(w, "Error generating JWT token", http.StatusInternalServerError)
 		return
 	}
 
-	// Send back a response to the client-side in case of success
+	// Get user_id for session creation
+	userID, err := db.DBService.GetUserIDByUsername(req.Username)
+	if err != nil {
+		fmt.Printf("Error getting user ID: %v\n", err)
+		http.Error(w, "Error getting user ID", http.StatusInternalServerError)
+		return
+	}
+
+	// Store session in database
+	// We need to access config through the utils package
+	err = db.DBService.CreateSession(int(userID), token, time.Hour*4) // Use default 4 hours for now
+	if err != nil {
+		fmt.Printf("Error creating session in DB: %v\n", err)
+		http.Error(w, "Error creating session in database", http.StatusInternalServerError)
+		return
+	}
+
+	// Set cookie manually
+	secure := false // Development mode
+	sameSite := http.SameSiteLaxMode
+
+	cookie := &http.Cookie{
+		Name:     "jwt_token",
+		Value:    token,
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: sameSite,
+		Path:     "/",
+		MaxAge:   int(time.Hour * 4), // 4 hours
+		Domain:   "localhost",
+	}
+
+	http.SetCookie(w, cookie)
+	fmt.Printf("Session created successfully for user: %s\n", req.Username)
+
+	// Send back a response with the token for localStorage
+	response := map[string]interface{}{
+		"message": "Login successful",
+		"token":   token,
+	}
+
+	fmt.Printf("DEBUG: About to send response: %+v\n", response)
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"message": "Login successful"}`))
+	fmt.Printf("DEBUG: Headers set, about to encode response\n")
+	json.NewEncoder(w).Encode(response)
+	fmt.Printf("DEBUG: Response sent successfully\n")
 }
 
 // Helper function to validate username (can be email or nickname)

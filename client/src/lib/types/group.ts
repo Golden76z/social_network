@@ -33,6 +33,7 @@ export interface CreateGroupPostRequest {
   group_id: number;
   title: string;
   body: string;
+  images?: string[];
 }
 
 export interface GroupPost {
@@ -43,11 +44,15 @@ export interface GroupPost {
   created_at: string;
   updated_at: string;
   visibility: string;
-  images: string[];
+  images: string[] | null;
   likes: number;
   dislikes: number;
   user_liked: boolean;
   user_disliked: boolean;
+  author_nickname?: string;
+  author_first_name?: string;
+  author_last_name?: string;
+  author_avatar?: string;
 }
 
 export interface UpdateGroupPostRequest {
@@ -64,6 +69,7 @@ export interface DeleteGroupPostRequest {
 export interface CreateGroupCommentRequest {
   group_post_id: number;
   body: string;
+  images?: string[];
 }
 
 export interface UpdateGroupCommentRequest {
@@ -94,6 +100,20 @@ export interface DeleteGroupEventRequest {
   id: number;
 }
 
+export interface GroupEvent {
+  id: number;
+  group_id: number;
+  creator_id: number;
+  title: string;
+  description: string;
+  event_datetime: string;
+  created_at: string;
+  creator_nickname?: string;
+  creator_first_name?: string;
+  creator_last_name?: string;
+  creator_avatar?: string;
+}
+
 // ===== GROUP MEMBER / INVITATION =====
 export interface InviteToGroupRequest {
   group_id: number;
@@ -109,6 +129,31 @@ export interface UpdateGroupMemberRequest {
   groupID: number;
   memberID: number;
   role: string;
+}
+
+export interface GroupMemberWithUser {
+  id: number;
+  group_id: number;
+  user_id: number;
+  role: string;
+  invited_by?: number;
+  created_at: string;
+  nickname?: string;
+  first_name?: string;
+  last_name?: string;
+  avatar?: string;
+}
+
+export interface GroupRequestWithUser {
+  id: number;
+  group_id: number;
+  user_id: number;
+  status: string;
+  created_at: string;
+  nickname?: string;
+  first_name?: string;
+  last_name?: string;
+  avatar?: string;
 }
 
 // ===== RSVP =====

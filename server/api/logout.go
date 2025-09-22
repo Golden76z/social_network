@@ -36,10 +36,11 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 		Name:     "jwt_token",
 		Value:    "",
 		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
+		Secure:   false,                // Allow in development
+		SameSite: http.SameSiteLaxMode, // Changed from StrictMode to LaxMode
 		Path:     "/",
 		MaxAge:   -1,
+		Domain:   "localhost", // Set domain to localhost to work across ports
 	})
 
 	w.WriteHeader(http.StatusOK)

@@ -17,7 +17,7 @@ export default function WebSocketPage() {  // Changed to default export
   }
 
   return (
-    <WebSocketProvider url="ws://localhost:8080/ws" token={authToken}>
+    <WebSocketProvider url="ws://localhost:8080/ws">
       <div className="min-h-screen bg-gray-100 py-8">
         <div className="container mx-auto px-4">
           <h1 className="text-3xl font-bold text-center mb-8">Social Network Chat</h1>

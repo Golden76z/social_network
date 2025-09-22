@@ -16,9 +16,26 @@ func (s *Service) CreateGroup(request models.CreateGroupRequest, creatorID int64
 			_ = tx.Commit()
 		}
 	}()
-	_, err = tx.Exec(`
+
+	// Insert the group
+	result, err := tx.Exec(`
         INSERT INTO groups (title, avatar, bio, creator_id)
         VALUES (?, ?, ?, ?)`, request.Title, request.Avatar, request.Bio, creatorID)
+	if err != nil {
+		return err
+	}
+
+	// Get the group ID
+	groupID, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+
+	// Add the creator as an admin member
+	_, err = tx.Exec(`
+        INSERT INTO group_members (group_id, user_id, role, invited_by)
+        VALUES (?, ?, ?, ?)`, groupID, creatorID, "admin", nil)
+
 	return err
 }
 

@@ -14,4 +14,7 @@ func setupUserRoutes(r *Router) {
 	r.GET("/api/user/notifications", api.GetUserNotificationsHandler)
 	r.PUT("/api/user/notifications", api.UpdateUserNotificationsHandler)
 	r.DELETE("/api/user/notifications", api.DeleteUserNotificationsHandler)
+
+	// Upload routes
+	r.POST("/api/upload/avatar", api.UploadAvatarHandler)
 }

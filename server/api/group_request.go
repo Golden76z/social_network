@@ -11,6 +11,132 @@ import (
 	"github.com/Golden76z/social-network/models"
 )
 
+// CreateGroupRequestHandler creates a new group join request
+func CreateGroupRequestHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("🔍 CreateGroupRequestHandler called")
+	userID, ok := r.Context().Value(middleware.UserIDKey).(int)
+	if !ok {
+		fmt.Println("❌ UserID not found in context")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	fmt.Printf("✅ UserID found: %d\n", userID)
+
+	var req struct {
+		GroupID int64 `json:"group_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		fmt.Printf("❌ Error decoding request body: %v\n", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	fmt.Printf("✅ Request decoded: GroupID=%d\n", req.GroupID)
+
+	if req.GroupID <= 0 {
+		fmt.Println("❌ Invalid group_id")
+		http.Error(w, "Invalid group_id", http.StatusBadRequest)
+		return
+	}
+
+	// Check if group exists
+	exists, err := db.DBService.GroupExists(req.GroupID)
+	if err != nil {
+		http.Error(w, "Error checking group existence", http.StatusInternalServerError)
+		return
+	}
+	if !exists {
+		http.Error(w, "Group not found", http.StatusNotFound)
+		return
+	}
+
+	// Check if user is already a member
+	isMember, err := db.DBService.IsUserInGroup(int64(userID), req.GroupID)
+	if err != nil {
+		http.Error(w, "Error checking membership", http.StatusInternalServerError)
+		return
+	}
+	if isMember {
+		http.Error(w, "User is already a member of this group", http.StatusConflict)
+		return
+	}
+
+	// Check if user already has a pending request
+	hasPendingRequest, err := db.DBService.HasPendingGroupRequest(int64(userID), req.GroupID)
+	if err != nil {
+		http.Error(w, "Error checking existing requests", http.StatusInternalServerError)
+		return
+	}
+	if hasPendingRequest {
+		http.Error(w, "User already has a pending request for this group", http.StatusConflict)
+		return
+	}
+
+	// Create the group request
+	fmt.Printf("🔄 Creating group request: GroupID=%d, UserID=%d\n", req.GroupID, userID)
+	err = db.DBService.CreateGroupRequest(req.GroupID, int64(userID), "pending")
+	if err != nil {
+		fmt.Printf("❌ Error creating group request: %v\n", err)
+		http.Error(w, "Error creating group request", http.StatusInternalServerError)
+		return
+	}
+	fmt.Println("✅ Group request created successfully")
+
+	// Create notification for the group owner
+	group, err := db.DBService.GetGroupByID(req.GroupID)
+	if err == nil {
+		requester, err := db.DBService.GetUserByID(int64(userID))
+		if err == nil {
+			avatar := ""
+			if requester.Avatar.Valid {
+				avatar = requester.Avatar.String
+			}
+			notificationData := fmt.Sprintf(`{"group_id": %d, "group_name": "%s", "requester_id": %d, "requester_nickname": "%s", "requester_avatar": "%s", "type": "group_request"}`,
+				req.GroupID, group.Title, userID, requester.Nickname, avatar)
+			notificationReq := models.CreateNotificationRequest{
+				UserID: group.CreatorID,
+				Type:   "group_request",
+				Data:   notificationData,
+			}
+			if err := db.DBService.CreateNotification(notificationReq); err != nil {
+				fmt.Printf("[WARNING] Failed to create notification for group request: %v\n", err)
+			}
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	response := map[string]interface{}{
+		"message":  "Group join request created successfully",
+		"group_id": req.GroupID,
+		"user_id":  userID,
+		"status":   "pending",
+	}
+	fmt.Printf("📤 Sending response: %+v\n", response)
+	json.NewEncoder(w).Encode(response)
+	fmt.Println("✅ Response sent successfully")
+}
+
+// GetUserPendingRequestsHandler gets all pending requests for the current user
+func GetUserPendingRequestsHandler(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(middleware.UserIDKey).(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	requests, err := db.DBService.GetUserPendingRequests(int64(userID))
+	if err != nil {
+		http.Error(w, "Error fetching pending requests", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"requests": requests,
+	})
+}
+
 // GetGroupRequestsHandler lists join requests for a group (group owner only)
 func GetGroupRequestsHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(int)

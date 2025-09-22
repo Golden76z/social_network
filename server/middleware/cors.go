@@ -47,6 +47,8 @@ func SetupCORS() func(http.Handler) http.Handler {
 			"http://localhost:3000",
 			"http://127.0.0.1:3000",
 			"http://localhost:3001", // In case you use different ports
+			"http://localhost:3002",
+			"http://localhost:3003",
 		},
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders: []string{
