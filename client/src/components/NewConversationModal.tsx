@@ -52,6 +52,8 @@ export function NewConversationModal({ isOpen, onClose, onUserSelect }: NewConve
       setLoading(true);
       setError(null);
       const data = await chatAPI.getMessageableUsers();
+      console.log('🔍 getMessageableUsers response:', data);
+      console.log('🔍 First user in response:', data[0]);
       setUsers(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load users');
@@ -139,13 +141,15 @@ export function NewConversationModal({ isOpen, onClose, onUserSelect }: NewConve
                 <div
                   key={user.id}
                   onClick={() => {
+                    console.log('🔍 User selected in modal:', user);
+                    console.log('🔍 User avatar:', user.avatar, 'type:', typeof user.avatar);
                     onUserSelect(user);
                     onClose();
                   }}
                   className="flex items-center space-x-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors"
                 >
                   <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
-                    {user.avatar ? (
+                    {user.avatar && typeof user.avatar === 'string' ? (
                       <img
                         src={user.avatar}
                         alt={getDisplayName(user)}
