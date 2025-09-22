@@ -1,16 +1,33 @@
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode, useEffect, useState } from 'react';
 import { useWebSocket, UseWebSocketReturn } from '../lib/hooks/useWebSockets';
+import { apiClient } from '../lib/api';
+import { useAuth } from './AuthProvider';
 
 const WebSocketContext = createContext<UseWebSocketReturn | null>(null);
 
 interface WebSocketProviderProps {
   children: ReactNode;
   url: string;
-  token?: string;
 }
 
-export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, url, token }) => {
-  const webSocket = useWebSocket({ url, token });
+export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, url }) => {
+  const [token, setToken] = useState<string | null>(null);
+  const { user, isAuthenticated } = useAuth();
+
+  // Only get token when user is authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const jwtToken = apiClient.getToken();
+      console.log('🔌 WebSocket token set for authenticated user:', jwtToken ? 'Present' : 'Missing');
+      setToken(jwtToken);
+    } else {
+      console.log('🔌 WebSocket: User not authenticated, clearing token');
+      setToken(null);
+    }
+  }, [isAuthenticated, user]);
+
+  // Only create WebSocket connection when we have a valid token
+  const webSocket = useWebSocket({ url, token: isAuthenticated && token ? token : undefined });
 
   return (
     <WebSocketContext.Provider value={webSocket}>

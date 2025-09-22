@@ -147,6 +147,7 @@ func GetPostHandler(w http.ResponseWriter, r *http.Request) {
 		posts, err = db.DBService.GetPostsByUser(int64(currentUserID), int64(currentUserID))
 	} else if likedParam == "true" {
 		// Get posts liked by current user
+		fmt.Printf("[DEBUG] API: Calling GetLikedPosts for userID=%d\n", currentUserID)
 		posts, err = db.DBService.GetLikedPosts(int64(currentUserID))
 	} else if commentedParam == "true" {
 		// Get posts commented by current user

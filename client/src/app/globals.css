@@ -148,3 +148,27 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  /* Custom delete button styling - lighter purple tone */
+  .btn-delete {
+    background: linear-gradient(135deg, oklch(0.65 0.15 280), oklch(0.7 0.12 285));
+    color: white;
+    border: 1px solid oklch(0.6 0.15 280);
+    transition: all 0.2s ease;
+  }
+  
+  .btn-delete:hover {
+    background: linear-gradient(135deg, oklch(0.6 0.15 280), oklch(0.65 0.12 285));
+    border-color: oklch(0.55 0.15 280);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px oklch(0.65 0.15 280 / 0.3);
+  }
+  
+  .btn-delete:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+}

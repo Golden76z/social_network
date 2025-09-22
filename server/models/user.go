@@ -14,23 +14,27 @@ type User struct {
 	Avatar      sql.NullString `json:"avatar,omitempty"`
 	Bio         sql.NullString `json:"bio,omitempty"`
 	IsPrivate   bool           `json:"is_private"`
+	CreatedAt   string         `json:"created_at"`
 	Followers   int            `json:"followers"`
 	Followed    int            `json:"followed"`
 }
 
 // Struct GET - User information retrieving (Profile page)
 type UserProfileResponse struct {
-	ID          int64  `json:"id"`
-	Nickname    string `json:"nickname,omitempty"`
-	FirstName   string `json:"first_name"`
-	LastName    string `json:"last_name"`
-	Email       string `json:"email"`
-	DateOfBirth string `json:"date_of_birth"`
-	Avatar      string `json:"avatar,omitempty"`
-	Bio         string `json:"bio,omitempty"`
-	IsPrivate   bool   `json:"is_private"`
-	Followers   int    `json:"followers"`
-	Followed    int    `json:"followed"`
+	ID           int64   `json:"id"`
+	Nickname     string  `json:"nickname,omitempty"`
+	FirstName    string  `json:"first_name"`
+	LastName     string  `json:"last_name"`
+	Email        string  `json:"email"`
+	DateOfBirth  string  `json:"date_of_birth"`
+	Avatar       string  `json:"avatar,omitempty"`
+	Bio          string  `json:"bio,omitempty"`
+	IsPrivate    bool    `json:"is_private"`
+	CreatedAt    string  `json:"created_at"`
+	Followers    int     `json:"followers"`
+	Followed     int     `json:"followed"`
+	IsFollowing  *bool   `json:"isFollowing,omitempty"`  // nil for own profile, true/false for others
+	FollowStatus *string `json:"followStatus,omitempty"` // For private profiles: "none", "pending", "accepted", "declined"
 }
 
 // Struct PUT - User Profile information Update

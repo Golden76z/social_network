@@ -16,6 +16,7 @@ interface AuthContextType {
   register: (userData: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
+  refreshUserProfile: () => Promise<void>;
   forgotPassword?: (email: string) => Promise<void>;
   resetPassword?: (token: string, newPassword: string, confirmPassword: string) => Promise<void>;
 }
@@ -34,19 +35,47 @@ export const useAuth = () => {
 
 // Auth Provider Component
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Initialize auth state based on token presence
+  const getInitialAuthState = () => {
+    if (typeof window === 'undefined') return false;
+    
+    try {
+      const userFromToken = apiClient.getUserFromToken();
+      const isExpired = apiClient.isTokenExpired();
+      const hasValidToken = !!(userFromToken && userFromToken.userid && !isExpired);
+      console.log('🔍 Initial auth state check:', {
+        hasUserFromToken: !!userFromToken,
+        userid: userFromToken?.userid,
+        isExpired,
+        hasValidToken
+      });
+      return hasValidToken;
+    } catch (error) {
+      console.error('❌ Error in getInitialAuthState:', error);
+      return false;
+    }
+  };
+
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false); // Always start as false, let checkAuth() determine the real state
   const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
 
-  // Check if user is authenticated
+  // Check if user is authenticated (no backend dependency for initial check)
   const checkAuth = async () => {
     try {
       setIsLoading(true);
       console.log('🔍 Starting auth check...');
+      
+      // Wait a bit to ensure cookies are available (especially after page reload)
+      if (typeof window !== 'undefined') {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
   
       // Check if we have a JWT token in cookies first
       const userFromToken = apiClient.getUserFromToken();
+      console.log('🔍 User from token:', userFromToken);
+      
       if (!userFromToken || !userFromToken.userid) {
         console.log('🔐 No JWT token found in cookies');
         setUser(null);
@@ -55,48 +84,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
         return;
       }
+
+      // Check if token is expired
+      const isExpired = apiClient.isTokenExpired();
+      console.log('🔍 Token expired check:', isExpired);
+      
+      if (isExpired) {
+        console.log('🔐 JWT token has expired');
+        // Clear expired token
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('jwt_token');
+        }
+        setUser(null);
+        setIsAuthenticated(false);
+        setHasCheckedAuth(true);
+        setIsLoading(false);
+        return;
+      }
   
-      console.log('🔐 JWT token found, userid:', userFromToken.userid);
+      console.log('🔐 Valid JWT token found, userid:', userFromToken.userid);
       
       // Create a basic user object from the token
       const basicUser: User = {
         id: parseInt(userFromToken.userid),
-        email: '', // Will be filled from backend
-        first_name: '', // Will be filled from backend
-        last_name: '', // Will be filled from backend
+        email: '', // Will be filled from backend later
+        first_name: '', // Will be filled from backend later
+        last_name: '', // Will be filled from backend later
         nickname: userFromToken.username || '', // Use username from token
-        date_of_birth: '', // Will be filled from backend
-        bio: '', // Will be filled from backend
-        avatar: '', // Will be filled from backend
-        is_private: false, // Will be filled from backend
+        date_of_birth: '', // Will be filled from backend later
+        bio: '', // Will be filled from backend later
+        avatar: '', // Will be filled from backend later
+        is_private: false, // Will be filled from backend later
         created_at: new Date().toISOString(),
-        followers: 0, // Will be filled from backend
-        followed: 0, // Will be filled from backend
+        followers: 0, // Will be filled from backend later
+        followed: 0, // Will be filled from backend later
       };
 
-      // Set user immediately from token
+      // Set user immediately from token (this makes auth work instantly)
       setUser(basicUser);
       setIsAuthenticated(true);
       setHasCheckedAuth(true);
       setIsLoading(false);
       console.log('✅ User set from token:', basicUser);
 
-      // Try to validate with backend in background (non-blocking)
-      try {
-        const userData = await apiClient.get<{ user: User } | User>('/api/user/profile');
-        
-        if (userData) {
-          const userInfo = 'user' in userData ? userData.user : userData;
-          
-          if (userInfo && userInfo.id) {
-            setUser(userInfo);
-            console.log('✅ User updated from backend:', userInfo);
-          }
-        }
-      } catch (backendError) {
-        console.log('⚠️ Backend validation failed, but keeping token-based auth:', backendError);
-        // Keep the token-based user, don't clear auth state
-      }
+      // Try to fetch full profile in background (non-critical)
+      refreshUserProfile();
       
     } catch (error) {
       console.error('❌ Auth check failed:', error);
@@ -104,6 +136,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticated(false);
       setHasCheckedAuth(true);
       setIsLoading(false);
+    }
+  };
+
+  // Separate method to refresh user profile from backend
+  const refreshUserProfile = async () => {
+    try {
+      console.log('🔄 Refreshing user profile from backend...');
+      const userData = await apiClient.get<{ user: User } | User>('/api/user/profile');
+      
+      if (userData) {
+        const userInfo = 'user' in userData ? userData.user : userData;
+        
+        if (userInfo && userInfo.id) {
+          setUser(userInfo);
+          console.log('✅ User profile updated from backend:', userInfo);
+        }
+      }
+    } catch (error) {
+      console.log('⚠️ Background profile refresh failed (non-critical):', error);
+      // Don't clear auth state - token-based auth is still valid
     }
   };
 
@@ -117,6 +169,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const loginResponse = await apiClient.post(authRoutes.login, loginData);
       
       console.log('✅ Login successful:', loginResponse);
+      
+      // Store token in localStorage if provided
+      if (loginResponse && typeof loginResponse === 'object' && 'token' in loginResponse) {
+        const token = (loginResponse as any).token;
+        if (token && typeof window !== 'undefined') {
+          localStorage.setItem('jwt_token', token);
+          console.log('🔑 JWT token stored in localStorage');
+        }
+      }
       
       // After successful login, fetch user profile data
       try {
@@ -134,27 +195,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           throw new Error('No user data received from profile');
         }
       } catch (profileError) {
-        console.error('❌ Failed to fetch user profile:', profileError);
+        console.error('❌ Failed to fetch user profile after login:', profileError);
         // Fallback: try to get basic user info from token
         const userFromToken = apiClient.getUserFromToken();
         if (userFromToken && userFromToken.userid) {
           const basicUser: User = {
             id: parseInt(userFromToken.userid),
             email: email, // Use email from login
-            first_name: '', // Will be filled from backend
-            last_name: '', // Will be filled from backend
-            nickname: userFromToken.username || '', // Use username from token
-            date_of_birth: '', // Will be filled from backend
-            bio: '', // Will be filled from backend
-            avatar: '', // Will be filled from backend
-            is_private: false, // Will be filled from backend
+            first_name: '', 
+            last_name: '', 
+            nickname: userFromToken.username || '', 
+            date_of_birth: '', 
+            bio: '', 
+            avatar: '', 
+            is_private: false, 
             created_at: new Date().toISOString(),
-            followers: 0, // Will be filled from backend
-            followed: 0, // Will be filled from backend
+            followers: 0, 
+            followed: 0, 
           };
           setUser(basicUser);
           setIsAuthenticated(true);
-          console.log('✅ User set from token fallback:', basicUser);
+          console.log('✅ User set from token fallback after login:', basicUser);
         } else {
           throw new Error('No user data received from login or profile');
         }
@@ -179,13 +240,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // After successful registration, fetch user profile data
       try {
-        const userData = await apiClient.get<{ user: User } | User>('/api/user/profile');
-        if (userData) {
-          const userInfo = 'user' in userData ? userData.user : userData;
+        const userDataResponse = await apiClient.get<{ user: User } | User>('/api/user/profile');
+        if (userDataResponse) {
+          const userInfo = 'user' in userDataResponse ? userDataResponse.user : userDataResponse;
           if (userInfo && userInfo.id) {
             setUser(userInfo);
             setIsAuthenticated(true);
-            console.log('✅ User set from profile response:', userInfo);
+            console.log('✅ User set from profile response after registration:', userInfo);
           } else {
             throw new Error('Invalid user data received from profile');
           }
@@ -193,27 +254,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           throw new Error('No user data received from profile');
         }
       } catch (profileError) {
-        console.error('❌ Failed to fetch user profile:', profileError);
+        console.error('❌ Failed to fetch user profile after registration:', profileError);
         // Fallback: try to get basic user info from token
         const userFromToken = apiClient.getUserFromToken();
         if (userFromToken && userFromToken.userid) {
           const basicUser: User = {
             id: parseInt(userFromToken.userid),
-            email: userData.email, // Use email from registration
-            first_name: userData.first_name, // Use data from registration
-            last_name: userData.last_name, // Use data from registration
-            nickname: userFromToken.username || userData.nickname, // Use username from token or registration
-            date_of_birth: userData.date_of_birth, // Use data from registration
-            bio: userData.bio || '', // Use data from registration
-            avatar: userData.avatar || '', // Use data from registration
-            is_private: userData.is_private || false, // Use data from registration
+            email: userData.email, 
+            first_name: userData.first_name, 
+            last_name: userData.last_name, 
+            nickname: userFromToken.username || userData.nickname, 
+            date_of_birth: userData.date_of_birth, 
+            bio: userData.bio || '', 
+            avatar: userData.avatar || '', 
+            is_private: userData.is_private || false, 
             created_at: new Date().toISOString(),
-            followers: 0, // Will be filled from backend
-            followed: 0, // Will be filled from backend
+            followers: 0, 
+            followed: 0, 
           };
           setUser(basicUser);
           setIsAuthenticated(true);
-          console.log('✅ User set from token fallback:', basicUser);
+          console.log('✅ User set from token fallback after registration:', basicUser);
         } else {
           throw new Error('No user data received from registration or profile');
         }
@@ -242,9 +303,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
       
       // Clear any stored tokens
-      document.cookie = 'jwt_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('jwt_token');
+      }
       
       console.log('✅ Logout completed');
+      
+      // Redirect to home page after logout
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
     }
   };
 
@@ -262,6 +330,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     register,
     logout,
     checkAuth,
+    refreshUserProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
