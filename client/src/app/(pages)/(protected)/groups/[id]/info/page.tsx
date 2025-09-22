@@ -1268,7 +1268,11 @@ export default function GroupPage() {
                       const isPastEvent = eventDate < new Date();
                       
                       return (
-                        <div key={event.id} className="group relative bg-gradient-to-br from-card to-card/50 border border-border/50 rounded-xl p-6 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 hover:border-primary/20">
+                        <div 
+                          key={event.id} 
+                          className="group relative bg-gradient-to-br from-card to-card/50 border border-border/50 rounded-xl p-6 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 hover:border-primary/20 cursor-pointer"
+                          onClick={() => handleShowRSVPModal(event)}
+                        >
                           {/* Event Header */}
                           <div className="flex items-start justify-between mb-4">
                             <div className="flex-1">
@@ -1292,7 +1296,10 @@ export default function GroupPage() {
                               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 {(user && event.creator_id === user.id) && (
                                   <button 
-                                    onClick={() => handleEditEvent(event)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEditEvent(event);
+                                    }}
                                     className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
                                     title="Edit event"
                                   >
@@ -1300,7 +1307,10 @@ export default function GroupPage() {
                                   </button>
                                 )}
                                 <button 
-                                  onClick={() => handleDeleteEvent(event)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteEvent(event);
+                                  }}
                                   disabled={deletingEvent === event.id}
                                   className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors disabled:opacity-50"
                                   title="Delete event"
@@ -1358,7 +1368,10 @@ export default function GroupPage() {
                               </div>
                             </div>
                             <button
-                              onClick={() => handleShowRSVPModal(event)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleShowRSVPModal(event);
+                              }}
                               className="flex items-center gap-2 px-3 py-1.5 text-sm text-primary hover:text-primary-foreground hover:bg-primary rounded-lg transition-colors"
                             >
                               <Users2 className="w-4 h-4" />
@@ -1389,28 +1402,40 @@ export default function GroupPage() {
                                   )}
                                 </div>
                                 <button 
-                                  onClick={() => handleUpdateRSVP(userRSVP.id, 'come')}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUpdateRSVP(userRSVP.id, 'come');
+                                  }}
                                   className="flex items-center gap-1 px-3 py-2 bg-green-500/80 text-white rounded-lg text-sm hover:bg-green-500 transition-colors"
                                 >
                                   <CheckCircle className="w-4 h-4" />
                                   Going
                                 </button>
                                 <button 
-                                  onClick={() => handleUpdateRSVP(userRSVP.id, 'interested')}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUpdateRSVP(userRSVP.id, 'interested');
+                                  }}
                                   className="flex items-center gap-1 px-3 py-2 bg-yellow-500/80 text-white rounded-lg text-sm hover:bg-yellow-500 transition-colors"
                                 >
                                   <AlertCircle className="w-4 h-4" />
                                   Maybe
                                 </button>
                                 <button 
-                                  onClick={() => handleUpdateRSVP(userRSVP.id, 'not_come')}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUpdateRSVP(userRSVP.id, 'not_come');
+                                  }}
                                   className="flex items-center gap-1 px-3 py-2 bg-red-500/80 text-white rounded-lg text-sm hover:bg-red-500 transition-colors"
                                 >
                                   <XCircle className="w-4 h-4" />
                                   Not Going
                                 </button>
                                 <button 
-                                  onClick={() => handleCancelRSVP(userRSVP.id)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCancelRSVP(userRSVP.id);
+                                  }}
                                   className="px-3 py-2 border border-border text-muted-foreground rounded-lg text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
                                 >
                                   Cancel
@@ -1419,21 +1444,30 @@ export default function GroupPage() {
                             ) : (
                               <div className="flex gap-2 flex-wrap">
                                 <button 
-                                  onClick={() => handleRSVP(event.id, 'come')}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRSVP(event.id, 'come');
+                                  }}
                                   className="flex items-center gap-1 px-3 py-2 bg-green-500/80 text-white rounded-lg text-sm hover:bg-green-500 transition-colors"
                                 >
                                   <CheckCircle className="w-4 h-4" />
                                   Going
                                 </button>
                                 <button 
-                                  onClick={() => handleRSVP(event.id, 'interested')}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRSVP(event.id, 'interested');
+                                  }}
                                   className="flex items-center gap-1 px-3 py-2 bg-yellow-500/80 text-white rounded-lg text-sm hover:bg-yellow-500 transition-colors"
                                 >
                                   <AlertCircle className="w-4 h-4" />
                                   Maybe
                                 </button>
                                 <button 
-                                  onClick={() => handleRSVP(event.id, 'not_come')}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRSVP(event.id, 'not_come');
+                                  }}
                                   className="flex items-center gap-1 px-3 py-2 bg-red-500/80 text-white rounded-lg text-sm hover:bg-red-500 transition-colors"
                                 >
                                   <XCircle className="w-4 h-4" />
@@ -1481,14 +1515,22 @@ export default function GroupPage() {
             <div className="grid gap-4">
               {members.map((member) => (
                 <div key={member.id} className="flex items-center gap-3 p-3 border border-border rounded-lg">
-                  <ProfileThumbnail
-                    src={member.avatar}
-                    alt="member avatar"
-                    size="md"
-                    rounded
-                    initials={member.nickname || member.first_name || 'U'}
-                  />
-                  <div className="flex-1">
+                  <div 
+                    className="cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => router.push(`/profile/${member.user_id}`)}
+                  >
+                    <ProfileThumbnail
+                      src={member.avatar}
+                      alt="member avatar"
+                      size="md"
+                      rounded
+                      initials={member.nickname || member.first_name || 'U'}
+                    />
+                  </div>
+                  <div 
+                    className="flex-1 cursor-pointer hover:text-primary transition-colors"
+                    onClick={() => router.push(`/profile/${member.user_id}`)}
+                  >
                     <p className="font-medium">
                       {member.nickname || 
                        (member.first_name && member.last_name ? `${member.first_name} ${member.last_name}` : member.first_name) || 
@@ -2217,7 +2259,10 @@ export default function GroupPage() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {goingRSVPs.map((rsvp: any) => (
                           <div key={rsvp.id} className="flex items-center gap-3 p-3 bg-green-50/50 dark:bg-green-950/10 rounded-lg border border-green-200/50 dark:border-green-800/30">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500/20 to-green-600/10 flex items-center justify-center">
+                            <div 
+                              className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500/20 to-green-600/10 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={() => router.push(`/profile/${rsvp.user_id}`)}
+                            >
                               {rsvp.avatar ? (
                                 <img
                                   src={rsvp.avatar.startsWith('http') ? rsvp.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${rsvp.avatar}`}
@@ -2230,7 +2275,10 @@ export default function GroupPage() {
                                 </span>
                               )}
                             </div>
-                            <div className="flex-1 min-w-0">
+                            <div 
+                              className="flex-1 min-w-0 cursor-pointer hover:text-green-600 dark:hover:text-green-200 transition-colors"
+                              onClick={() => router.push(`/profile/${rsvp.user_id}`)}
+                            >
                               <p className="font-medium text-sm text-green-700 dark:text-green-300 truncate">
                                 {rsvp.nickname || `${rsvp.first_name || ''} ${rsvp.last_name || ''}`.trim() || 'Unknown User'}
                               </p>
@@ -2259,7 +2307,10 @@ export default function GroupPage() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {maybeRSVPs.map((rsvp: any) => (
                           <div key={rsvp.id} className="flex items-center gap-3 p-3 bg-yellow-50/50 dark:bg-yellow-950/10 rounded-lg border border-yellow-200/50 dark:border-yellow-800/30">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 flex items-center justify-center">
+                            <div 
+                              className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={() => router.push(`/profile/${rsvp.user_id}`)}
+                            >
                               {rsvp.avatar ? (
                                 <img
                                   src={rsvp.avatar.startsWith('http') ? rsvp.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${rsvp.avatar}`}
@@ -2272,7 +2323,10 @@ export default function GroupPage() {
                                 </span>
                               )}
                             </div>
-                            <div className="flex-1 min-w-0">
+                            <div 
+                              className="flex-1 min-w-0 cursor-pointer hover:text-yellow-600 dark:hover:text-yellow-200 transition-colors"
+                              onClick={() => router.push(`/profile/${rsvp.user_id}`)}
+                            >
                               <p className="font-medium text-sm text-yellow-700 dark:text-yellow-300 truncate">
                                 {rsvp.nickname || `${rsvp.first_name || ''} ${rsvp.last_name || ''}`.trim() || 'Unknown User'}
                               </p>
@@ -2301,7 +2355,10 @@ export default function GroupPage() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {notGoingRSVPs.map((rsvp: any) => (
                           <div key={rsvp.id} className="flex items-center gap-3 p-3 bg-red-50/50 dark:bg-red-950/10 rounded-lg border border-red-200/50 dark:border-red-800/30">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-500/20 to-red-600/10 flex items-center justify-center">
+                            <div 
+                              className="w-8 h-8 rounded-full bg-gradient-to-br from-red-500/20 to-red-600/10 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={() => router.push(`/profile/${rsvp.user_id}`)}
+                            >
                               {rsvp.avatar ? (
                                 <img
                                   src={rsvp.avatar.startsWith('http') ? rsvp.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${rsvp.avatar}`}
@@ -2314,7 +2371,10 @@ export default function GroupPage() {
                                 </span>
                               )}
                             </div>
-                            <div className="flex-1 min-w-0">
+                            <div 
+                              className="flex-1 min-w-0 cursor-pointer hover:text-red-600 dark:hover:text-red-200 transition-colors"
+                              onClick={() => router.push(`/profile/${rsvp.user_id}`)}
+                            >
                               <p className="font-medium text-sm text-red-700 dark:text-red-300 truncate">
                                 {rsvp.nickname || `${rsvp.first_name || ''} ${rsvp.last_name || ''}`.trim() || 'Unknown User'}
                               </p>
