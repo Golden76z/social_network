@@ -9,6 +9,8 @@ import { useAuth } from '@/context/AuthProvider';
 import { PrivateChat } from '@/components/PrivateChat';
 import { GroupChat } from '@/components/GroupChat';
 import Button from "@/components/ui/button";
+import { NewConversationModal } from "@/components/NewConversationModal";
+import { User } from "@/lib/types/user";
 
 type ConversationType = 'private' | 'group';
 type UnifiedConversation = 
@@ -23,6 +25,7 @@ export default function MessagesPage() {
   const [selectedConversation, setSelectedConversation] = useState<UnifiedConversation | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showNewConversationModal, setShowNewConversationModal] = useState(false);
   const { lastMessage } = useWebSocketContext();
   const { user } = useAuth();
 
@@ -195,6 +198,36 @@ export default function MessagesPage() {
     return conversation.data.last_message_time;
   };
 
+  const handleStartNewConversation = async (selectedUser: User) => {
+    console.log('🔍 handleStartNewConversation called with user:', selectedUser);
+    console.log('🔍 User object type:', typeof selectedUser);
+    console.log('🔍 User.id:', selectedUser.id, 'type:', typeof selectedUser.id);
+
+    // Find if conversation already exists
+    const existingConversation = privateConversations.find(
+      conv => conv.other_user_id === selectedUser.id
+    );
+
+    if (existingConversation) {
+      // Select existing conversation
+      setSelectedConversation({ type: 'private', data: existingConversation });
+    } else {
+      // Create new conversation object (this will be created when first message is sent)
+      const newConversation: Conversation = {
+        other_user_id: selectedUser.id,
+        other_user_nickname: selectedUser.nickname,
+        other_user_first_name: selectedUser.first_name,
+        other_user_last_name: selectedUser.last_name,
+        other_user_avatar: selectedUser.avatar || '',
+        other_user_is_private: selectedUser.is_private,
+        last_message: '',
+        last_message_time: new Date().toISOString(),
+      };
+
+      setSelectedConversation({ type: 'private', data: newConversation });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -207,7 +240,11 @@ export default function MessagesPage() {
     <div className="flex flex-col">
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <h1 className="text-2xl font-bold text-foreground">Messages</h1>
-        <Button variant="outline" type="button">
+        <Button
+          variant="outline"
+          type="button"
+          onClick={() => setShowNewConversationModal(true)}
+        >
           New Conversation
         </Button>
       </div>
@@ -326,6 +363,12 @@ export default function MessagesPage() {
           </div>
         </div>
       </div>
+
+      <NewConversationModal
+        isOpen={showNewConversationModal}
+        onClose={() => setShowNewConversationModal(false)}
+        onUserSelect={handleStartNewConversation}
+      />
     </div>
   );
 }

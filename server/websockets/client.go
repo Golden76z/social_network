@@ -13,7 +13,9 @@ import (
 
 // Client message handling methods
 func (c *Client) ReadPump() {
+	log.Printf("🔌 ReadPump started for client %s (user %d)", c.ID, c.UserID)
 	defer func() {
+		log.Printf("🔌 ReadPump stopping for client %s (user %d)", c.ID, c.UserID)
 		c.Hub.unregister <- c
 		c.Conn.Close()
 	}()
@@ -26,14 +28,17 @@ func (c *Client) ReadPump() {
 	})
 
 	for {
+		log.Printf("🔍 ReadPump waiting for message from user %d", c.UserID)
 		var msg Message
 		err := c.Conn.ReadJSON(&msg)
 		if err != nil {
+			log.Printf("🔍 ReadPump error for user %d: %v", c.UserID, err)
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("WebSocket error: %v", err)
 			}
 			break
 		}
+		log.Printf("🔍 ReadPump received raw message from user %d: %+v", c.UserID, msg)
 
 		// Add client info to message
 		msg.UserID = c.UserID
@@ -104,10 +109,12 @@ func (c *Client) WritePump() {
 				c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
+			log.Printf("Writing message to WebSocket for user %d: type=%s", c.UserID, message.Type)
 			if err := c.Conn.WriteJSON(message); err != nil {
 				log.Printf("WebSocket write error: %v", err)
 				return
 			}
+			log.Printf("Message written successfully to WebSocket for user %d", c.UserID)
 
 		case <-ticker.C:
 			c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
@@ -350,7 +357,13 @@ func (c *Client) handlePrivateMessage(msg Message) {
 	c.Hub.BroadcastToUser(receiverID, message)
 
 	// Also send back to sender for confirmation
-	c.Send <- message
+	log.Printf("Sending confirmation message back to sender (user %d)", c.UserID)
+	select {
+	case c.Send <- message:
+		log.Printf("Confirmation message sent successfully to sender (user %d)", c.UserID)
+	default:
+		log.Printf("Failed to send confirmation message to sender (user %d) - send channel full", c.UserID)
+	}
 
 	log.Printf("Private message broadcasted successfully")
 }

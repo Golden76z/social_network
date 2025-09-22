@@ -28,8 +28,11 @@ var upgrader = websocket.Upgrader{
 
 		// For development, allow localhost connections
 		env := os.Getenv("ENV")
-		if env == "DEV" && (origin == "http://localhost:3000" || origin == "http://localhost:3030") {
-			return true
+		if env == "DEV" || env == "DEVELOPMENT" || env == "" {
+			// Allow all localhost origins in development
+			if origin == "http://localhost:3000" || origin == "http://localhost:3030" || origin == "" {
+				return true
+			}
 		}
 
 		// Check against allowed origins in production
@@ -105,6 +108,7 @@ func WebSocketHandler(hub *Hub, cfg *config.Config) http.HandlerFunc {
 		}
 
 		// Register client first
+		log.Printf("🔌 Registering client %s for user %d (%s)", client.ID, client.UserID, client.Username)
 		hub.register <- client
 
 		// Join user to their groups
@@ -114,6 +118,7 @@ func WebSocketHandler(hub *Hub, cfg *config.Config) http.HandlerFunc {
 			}
 		}
 
+		log.Printf("🔌 Starting WritePump and ReadPump for client %s (user %d)", client.ID, client.UserID)
 		go client.WritePump()
 		go client.ReadPump()
 	}

@@ -46,3 +46,10 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Junie
+PROJECT_STATE.md
+
+package-lock.json
+
+/.gitignore
