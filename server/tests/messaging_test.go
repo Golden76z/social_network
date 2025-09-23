@@ -239,7 +239,7 @@ func TestWebSocketMessaging(t *testing.T) {
 
 	// Test database message creation directly
 	t.Run("CreatePrivateMessage_Direct", func(t *testing.T) {
-		err := db.DBService.CreatePrivateMessage(user1ID, user2ID, "Test WebSocket message")
+		_, err := db.DBService.CreatePrivateMessage(user1ID, user2ID, "Test WebSocket message")
 		if err != nil {
 			t.Errorf("Failed to create private message: %v", err)
 		}

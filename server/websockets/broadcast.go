@@ -95,11 +95,12 @@ func (h *Hub) BroadcastUserList() {
 	}
 
 	message := Message{
-		Type:      MessageTypeUserList,
+		Type:      "user_list", // Use string literal to match client expectations
 		Data:      users,
 		Timestamp: time.Now(),
 	}
 
+	log.Printf("Broadcasting user list to %d clients with %d users", len(h.clients), len(users))
 	h.broadcast <- message
 }
 
@@ -120,7 +121,7 @@ func (h *Hub) BroadcastGroupList(client *Client) {
 	client.mu.RUnlock()
 
 	message := Message{
-		Type:      MessageTypeGroupList,
+		Type:      "group_list", // Use string literal to match client expectations
 		Data:      groups,
 		Timestamp: time.Now(),
 	}
@@ -132,5 +133,37 @@ func (h *Hub) BroadcastGroupList(client *Client) {
 		go func() {
 			h.unregister <- client
 		}()
+	}
+}
+
+// BroadcastNotification sends a notification to a specific user
+func (h *Hub) BroadcastNotification(userID int, notificationType, content string, data map[string]any) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	message := Message{
+		Type:      "notification",
+		Content:   content,
+		Timestamp: time.Now(),
+		Data: map[string]any{
+			"type": notificationType,
+			"data": data,
+		},
+	}
+
+	log.Printf("Broadcasting notification to user %d: type=%s, content=%s", userID, notificationType, content)
+
+	for _, client := range h.clients {
+		if client.UserID == userID {
+			select {
+			case client.Send <- message:
+				log.Printf("Notification sent to user %d client %s", userID, client.ID)
+			default:
+				log.Printf("User %d client %s send channel full, removing", userID, client.ID)
+				go func(c *Client) {
+					h.unregister <- c
+				}(client)
+			}
+		}
 	}
 }

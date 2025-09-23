@@ -23,6 +23,7 @@ func (c *Client) ReadPump() {
 	// Set read deadline and pong handler for heartbeat
 	c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 	c.Conn.SetPongHandler(func(string) error {
+		log.Printf("🔍 Received pong from user %d", c.UserID)
 		c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 		return nil
 	})
@@ -48,9 +49,18 @@ func (c *Client) ReadPump() {
 		// Debug: Log all incoming messages
 		log.Printf("🔍 Received WebSocket message from user %d: type=%s, content=%s, data=%v", c.UserID, msg.Type, msg.Content, msg.Data)
 
+		// Additional debugging for private messages
+		if msg.Type == "private_message" {
+			log.Printf("🔍 Processing private message from user %d: content='%s', data=%+v", c.UserID, msg.Content, msg.Data)
+		}
+
+		c.mu.Lock()
+		c.lastHeartbeat = time.Now()
+		c.mu.Unlock()
+
 		// Handle different message types
 		switch msg.Type {
-		case MessageTypeChat:
+		case "chat":
 			// Cap content of the message to 1000 length
 			if len(msg.Content) > 1000 {
 				msg.Content = msg.Content[:1000]
@@ -64,27 +74,27 @@ func (c *Client) ReadPump() {
 			}
 			c.Hub.broadcast <- msg
 
-		case MessageTypePrivateMessage:
+		case "private_message":
 			// Handle private message
 			c.handlePrivateMessage(msg)
 
-		case MessageTypeGroupMessage:
+		case "group_message":
 			// Handle group message
 			c.handleGroupMessage(msg)
 
-		case MessageTypePing:
+		case "ping":
 			// Validate session and respond with pong
 			c.handlePing(msg)
 
-		case MessageTypeJoinGroup:
+		case "join_group":
 			// Handle join group request
 			c.handleJoinGroup(msg)
 
-		case MessageTypeLeaveGroup:
+		case "leave_group":
 			// Handle leave group request
 			c.handleLeaveGroup(msg)
 
-		case MessageTypeGetGroupMembers:
+		case "get_group_members":
 			// Handle get group members request
 			c.handleGetGroupMembers(msg)
 
@@ -95,8 +105,10 @@ func (c *Client) ReadPump() {
 }
 
 func (c *Client) WritePump() {
+	log.Printf("🔌 WritePump started for client %s (user %d)", c.ID, c.UserID)
 	ticker := time.NewTicker(54 * time.Second)
 	defer func() {
+		log.Printf("🔌 WritePump stopping for client %s (user %d)", c.ID, c.UserID)
 		ticker.Stop()
 		c.Conn.Close()
 	}()
@@ -109,12 +121,12 @@ func (c *Client) WritePump() {
 				c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-			log.Printf("Writing message to WebSocket for user %d: type=%s", c.UserID, message.Type)
+			log.Printf("🔍 Writing message to WebSocket for user %d: type=%s, content=%s, data=%+v", c.UserID, message.Type, message.Content, message.Data)
 			if err := c.Conn.WriteJSON(message); err != nil {
-				log.Printf("WebSocket write error: %v", err)
+				log.Printf("❌ WebSocket write error: %v", err)
 				return
 			}
-			log.Printf("Message written successfully to WebSocket for user %d", c.UserID)
+			log.Printf("✅ Message written successfully to WebSocket for user %d", c.UserID)
 
 		case <-ticker.C:
 			c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
@@ -175,10 +187,14 @@ func (c *Client) handlePing(msg Message) {
 
 	// Send pong response
 	pongMsg := Message{
-		Type:      "MessageTypePong",
+		Type:      "pong", // Use string literal to match client expectations
 		Timestamp: time.Now(),
 		Data:      "pong",
 	}
+
+	c.mu.Lock()
+	c.lastHeartbeat = time.Now()
+	c.mu.Unlock()
 
 	log.Printf("Sending pong response to user %d", c.UserID)
 	select {
@@ -249,7 +265,7 @@ func (c *Client) handleGetGroupMembers(msg Message) {
 
 	members := c.Hub.GetGroupMembers(groupID)
 	response := Message{
-		Type:      "MessageTypeGroupMembers",
+		Type:      "group_members", // Use string literal to match client expectations
 		GroupID:   groupID,
 		Data:      members,
 		Timestamp: time.Now(),
@@ -277,7 +293,7 @@ func (c *Client) isInGroup(groupID string) bool {
 // sendError sends an error message to the client
 func (c *Client) sendError(errorMsg string) {
 	errMsg := Message{
-		Type:      "MessageTypeError",
+		Type:      "error", // Use string literal to match client expectations
 		Content:   errorMsg,
 		Timestamp: time.Now(),
 	}
@@ -293,36 +309,49 @@ func (c *Client) sendError(errorMsg string) {
 }
 
 // sendNotification sends a notification message to the client
-// func (c *Client) sendNotification(content string) {
-// 	notifyMsg := Message{
-// 		Type:      MessageTypeNotify,
-// 		Content:   content,
-// 		Timestamp: time.Now(),
-// 	}
+func (c *Client) sendNotification(content string, notificationType string, data map[string]any) {
+	notifyMsg := Message{
+		Type:      "notification", // Use string literal to match client expectations
+		Content:   content,
+		Timestamp: time.Now(),
+		Data: map[string]any{
+			"type": notificationType,
+			"data": data,
+		},
+	}
 
-// 	select {
-// 	case c.Send <- notifyMsg:
-// 	default:
-// 		// Send channel is full
-// 		log.Printf("Failed to send notification to client %s", c.ID)
-// 	}
-// }
+	select {
+	case c.Send <- notifyMsg:
+		log.Printf("Notification sent to client %s (user %d): %s", c.ID, c.UserID, content)
+	default:
+		// Send channel is full
+		log.Printf("Failed to send notification to client %s - send channel full", c.ID)
+		go func() {
+			c.Hub.unregister <- c
+		}()
+	}
+}
 
 // handlePrivateMessage handles private message requests
 func (c *Client) handlePrivateMessage(msg Message) {
+	log.Printf("🔍 handlePrivateMessage called for user %d with data: %+v", c.UserID, msg.Data)
+
 	// Extract receiver ID from message data
 	data, ok := msg.Data.(map[string]interface{})
 	if !ok {
+		log.Printf("❌ Invalid private message format - data is not map[string]interface{}: %T", msg.Data)
 		c.sendError("Invalid private message format")
 		return
 	}
 
 	receiverIDFloat, ok := data["receiver_id"].(float64)
 	if !ok {
+		log.Printf("❌ Invalid receiver_id - not float64: %T, value: %v", data["receiver_id"], data["receiver_id"])
 		c.sendError("Invalid receiver_id")
 		return
 	}
 	receiverID := int(receiverIDFloat)
+	log.Printf("🔍 Extracted receiver_id: %d", receiverID)
 
 	// Validate message content
 	if msg.Content == "" || len(msg.Content) > 1000 {
@@ -331,20 +360,23 @@ func (c *Client) handlePrivateMessage(msg Message) {
 	}
 
 	// Save message to database
-	err := db.DBService.CreatePrivateMessage(c.UserID, receiverID, msg.Content)
+	log.Printf("🔍 Saving private message to database: sender=%d, receiver=%d, content='%s'", c.UserID, receiverID, msg.Content)
+	messageID, err := db.DBService.CreatePrivateMessage(c.UserID, receiverID, msg.Content)
 	if err != nil {
+		log.Printf("❌ Failed to save private message: %v", err)
 		c.sendError("Failed to save message")
-		log.Printf("Failed to save private message: %v", err)
 		return
 	}
+	log.Printf("✅ Private message saved with ID: %d", messageID)
 
 	// Send message to the specific receiver
 	message := Message{
-		Type:      MessageTypePrivateMessage,
+		Type:      "private_message", // Use string literal to match client expectations
 		Content:   msg.Content,
 		UserID:    c.UserID,
 		Username:  c.Username,
 		Timestamp: time.Now(),
+		MessageID: messageID,
 		Data: map[string]interface{}{
 			"sender_id":   c.UserID,
 			"receiver_id": receiverID,
@@ -356,16 +388,48 @@ func (c *Client) handlePrivateMessage(msg Message) {
 	// Broadcast to the specific user
 	c.Hub.BroadcastToUser(receiverID, message)
 
-	// Also send back to sender for confirmation
-	log.Printf("Sending confirmation message back to sender (user %d)", c.UserID)
-	select {
-	case c.Send <- message:
-		log.Printf("Confirmation message sent successfully to sender (user %d)", c.UserID)
-	default:
-		log.Printf("Failed to send confirmation message to sender (user %d) - send channel full", c.UserID)
+	ackMsg := Message{
+		Type:      "private_message_ack", // Use string literal to match client expectations
+		MessageID: messageID,
+		Timestamp: time.Now(),
+		Data: map[string]any{
+			"receiver_id": receiverID,
+			"body":        msg.Content,
+		},
 	}
 
-	log.Printf("Private message broadcasted successfully")
+	log.Printf("🔍 Sending acknowledgment to sender (user %d): %+v", c.UserID, ackMsg)
+	select {
+	case c.Send <- ackMsg:
+		log.Printf("✅ Acknowledgment sent successfully to sender (user %d)", c.UserID)
+	default:
+		log.Printf("❌ Failed to send ack to sender (user %d) - send channel full", c.UserID)
+	}
+
+	updatePayloadSender := Message{
+		Type:      "conversation_update", // Use string literal to match client expectations
+		Timestamp: time.Now(),
+		Data: map[string]any{
+			"conversation_type": "private",
+			"user_id":           receiverID,
+			"last_message":      msg.Content,
+			"last_message_time": time.Now(),
+		},
+	}
+
+	updatePayloadReceiver := Message{
+		Type:      "conversation_update", // Use string literal to match client expectations
+		Timestamp: time.Now(),
+		Data: map[string]any{
+			"conversation_type": "private",
+			"user_id":           c.UserID,
+			"last_message":      msg.Content,
+			"last_message_time": time.Now(),
+		},
+	}
+
+	c.Hub.BroadcastToUser(c.UserID, updatePayloadSender)
+	c.Hub.BroadcastToUser(receiverID, updatePayloadReceiver)
 }
 
 // handleGroupMessage handles group message requests
@@ -395,7 +459,7 @@ func (c *Client) handleGroupMessage(msg Message) {
 	}
 
 	// Save message to database
-	err = db.DBService.CreateGroupMessage(groupID, c.UserID, msg.Content)
+	messageID, err := db.DBService.CreateGroupMessage(groupID, c.UserID, msg.Content)
 	if err != nil {
 		c.sendError("Failed to save message")
 		log.Printf("Failed to save group message: %v", err)
@@ -404,27 +468,47 @@ func (c *Client) handleGroupMessage(msg Message) {
 
 	// Broadcast to the group
 	message := Message{
-		Type:      MessageTypeGroupMessage,
+		Type:      "group_message", // Use string literal to match client expectations
 		Content:   msg.Content,
 		GroupID:   msg.GroupID,
 		UserID:    c.UserID,
 		Username:  c.Username,
 		Timestamp: time.Now(),
+		MessageID: messageID,
 	}
 
 	log.Printf("Broadcasting group message from user %d to group %s", c.UserID, msg.GroupID)
 	c.Hub.BroadcastMessage(message)
 
-	// Also send back to sender for confirmation (same as private messages)
-	log.Printf("Sending group message confirmation back to sender (user %d)", c.UserID)
-	select {
-	case c.Send <- message:
-		log.Printf("Group message confirmation sent successfully to sender (user %d)", c.UserID)
-	default:
-		log.Printf("Failed to send group message confirmation to sender (user %d) - send channel full", c.UserID)
+	ackMsg := Message{
+		Type:      "group_message_ack", // Use string literal to match client expectations
+		GroupID:   msg.GroupID,
+		MessageID: messageID,
+		Timestamp: time.Now(),
+		Data: map[string]any{
+			"body": msg.Content,
+		},
 	}
 
-	log.Printf("Group message broadcasted successfully")
+	select {
+	case c.Send <- ackMsg:
+	default:
+		log.Printf("Failed to send group ack to sender (user %d) - send channel full", c.UserID)
+	}
+
+	updatePayload := Message{
+		Type:      "conversation_update", // Use string literal to match client expectations
+		Timestamp: time.Now(),
+		GroupID:   msg.GroupID,
+		Data: map[string]any{
+			"conversation_type": "group",
+			"group_id":          msg.GroupID,
+			"last_message":      msg.Content,
+			"last_message_time": time.Now(),
+		},
+	}
+
+	c.Hub.BroadcastMessage(updatePayload)
 }
 
 // GetClientInfo returns basic client information

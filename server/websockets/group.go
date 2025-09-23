@@ -41,7 +41,7 @@ func (h *Hub) JoinGroup(client *Client, groupID string) error {
 
 	// Notify other group members
 	h.broadcastToGroup(groupID, Message{
-		Type:      "user_joined",
+		Type:      "user_joined", // Use string literal to match client expectations
 		GroupID:   groupID,
 		UserID:    client.UserID,
 		Username:  client.Username,
@@ -70,7 +70,7 @@ func (h *Hub) LeaveGroup(client *Client, groupID string) {
 
 	// Notify other group members
 	h.broadcastToGroup(groupID, Message{
-		Type:      "user_left",
+		Type:      "user_left", // Use string literal to match client expectations
 		GroupID:   groupID,
 		UserID:    client.UserID,
 		Username:  client.Username,
@@ -98,7 +98,7 @@ func (h *Hub) RemoveClientFromGroup(client *Client, groupID string) {
 
 	// Notify other group members
 	h.broadcastToGroup(groupID, Message{
-		Type:      MessageTypeUserLeft,
+		Type:      "user_left", // Use string literal to match client expectations
 		GroupID:   groupID,
 		UserID:    client.UserID,
 		Username:  client.Username,

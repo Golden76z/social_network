@@ -132,9 +132,6 @@ func GetGroupMembersHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println("UserID: ", userID)
-	fmt.Println("GroupID: ", groupID)
-
 	// Calling the Database to get the group members
 	members, errDB := db.DBService.GetGroupMembers(groupID, offSet, int64(userID))
 	if errDB != nil {

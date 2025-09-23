@@ -15,6 +15,9 @@ func setupUserRoutes(r *Router) {
 	r.PUT("/api/user/notifications", api.UpdateUserNotificationsHandler)
 	r.DELETE("/api/user/notifications", api.DeleteUserNotificationsHandler)
 
+	// Realtime helpers
+	r.GET("/api/ws/token", api.GetWebSocketTokenHandler)
+
 	// Upload routes
 	r.POST("/api/upload/avatar", api.UploadAvatarHandler)
 }

@@ -541,7 +541,7 @@ func TestGroupMessageCRUD(t *testing.T) {
 	}
 	_ = DBService.CreateGroup(groupReq, user.ID)
 
-	err := DBService.CreateGroupMessage(1, user.ID, "Hello group!")
+	_, err := DBService.CreateGroupMessage(1, user.ID, "Hello group!")
 	if err != nil {
 		t.Fatalf("CreateGroupMessage failed: %v", err)
 	}
@@ -564,7 +564,7 @@ func TestPrivateMessageCRUD(t *testing.T) {
 	sender := createTestUser(t, "nick", "John", "Doe", "john@doe.com")
 	receiver := createTestUser(t, "nick2", "Jane", "Smith", "jane@smith.com")
 
-	err := DBService.CreatePrivateMessage(sender.ID, receiver.ID, "Hello Jane!")
+	_, err := DBService.CreatePrivateMessage(sender.ID, receiver.ID, "Hello Jane!")
 	if err != nil {
 		t.Fatalf("CreatePrivateMessage failed: %v", err)
 	}
