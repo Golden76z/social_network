@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CreatePostModal } from '@/components/CreatePostModal';
+import { CreatePostModal } from '@/components/forms/CreatePostModal';
 
 export default function CreatePostPage() {
   const router = useRouter();

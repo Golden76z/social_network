@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Notification, NotificationData, NotificationType } from '@/lib/types';
 import { notificationApi } from '@/lib/api/notifications';
-import { Avatar } from '@/components/Avatar';
+import { Avatar } from '@/components/layout/Avatar';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 
 interface NotificationItemProps {

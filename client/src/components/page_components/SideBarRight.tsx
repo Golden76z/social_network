@@ -9,6 +9,8 @@ import { groupApi } from '@/lib/api/group';
 import { userApi } from '@/lib/api/user';
 import { User, UserDisplayInfo } from '@/lib/types/user';
 import { GroupResponse } from '@/lib/types/group';
+import { UserDisplay } from '../layout/UserDisplay';
+import { getUserInitials, getUserDisplayName, formatTimeAgo } from '@/lib/utils/userUtils';
 import { Users, MessageSquare } from 'lucide-react';
 
 export const SideBarRight: React.FC = () => {
@@ -199,7 +201,7 @@ export const SideBarRight: React.FC = () => {
             const members = await groupApi.getGroupMembers(group.id);
             const memberIds = (members || [])
               .map((member: { user_id: number }) => Number(member.user_id))
-              .filter((id) => Number.isFinite(id));
+              .filter((id: number) => Number.isFinite(id));
             return [group.id, memberIds] as const;
           } catch (error) {
             console.error('❌ Failed to load group members:', error);
@@ -221,19 +223,11 @@ export const SideBarRight: React.FC = () => {
   }, []);
 
   const getInitials = (user: User | UserDisplayInfo) => {
-    if ('first_name' in user && 'last_name' in user && user.first_name && user.last_name) {
-      return (user.first_name.charAt(0) + user.last_name.charAt(0)).toUpperCase();
-    } else if (user.nickname) {
-      return user.nickname.charAt(0).toUpperCase();
-    }
-    return 'U';
+    return getUserInitials(user);
   };
 
   const getDisplayName = (user: User | UserDisplayInfo) => {
-    if ('first_name' in user && 'last_name' in user && user.first_name && user.last_name) {
-      return `${user.first_name} ${user.last_name}`;
-    }
-    return user.nickname || 'Unknown User';
+    return getUserDisplayName(user);
   };
 
   const handleGroupClick = (groupId: number | any) => {

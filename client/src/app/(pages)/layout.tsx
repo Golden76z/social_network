@@ -6,7 +6,7 @@ import Header from '@/components/page_components/Header';
 import { SideBarLeft } from '@/components/page_components/SideBarLeft';
 import { SideBarRight } from '@/components/page_components/SideBarRight';
 import Footer from '@/components/page_components/Footer';
-import { CreatePostModal } from '@/components/CreatePostModal';
+import { CreatePostModal } from '@/components/forms/CreatePostModal';
 
 export default function PagesLayout({
   children,

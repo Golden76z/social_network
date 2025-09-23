@@ -14,10 +14,10 @@ import {
 } from '@/lib/types';
 import { uploadAvatar } from '@/lib/api/upload';
 import { Lock, Unlock, UserMinus, UserPlus, Users, UserCheck, X } from 'lucide-react';
-import { PostCard } from '@/components/PostCard';
-import { PostModal } from '@/components/PostModal';
-import { Avatar } from '@/components/Avatar';
-import { ProfileThumbnail } from '@/components/ProfileThumbnail';
+import { PostCard } from '@/components/posts/PostCard';
+import { PostModal } from '@/components/posts/PostModal';
+import { Avatar } from '@/components/layout/Avatar';
+import { ProfileThumbnail } from '@/components/layout/ProfileThumbnail';
 import Button from '@/components/ui/button';
 import {
   Dialog,
