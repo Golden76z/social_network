@@ -26,8 +26,6 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 	// Get current user ID from context (injected by AuthMiddleware)
 	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
 
-	fmt.Printf("[INFO] Current user ID: %d\n", currentUserID)
-
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -76,13 +74,9 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 	var isFollowing *bool
 	var followStatus *string
 	if !isOwnProfile {
-		fmt.Printf("[DEBUG] Checking if user %d is following user %d\n", currentUserID, targetUserID)
 		following, err := db.DBService.IsFollowing(int64(currentUserID), targetUserID)
 		if err == nil {
 			isFollowing = &following
-			fmt.Printf("[DEBUG] IsFollowing result: %v\n", following)
-		} else {
-			fmt.Printf("[DEBUG] IsFollowing error: %v\n", err)
 		}
 
 		// For private profiles, also get the follow request status
@@ -90,9 +84,6 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 			status, err := db.DBService.GetFollowRequestStatus(int64(currentUserID), targetUserID)
 			if err == nil {
 				followStatus = &status
-				fmt.Printf("[DEBUG] Follow status for private profile: %v\n", status)
-			} else {
-				fmt.Printf("[DEBUG] Follow status error: %v\n", err)
 			}
 		}
 	}
@@ -169,7 +160,6 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set response headers and send a JSON response
-	fmt.Printf("[DEBUG] Sending profile response - isFollowing: %v\n", response.IsFollowing)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
@@ -322,7 +312,6 @@ func UpdateUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Handle privacy change: auto-accept all pending follow requests
 	if privacyChanged {
-		fmt.Printf("[INFO] User %d changed from private to public, auto-accepting pending requests\n", currentUserID)
 		err = autoAcceptPendingFollowRequests(int64(currentUserID))
 		if err != nil {
 			fmt.Printf("[WARNING] Failed to auto-accept pending requests: %v\n", err)

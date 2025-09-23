@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import { useWebSocketContext } from '@/context/webSocketProvider';
@@ -23,6 +23,8 @@ export const SideBarRight: React.FC = () => {
   const [groups, setGroups] = useState<GroupResponse[]>([]);
   const [groupConversations, setGroupConversations] = useState<GroupConversation[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(true);
+  const [groupMembersLoading, setGroupMembersLoading] = useState(false);
+  const [groupMembersMap, setGroupMembersMap] = useState<Record<number, number[]>>({});
   
   // State for users
   const [mutualFollowers, setMutualFollowers] = useState<UserDisplayInfo[]>([]);
@@ -44,6 +46,28 @@ export const SideBarRight: React.FC = () => {
     loadUsers();
   }, [user]);
 
+  // Listen for WebSocket updates to refresh data in real-time
+  useEffect(() => {
+    if (!isConnected) return;
+
+    const handleWebSocketUpdate = () => {
+      console.log('🔌 WebSocket update received, refreshing sidebar data');
+      loadGroups();
+      loadUsers();
+    };
+
+    // Listen for user_joined, user_left, and other relevant events
+    const checkForUpdates = () => {
+      // This will be triggered by WebSocket context updates
+      handleWebSocketUpdate();
+    };
+
+    // Set up interval to check for updates (fallback)
+    const interval = setInterval(checkForUpdates, 10000); // Check every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [isConnected, user]);
+
   const loadGroups = async () => {
     if (!user) return;
     
@@ -61,10 +85,12 @@ export const SideBarRight: React.FC = () => {
       
       setGroups(userGroups);
       setGroupConversations(conversations);
+      await preloadGroupMembers(userGroups);
     } catch (error) {
       console.error('❌ Failed to load groups:', error);
       setGroups([]);
       setGroupConversations([]);
+      setGroupMembersMap({});
     } finally {
       setGroupsLoading(false);
     }
@@ -119,18 +145,80 @@ export const SideBarRight: React.FC = () => {
     }
   };
 
-  const getGroupOnlineCount = (groupId: number) => {
-    // For now, we'll show a simplified online count
-    // In a real implementation, you would:
-    // 1. Track which users are members of which groups
-    // 2. Filter onlineUsers to only include members of this specific group
-    // 3. Return the count of online members for this group
-    
-    // This is a placeholder that shows some online activity for demo purposes
-    // The actual implementation would require server-side support to track group membership
-    const baseCount = Math.floor(Math.random() * 5); // 0-4 online members
-    return baseCount;
-  };
+  const onlineUserIdSet = useMemo(() => new Set(onlineUsers.map(user => user.id)), [onlineUsers]);
+
+  const maxGroupsToDisplay = 8;
+
+  const getGroupOnlineCount = useCallback((groupId: number) => {
+    const members = groupMembersMap[groupId] || [];
+    let onlineCount = 0;
+
+    for (const memberId of members) {
+      if (onlineUserIdSet.has(memberId)) {
+        onlineCount += 1;
+      }
+    }
+
+    return onlineCount;
+  }, [groupMembersMap, onlineUserIdSet]);
+
+  const groupsWithPresence = useMemo(() => {
+    return (groups || []).map(group => ({
+      group,
+      onlineCount: getGroupOnlineCount(group.id),
+    }));
+  }, [groups, getGroupOnlineCount]);
+
+  const onlineGroups = useMemo(
+    () => groupsWithPresence.filter(entry => entry.onlineCount > 0),
+    [groupsWithPresence]
+  );
+
+  const offlineGroups = useMemo(
+    () => groupsWithPresence.filter(entry => entry.onlineCount === 0),
+    [groupsWithPresence]
+  );
+
+  const limitedOnlineGroups = onlineGroups.slice(0, maxGroupsToDisplay);
+  const remainingSlots = Math.max(0, maxGroupsToDisplay - limitedOnlineGroups.length);
+  const limitedOfflineGroups = offlineGroups.slice(0, remainingSlots);
+
+  const preloadGroupMembers = useCallback(async (groupList: GroupResponse[]) => {
+    if (!groupList || groupList.length === 0) {
+      setGroupMembersMap({});
+      return;
+    }
+
+    try {
+      setGroupMembersLoading(true);
+      const groupsToProcess = groupList.slice(0, maxGroupsToDisplay);
+
+      const memberEntries = await Promise.all(
+        groupsToProcess.map(async (group) => {
+          try {
+            const members = await groupApi.getGroupMembers(group.id);
+            const memberIds = (members || [])
+              .map((member: { user_id: number }) => Number(member.user_id))
+              .filter((id) => Number.isFinite(id));
+            return [group.id, memberIds] as const;
+          } catch (error) {
+            console.error('❌ Failed to load group members:', error);
+            return [group.id, []] as const;
+          }
+        })
+      );
+
+      setGroupMembersMap((prev) => {
+        const next = { ...prev };
+        for (const [groupId, memberIds] of memberEntries) {
+          next[groupId] = memberIds;
+        }
+        return next;
+      });
+    } finally {
+      setGroupMembersLoading(false);
+    }
+  }, []);
 
   const getInitials = (user: User | UserDisplayInfo) => {
     if ('first_name' in user && 'last_name' in user && user.first_name && user.last_name) {
@@ -178,52 +266,112 @@ export const SideBarRight: React.FC = () => {
       {/* Groups Section */}
       <div>
         <h3 className="font-semibold text-lg text-foreground mb-4 flex items-center gap-2">
-          <MessageSquare className="w-5 h-5" />
+          <MessageSquare className="w-5 h-5 text-primary" strokeWidth={1.5} />
           Groups ({groups?.length || 0})
         </h3>
         <div className="space-y-2">
           {groupsLoading ? (
             <div className="text-sm text-muted-foreground">Loading groups...</div>
           ) : (groups?.length || 0) > 0 ? (
-            (groups || []).slice(0, 8).map((group) => {
-              const onlineCount = getGroupOnlineCount(group.id);
-              const conversation = groupConversations.find(c => c.group_id === group.id);
-              
-              return (
-                <div
-                  key={group.id}
-                  onClick={() => handleGroupClick(group.id)}
-                  className="flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:bg-accent transition-colors group"
-                >
-                  <div className="relative">
-                    <div className="w-10 h-10 rounded-full border-2 border-primary/30 bg-primary/10 flex items-center justify-center text-primary text-sm font-medium overflow-hidden">
-                      {group.avatar ? (
-                        <img
-                          src={group.avatar}
-                          alt={group.title}
-                          className="w-full h-full rounded-full object-cover"
-                        />
-                      ) : (
-                        group.title.charAt(0).toUpperCase()
-                      )}
-                    </div>
-                    {onlineCount > 0 && (
-                      <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-background rounded-full flex items-center justify-center">
-                        <span className="text-xs text-white font-medium">{onlineCount}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate group-hover:text-primary">
-                      {group.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {onlineCount > 0 ? `${onlineCount} online` : 'No one online'}
-                    </p>
+            <>
+              {groupMembersLoading && (
+                <div className="text-xs text-muted-foreground">Updating group presence…</div>
+              )}
+
+              {limitedOnlineGroups.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-medium text-green-600 mb-2 flex items-center gap-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    Active ({limitedOnlineGroups.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {limitedOnlineGroups.map(({ group, onlineCount }) => {
+                      const conversation = groupConversations.find(c => c.group_id === group.id);
+                      return (
+                        <div
+                          key={group.id}
+                          onClick={() => handleGroupClick(group.id)}
+                          className="flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:bg-accent transition-colors group"
+                        >
+                          <div className="relative">
+                            <div className="w-10 h-10 rounded-full border-2 border-primary/30 bg-primary/10 flex items-center justify-center text-primary text-sm font-medium overflow-hidden">
+                              {group.avatar ? (
+                                <img
+                                  src={group.avatar}
+                                  alt={group.title}
+                                  className="w-full h-full rounded-full object-cover"
+                                />
+                              ) : (
+                                group.title.charAt(0).toUpperCase()
+                              )}
+                            </div>
+                            <div className="absolute -bottom-1 -right-1 min-w-[1rem] h-4 bg-green-500 border-2 border-background rounded-full px-1 flex items-center justify-center">
+                              <span className="text-[10px] text-white font-medium leading-none">{onlineCount}</span>
+                            </div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate group-hover:text-primary">
+                              {group.title}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {conversation?.last_message
+                                ? `Last message: ${conversation.last_message}`
+                                : `${onlineCount} member${onlineCount === 1 ? '' : 's'} online`}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              );
-            })
+              )}
+
+              {limitedOfflineGroups.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                    <div className="w-2 h-2 bg-muted-foreground/40 rounded-full"></div>
+                    Offline ({limitedOfflineGroups.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {limitedOfflineGroups.map(({ group }) => {
+                      const conversation = groupConversations.find(c => c.group_id === group.id);
+                      return (
+                        <div
+                          key={group.id}
+                          onClick={() => handleGroupClick(group.id)}
+                          className="flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:bg-accent transition-colors group"
+                        >
+                          <div className="relative">
+                            <div className="w-10 h-10 rounded-full border-2 border-border/40 bg-muted/40 flex items-center justify-center text-muted-foreground text-sm font-medium overflow-hidden">
+                              {group.avatar ? (
+                                <img
+                                  src={group.avatar}
+                                  alt={group.title}
+                                  className="w-full h-full rounded-full object-cover opacity-75"
+                                />
+                              ) : (
+                                group.title.charAt(0).toUpperCase()
+                              )}
+                            </div>
+                            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-muted-foreground/30 border-2 border-background rounded-full"></div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate group-hover:text-primary">
+                              {group.title}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {conversation?.last_message
+                                ? `Last message: ${conversation.last_message}`
+                                : 'No members online'}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <div className="text-sm text-muted-foreground">No groups found</div>
           )}
@@ -233,7 +381,7 @@ export const SideBarRight: React.FC = () => {
       {/* Users Section */}
       <div>
         <h3 className="font-semibold text-lg text-foreground mb-4 flex items-center gap-2">
-          <Users className="w-5 h-5" />
+          <Users className="w-5 h-5 text-primary" strokeWidth={1.5} />
           People ({(mutualFollowers?.length || 0) + (followers?.length || 0)})
         </h3>
         

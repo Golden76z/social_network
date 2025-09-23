@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/middleware"
 	"github.com/Golden76z/social-network/models"
+	"github.com/Golden76z/social-network/websockets"
 )
 
 // Handler to create a new Reaction (like/dislike)
@@ -91,6 +93,12 @@ func CreateUserReactionHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Error creating reaction", http.StatusInternalServerError)
 			return
 		}
+
+		// Send notification for post likes
+		if req.PostID != nil && req.Type == "like" {
+			sendPostLikeNotification(currentUserID, *req.PostID, r.Context().Value(middleware.UsernameKey).(string))
+		}
+
 		w.WriteHeader(http.StatusCreated)
 		w.Write([]byte(`{"response": "Reaction successfully created"}`))
 	}
@@ -192,4 +200,43 @@ func DeleteUserReactionHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"response": "Reaction successfully deleted"}`))
+}
+
+// sendPostLikeNotification sends a websocket notification when a post is liked
+func sendPostLikeNotification(likerID int, postID int64, likerUsername string) {
+	// Get post owner ID
+	postOwnerID, err := db.DBService.GetPostOwnerID(postID)
+	if err != nil {
+		return // Silently fail if we can't get post owner
+	}
+
+	// Don't send notification to self
+	if likerID == postOwnerID {
+		return
+	}
+
+	// Get post owner username for notification (not used in current implementation)
+	_, err = db.DBService.GetUsernameByID(postOwnerID)
+	if err != nil {
+		return // Silently fail if we can't get username
+	}
+
+	// Send websocket notification
+	hub := websockets.GetHub()
+	if hub != nil {
+		message := websockets.Message{
+			Type:      websockets.MessageTypeNotify,
+			Content:   likerUsername + " liked your post",
+			UserID:    likerID,
+			Username:  likerUsername,
+			Timestamp: time.Now(),
+			Data: map[string]interface{}{
+				"notification_type": "post_like",
+				"post_id":           postID,
+				"liker_id":          likerID,
+				"liker_nickname":    likerUsername,
+			},
+		}
+		hub.BroadcastToUser(postOwnerID, message)
+	}
 }

@@ -128,7 +128,6 @@ func (s *Service) GetPostByID(postID int64, currentUserID int64) (*models.PostRe
 }
 
 func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostResponse, error) {
-	fmt.Printf("[DEBUG] GetUserFeed called with userID=%d, limit=%d, offset=%d\n", currentUserID, limit, offset)
 	query := `
         SELECT * FROM (
             SELECT
@@ -241,19 +240,14 @@ func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostRe
 			&post.GroupName,
 		)
 
-		fmt.Printf("[DEBUG] Scanned post: ID=%d, Type=%s, GroupID=%v, GroupName=%v, Title='%s'\n",
-			post.ID, post.PostType, post.GroupID, post.GroupName, post.Title)
-
 		if err != nil {
 			return nil, err
 		}
 
 		if images.Valid && images.String != "" {
 			post.Images = strings.Split(images.String, ",")
-			fmt.Printf("[DEBUG] Post %d (%s) has images: %v\n", post.ID, post.PostType, post.Images)
 		} else {
 			post.Images = []string{}
-			fmt.Printf("[DEBUG] Post %d (%s) has no images (Valid: %v, String: '%s')\n", post.ID, post.PostType, images.Valid, images.String)
 		}
 
 		posts = append(posts, post)
@@ -334,7 +328,6 @@ func (s *Service) GetPostsByUser(userID int64, currentUserID int64) ([]*models.P
 
 // GetLikedPosts retrieves posts liked by a specific user
 func (s *Service) GetLikedPosts(userID int64) ([]*models.Post, error) {
-	fmt.Printf("[DEBUG] GetLikedPosts called with userID=%d\n", userID)
 	query := `
 		SELECT 
 			p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
@@ -660,23 +653,25 @@ func (s *Service) IsFollowing(currentUserID, targetUserID int64) (bool, error) {
 
 // GetFollowRequestStatus returns the status of a follow request between two users
 func (s *Service) GetFollowRequestStatus(currentUserID, targetUserID int64) (string, error) {
-	query := `
-        SELECT status
-        FROM follow_requests
-        WHERE requester_id = ? AND target_id = ?
-        ORDER BY created_at DESC
-        LIMIT 1`
-
 	var status string
-	err := s.DB.QueryRow(query, currentUserID, targetUserID).Scan(&status)
+	err := s.DB.QueryRow(`
+		SELECT status FROM follow_requests 
+		WHERE requester_id = ? AND target_id = ?
+	`, currentUserID, targetUserID).Scan(&status)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return "none", nil // No follow request exists
+			return "none", nil
 		}
 		return "", err
 	}
-
 	return status, nil
+}
+
+// GetPostOwnerID gets the owner ID of a post
+func (s *Service) GetPostOwnerID(postID int64) (int, error) {
+	var ownerID int
+	err := s.DB.QueryRow(`SELECT user_id FROM posts WHERE id = ?`, postID).Scan(&ownerID)
+	return ownerID, err
 }
 
 func (s *Service) UpdatePost(postID int64, req models.UpdatePostRequest) error {

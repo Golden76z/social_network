@@ -56,10 +56,7 @@ export function CommentItem({ comment, src }: CommentItemProps) {
     }
   };
 
-  const handleUserClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
+  const handleUserClick = () => {
     console.log('Comment data:', comment);
     console.log('Comment user_id:', comment.user_id);
     console.log('Comment username:', comment.username);

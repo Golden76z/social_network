@@ -17,6 +17,7 @@ import {
   Edit3,
   Lock
 } from 'lucide-react';
+import { NotificationDropdown } from '@/components/NotificationDropdown';
 
 interface HeaderProps {
   onCreatePost: () => void;
@@ -81,6 +82,9 @@ export default function Header({ onCreatePost }: HeaderProps) {
                   Post
                 </span>
               </button>
+
+              {/* Notifications */}
+              <NotificationDropdown />
 
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -183,6 +187,12 @@ export default function Header({ onCreatePost }: HeaderProps) {
                   Create Post
                 </span>
               </button>
+              
+              {/* Mobile Notifications */}
+              <div className="flex justify-center">
+                <NotificationDropdown />
+              </div>
+              
               <Link
                 href="/profile"
                 className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-sm hover:bg-accent/50 transition-all duration-200 text-center border border-border/50"

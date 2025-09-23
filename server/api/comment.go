@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/Golden76z/social-network/db"
 	"github.com/Golden76z/social-network/middleware"
 	"github.com/Golden76z/social-network/models"
+	"github.com/Golden76z/social-network/websockets"
 )
 
 // Handler to create a new comment on a post
@@ -44,6 +46,10 @@ func CreateCommentHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error creating comment", http.StatusInternalServerError)
 		return
 	}
+
+	// Send notification for post comments
+	sendPostCommentNotification(int(userID), req.PostID, r.Context().Value(middleware.UsernameKey).(string))
+
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(`{"message": "Comment created"}`))
 }
@@ -153,4 +159,37 @@ func DeleteCommentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"message": "Comment deleted"}`))
+}
+
+// sendPostCommentNotification sends a websocket notification when a post is commented on
+func sendPostCommentNotification(commenterID int, postID int64, commenterUsername string) {
+	// Get post owner ID
+	postOwnerID, err := db.DBService.GetPostOwnerID(postID)
+	if err != nil {
+		return // Silently fail if we can't get post owner
+	}
+
+	// Don't send notification to self
+	if commenterID == postOwnerID {
+		return
+	}
+
+	// Send websocket notification
+	hub := websockets.GetHub()
+	if hub != nil {
+		message := websockets.Message{
+			Type:      websockets.MessageTypeNotify,
+			Content:   commenterUsername + " commented on your post",
+			UserID:    commenterID,
+			Username:  commenterUsername,
+			Timestamp: time.Now(),
+			Data: map[string]interface{}{
+				"notification_type":  "post_comment",
+				"post_id":            postID,
+				"commenter_id":       commenterID,
+				"commenter_nickname": commenterUsername,
+			},
+		}
+		hub.BroadcastToUser(postOwnerID, message)
+	}
 }

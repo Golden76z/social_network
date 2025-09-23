@@ -555,7 +555,7 @@ func SeedGroupMessages(s *db.Service, rows [][]string) error {
 
 		body := row[2]
 
-		if err := s.CreateGroupMessage(int(groupID), int(senderID), body); err != nil {
+		if _, err := s.CreateGroupMessage(int(groupID), int(senderID), body); err != nil {
 			log.Printf("failed to create group message at row %d: %v", i, err)
 		}
 	}
@@ -587,7 +587,7 @@ func SeedPrivateMessages(s *db.Service, rows [][]string) error {
 		content := row[2]
 		// createdAt := row[3]
 
-		if err := s.CreatePrivateMessage(
+		if _, err := s.CreatePrivateMessage(
 			int(senderID), int(receiverID), content,
 		); err != nil {
 			log.Printf("failed to create private message at row %d: %v", i, err)

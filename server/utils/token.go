@@ -13,8 +13,9 @@ import (
 
 // Custom claims for JWT
 type JWTClaims struct {
-	Username string `json:"username"`
-	UserID   int    `json:"user_id"`
+	Username  string `json:"username"`
+	UserID    int    `json:"user_id"`
+	TokenType string `json:"token_type,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -46,33 +47,19 @@ func GenerateSecureKey() (string, error) {
 func JWTGeneration(username string, w http.ResponseWriter) (string, error) {
 	config := getConfig()
 
-	// Get user_id with the username
 	userID, err := db.DBService.GetUserIDByUsername(username)
 	if err != nil {
 		return "", err
 	}
 
-	// Create claims
-	claims := &JWTClaims{
-		Username: username,
-		UserID:   int(userID),
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(config.GetJwtExpiration())),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Issuer:    "social-network",
-		},
+	return generateJWT(int(userID), username, config.GetJwtExpiration(), "session")
+}
+
+func GenerateWebSocketToken(userID int, username string, ttl time.Duration) (string, error) {
+	if ttl <= 0 {
+		ttl = 30 * time.Second
 	}
-
-	// Create token with ECDSA signing method
-	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
-
-	// Sign token with private key
-	tokenString, err := token.SignedString(config.GetJwtPrivateKey())
-	if err != nil {
-		return "", err
-	}
-
-	return tokenString, nil
+	return generateJWT(userID, username, ttl, "websocket")
 }
 
 // ValidateToken verifies a JWT token using golang-jwt
@@ -85,11 +72,17 @@ func ValidateToken(tokenString string) (*JWTClaims, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return config.GetJwtPublicKey(), nil
+
+		publicKey := config.GetJwtPublicKey()
+		if publicKey == nil {
+			return nil, fmt.Errorf("public key is nil")
+		}
+
+		return publicKey, nil
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("token parsing error: %v", err)
 	}
 
 	// Extract claims
@@ -190,6 +183,34 @@ func GetUserIDFromTokenString(tokenString string) (int, error) {
 // Helper function to get config (avoiding circular imports)
 func getConfig() configInterface {
 	return globalConfig
+}
+
+func generateJWT(userID int, username string, ttl time.Duration, tokenType string) (string, error) {
+	config := getConfig()
+
+	privateKey := config.GetJwtPrivateKey()
+	if privateKey == nil {
+		return "", fmt.Errorf("private key is nil")
+	}
+
+	claims := &JWTClaims{
+		Username:  username,
+		UserID:    userID,
+		TokenType: tokenType,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(ttl)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Issuer:    "social-network",
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
+	tokenString, err := token.SignedString(privateKey)
+	if err != nil {
+		return "", fmt.Errorf("token signing error: %v", err)
+	}
+
+	return tokenString, nil
 }
 
 //

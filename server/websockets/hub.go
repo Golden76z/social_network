@@ -16,9 +16,15 @@ var (
 
 // InitHub initializes the global singleton hub
 func InitHub(db *sql.DB) {
+	log.Printf("🔌 Initializing WebSocket Hub")
 	hubOnce.Do(func() {
+		log.Printf("🔌 Creating new Hub instance")
 		hubInstance = NewHub(db)
+		log.Printf("🔌 Starting Hub Run() method")
 		go hubInstance.Run()
+		log.Printf("🔌 Starting Hub monitorHeartbeats() method")
+		go hubInstance.monitorHeartbeats()
+		log.Printf("🔌 Hub initialization completed")
 	})
 }
 
@@ -32,31 +38,38 @@ func NewHub(db *sql.DB) *Hub {
 	return &Hub{
 		clients:    make(map[string]*Client),
 		groups:     make(map[string]*Group),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		broadcast:  make(chan Message),
-		joinGroup:  make(chan *GroupJoinRequest),
-		leaveGroup: make(chan *GroupLeaveRequest),
+		register:   make(chan *Client, 100),            // Buffered channel
+		unregister: make(chan *Client, 100),            // Buffered channel
+		broadcast:  make(chan Message, 1000),           // Buffered channel
+		joinGroup:  make(chan *GroupJoinRequest, 100),  // Buffered channel
+		leaveGroup: make(chan *GroupLeaveRequest, 100), // Buffered channel
+		db:         db,                                 // Store database reference for group membership checks
 	}
 }
 
 // Run starts the hub's main loop
 func (h *Hub) Run() {
+	log.Printf("🔌 Hub Run() method started")
 	for {
 		select {
 		case client := <-h.register:
+			log.Printf("🔌 Hub received client registration: %s (user %d)", client.ID, client.UserID)
 			h.RegisterClient(client)
 
 		case client := <-h.unregister:
+			log.Printf("🔌 Hub received client unregistration: %s (user %d)", client.ID, client.UserID)
 			h.UnregisterClient(client)
 
 		case message := <-h.broadcast:
+			log.Printf("🔌 Hub received broadcast message: type=%s", message.Type)
 			h.BroadcastMessage(message)
 
 		case joinReq := <-h.joinGroup:
+			log.Printf("🔌 Hub received join group request: %s for group %s", joinReq.Client.ID, joinReq.GroupID)
 			h.JoinGroup(joinReq.Client, joinReq.GroupID)
 
 		case leaveReq := <-h.leaveGroup:
+			log.Printf("🔌 Hub received leave group request: %s for group %s", leaveReq.Client.ID, leaveReq.GroupID)
 			h.LeaveGroup(leaveReq.Client, leaveReq.GroupID)
 		}
 	}
@@ -65,15 +78,60 @@ func (h *Hub) Run() {
 // RegisterClient adds a new client to the hub
 func (h *Hub) RegisterClient(client *Client) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
+
+	// Check for existing connections from the same user
+	var existingClient *Client
+	var existingID string
+	for id, existing := range h.clients {
+		if existing.UserID == client.UserID {
+			existingClient = existing
+			existingID = id
+			break
+		}
+	}
 
 	h.clients[client.ID] = client
-	log.Printf("Client %s (User: %s) connected. Total clients: %d",
+	client.mu.Lock()
+	client.lastHeartbeat = time.Now()
+	client.mu.Unlock()
+	log.Printf("✅ Client %s (User: %s) registered successfully. Total clients: %d",
 		client.ID, client.Username, len(h.clients))
+
+	h.mu.Unlock() // Release lock before calling RemoveClientFromGroup
+
+	// Handle existing connection cleanup outside of main mutex lock
+	if existingClient != nil {
+		log.Printf("Closing existing connection %s for user %d, replacing with %s",
+			existingID, client.UserID, client.ID)
+
+		// Close existing connection gracefully
+		existingClient.mu.Lock()
+		if existingClient.Send != nil {
+			close(existingClient.Send)
+		}
+		existingClient.mu.Unlock()
+
+		// Remove from all groups
+		existingClient.mu.RLock()
+		groupIDs := make([]string, 0, len(existingClient.Groups))
+		for groupID := range existingClient.Groups {
+			groupIDs = append(groupIDs, groupID)
+		}
+		existingClient.mu.RUnlock()
+
+		for _, groupID := range groupIDs {
+			h.RemoveClientFromGroup(existingClient, groupID)
+		}
+
+		// Remove from clients map
+		h.mu.Lock()
+		delete(h.clients, existingID)
+		h.mu.Unlock()
+	}
 
 	// Send welcome message
 	welcomeMsg := Message{
-		Type:      MessageTypeNotify,
+		Type:      "notify", // Use string literal to match client expectations
 		Content:   "Connected to server",
 		Timestamp: time.Now(),
 	}
@@ -91,6 +149,58 @@ func (h *Hub) RegisterClient(client *Client) {
 
 	// Broadcast user list update
 	go h.BroadcastUserList()
+}
+
+func (h *Hub) monitorHeartbeats() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		h.mu.RLock()
+		clients := make([]*Client, 0, len(h.clients))
+		for _, c := range h.clients {
+			clients = append(clients, c)
+		}
+		h.mu.RUnlock()
+
+		for _, client := range clients {
+			client.mu.RLock()
+			last := client.lastHeartbeat
+			client.mu.RUnlock()
+
+			if time.Since(last) > 60*time.Second {
+				log.Printf("Heartbeat timeout for client %s (user %d)", client.ID, client.UserID)
+				h.unregister <- client
+			}
+		}
+
+		// Broadcast user list every 30 seconds to keep clients updated
+		if len(clients) > 0 {
+			log.Printf("Periodic user list broadcast - %d clients connected", len(clients))
+			go h.BroadcastUserList()
+		}
+
+		// Clean up stale connections (connections that haven't sent heartbeat for too long)
+		h.cleanupStaleConnections(clients)
+	}
+}
+
+// cleanupStaleConnections removes clients that haven't sent heartbeat for too long
+func (h *Hub) cleanupStaleConnections(clients []*Client) {
+	for _, client := range clients {
+		client.mu.RLock()
+		last := client.lastHeartbeat
+		client.mu.RUnlock()
+
+		// If no heartbeat for more than 2 minutes, consider connection stale
+		if time.Since(last) > 2*time.Minute {
+			log.Printf("Cleaning up stale connection %s (user %d) - last heartbeat: %v",
+				client.ID, client.UserID, last)
+			go func(c *Client) {
+				h.unregister <- c
+			}(client)
+		}
+	}
 }
 
 // UnregisterClient removes a client from the hub

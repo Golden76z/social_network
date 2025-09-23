@@ -22,6 +22,8 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const messagesTopRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { sendMessage: sendWebSocketMessage, lastMessage, connectionStatus, socket } = useWebSocketContext();
 
@@ -29,8 +31,51 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
     loadMessages();
   }, [groupId]);
 
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (lastMessage?.type === 'group_message') {
+    if (messagesContainerRef.current && messages.length > 0) {
+      // Small delay to ensure DOM is updated
+      setTimeout(() => {
+        messagesContainerRef.current?.scrollTo({
+          top: messagesContainerRef.current.scrollHeight,
+          behavior: 'smooth'
+        });
+      }, 100);
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    if (!lastMessage) return;
+
+    if (lastMessage.type === 'group_message_ack') {
+      if (lastMessage.group_id !== groupId.toString()) return;
+
+      const ackData = lastMessage.data as { body?: string } | undefined;
+      const messageId = `group-ack-${lastMessage.message_id}`;
+      setMessages(prev => {
+        const exists = prev.some(msg => msg.id === messageId);
+        if (exists) return prev;
+
+        const newMessage: ChatMessage = {
+          id: messageId,
+          username: 'You',
+          content: ackData?.body || '',
+          timestamp: lastMessage.timestamp,
+          isOwn: true,
+          groupId: groupId.toString(),
+        };
+        return [...prev, newMessage];
+      });
+
+      setSending(false);
+      if (fallbackTimeoutRef.current) {
+        clearTimeout(fallbackTimeoutRef.current);
+        fallbackTimeoutRef.current = null;
+      }
+      return;
+    }
+
+    if (lastMessage.type === 'group_message') {
       console.log('🔍 GroupChat received WebSocket message:', lastMessage);
       const messageGroupId = lastMessage.group_id || (lastMessage as any).GroupID;
 
@@ -41,7 +86,7 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
         console.log('🔍 Message is for this group, adding to messages');
 
         // Check if message already exists to prevent duplicates
-        const messageId = `${lastMessage.timestamp}-${lastMessage.user_id}`;
+        const messageId = lastMessage.message_id ? `group-${lastMessage.message_id}` : `${lastMessage.timestamp}-${lastMessage.user_id}`;
         setMessages(prev => {
           const exists = prev.some(msg => msg.id === messageId);
           if (exists) {
@@ -73,7 +118,7 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
         console.log('🔍 Message is not for this group, ignoring');
       }
     }
-  }, [lastMessage?.timestamp, lastMessage?.user_id, currentUserId, groupId]);
+  }, [lastMessage, currentUserId, groupId]);
 
 
 
@@ -120,10 +165,10 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
       }
       
       if (offset === 0) {
-        // First load - replace messages
+        // First load - reverse to show oldest first (chronological order)
         setMessages(chatMessages.reverse());
       } else {
-        // Load more - prepend to existing messages
+        // Load more - prepend older messages to existing messages
         setMessages(prev => [...chatMessages.reverse(), ...prev]);
       }
     } catch (err) {
@@ -200,91 +245,113 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="animate-pulse text-gray-500">Loading group messages...</div>
+      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-purple-50 to-purple-100/30">
+        <div className="text-center">
+          <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+          <div className="text-muted-foreground">Loading group messages...</div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-gradient-to-br from-purple-50 to-purple-100/30">
       {/* Header */}
-      <div className="p-4 border-b bg-white">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white text-sm font-medium">
+      <div className="p-3 border-b border-border bg-gradient-to-r from-purple-100 to-purple-200/50 backdrop-blur-sm">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-purple-500 flex items-center justify-center text-primary-foreground text-xs font-medium shadow-sm">
             {getInitials()}
           </div>
-          <div>
-            <h2 className="font-semibold">{groupName}</h2>
-            <p className="text-sm text-gray-500">Group chat</p>
+          <div className="flex-1">
+            <h2 className="font-semibold text-card-foreground text-base">{groupName}</h2>
+            <div className="flex items-center gap-1">
+              <div className={`w-1.5 h-1.5 rounded-full ${connectionStatus === 'connected' ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+              <p className="text-xs text-muted-foreground">Group chat</p>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Messages */}
-      <div className="overflow-y-auto p-4 space-y-4" style={{ height: '500px' }}>
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
-            {error}
-            <button 
-              onClick={() => setError(null)}
-              className="ml-2 underline"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-        
-        {/* Load More Button */}
-        {hasMoreMessages && !loading && (
-          <div className="text-center" ref={messagesTopRef}>
-            <button
-              onClick={loadMoreMessages}
-              disabled={loadingMore}
-              className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 disabled:opacity-50"
-            >
-              {loadingMore ? 'Loading...' : 'Load More Messages'}
-            </button>
-          </div>
-        )}
-        
-        {messages.length === 0 ? (
-          <div className="text-center text-gray-500 py-8">
-            <p>No messages yet</p>
-            <p className="text-sm mt-1">Start the group conversation!</p>
-          </div>
-        ) : (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.isOwn ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                  message.isOwn
-                    ? 'bg-green-500 text-white'
-                    : 'bg-gray-100 text-gray-900'
-                }`}
-              >
-                {!message.isOwn && (
-                  <div className="text-xs font-medium text-gray-600 mb-1">
-                    {message.username}
-                  </div>
-                )}
-                <div className="text-sm">{message.content}</div>
-                <div className={`text-xs mt-1 ${
-                  message.isOwn ? 'text-green-100' : 'text-gray-500'
-                }`}>
-                  {formatTime(message.timestamp)}
-                </div>
+      <div 
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent min-h-0"
+        style={{ maxHeight: 'calc(100vh - 400px)' }}
+      >
+        <div className="p-3 space-y-2">
+          {error && (
+            <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-2 text-destructive text-xs backdrop-blur-sm">
+              <div className="flex items-center justify-between">
+                <span>{error}</span>
+                <button 
+                  onClick={() => setError(null)}
+                  className="ml-2 text-destructive/70 hover:text-destructive transition-colors"
+                >
+                  ✕
+                </button>
               </div>
             </div>
-          ))
-        )}
+          )}
+          
+          {/* Load More Button */}
+          {hasMoreMessages && !loading && (
+            <div className="text-center" ref={messagesTopRef}>
+              <button
+                onClick={loadMoreMessages}
+                disabled={loadingMore}
+                className="px-3 py-1.5 text-xs bg-purple-100 hover:bg-purple-200 rounded-lg text-purple-700 disabled:opacity-50 transition-all duration-200 shadow-sm"
+              >
+                {loadingMore ? (
+                  <div className="flex items-center gap-1">
+                    <div className="animate-spin w-3 h-3 border-2 border-purple-700 border-t-transparent rounded-full"></div>
+                    Loading...
+                  </div>
+                ) : (
+                  'Load More Messages'
+                )}
+              </button>
+            </div>
+          )}
+          
+          {messages.length === 0 ? (
+            <div className="text-center text-muted-foreground py-6">
+              <div className="text-3xl mb-3">💬</div>
+              <p className="font-medium mb-1 text-sm">No messages yet</p>
+              <p className="text-xs">Start the group conversation!</p>
+            </div>
+          ) : (
+            messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${message.isOwn ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[66%] px-3 py-2 rounded-xl shadow-sm ${
+                    message.isOwn
+                      ? 'bg-gradient-to-br from-purple-500 to-purple-600 text-primary-foreground'
+                      : 'bg-gradient-to-br from-purple-100 to-purple-200 text-purple-800'
+                  }`}
+                >
+                  {!message.isOwn && (
+                    <div className="text-xs font-medium text-purple-600 mb-1">
+                      {message.username}
+                    </div>
+                  )}
+                  <div className="text-sm leading-relaxed">{message.content}</div>
+                  <div className={`text-xs mt-1 ${
+                    message.isOwn ? 'text-primary-foreground/70' : 'text-purple-600/70'
+                  }`}>
+                    {formatTime(message.timestamp)}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t bg-white relative">
+      <div className="p-3 border-t border-border bg-gradient-to-r from-purple-100 to-purple-200/50 backdrop-blur-sm">
         <form onSubmit={handleSendMessage} className="flex gap-2">
           <div className="flex-1 relative">
             <input
@@ -292,14 +359,14 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Type a message..."
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full border border-purple-200 rounded-lg px-3 py-2 pr-8 bg-background/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-purple-300 focus:border-purple-400 transition-all duration-200 text-sm"
               disabled={sending}
               maxLength={1000}
             />
             <button
               type="button"
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-purple-500 hover:text-purple-700 transition-colors text-sm"
             >
               😊
             </button>
@@ -312,16 +379,25 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
           <button
             type="submit"
             disabled={!input.trim() || sending}
-            className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            className="bg-gradient-to-r from-purple-500 to-purple-600 text-primary-foreground px-3 py-2 rounded-lg hover:from-purple-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm font-medium text-sm"
           >
-            {sending ? 'Sending...' : 'Send'}
+            {sending ? (
+              <div className="flex items-center gap-1">
+                <div className="animate-spin w-3 h-3 border-2 border-primary-foreground border-t-transparent rounded-full"></div>
+                Sending...
+              </div>
+            ) : (
+              'Send'
+            )}
           </button>
         </form>
-        <div className="text-xs text-gray-500 mt-1">
-          {input.length}/1000 characters
+        <div className="text-xs text-muted-foreground mt-1 flex justify-between">
+          <span>{input.length}/1000 characters</span>
+          <span className={input.length > 900 ? 'text-destructive' : ''}>
+            {1000 - input.length} remaining
+          </span>
         </div>
       </div>
     </div>
   );
 }
-
