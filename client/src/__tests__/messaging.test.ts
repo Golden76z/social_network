@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi, Mock } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { PrivateChat } from '../components/PrivateChat';
-import { GroupChat } from '../components/GroupChat';
+import { PrivateChat } from '../components/chat/PrivateChat';
+import { GroupChat } from '../components/chat/GroupChat';
 import { WebSocketProvider } from '../context/webSocketProvider';
 import { AuthProvider } from '../context/AuthProvider';
 import { chatAPI } from '../lib/api/chat';

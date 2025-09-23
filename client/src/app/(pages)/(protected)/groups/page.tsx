@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { GroupResponse } from '@/lib/types/group';
 import { groupApi } from '@/lib/api/group';
 import { useAuth } from '@/context/AuthProvider';
-import { GroupCard } from '@/components/GroupCard';
-import { CreateGroupModal } from '@/components/CreateGroupModal';
+import { GroupCard } from '@/components/groups/GroupCard';
+import { CreateGroupModal } from '@/components/groups/CreateGroupModal';
 import { UserCheck } from 'lucide-react';
 
 export default function GroupsPage() {

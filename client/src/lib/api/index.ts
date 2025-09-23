@@ -1,7 +1,4 @@
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  'http://localhost:8080';
+import { API_CONFIG, getApiUrl, getErrorMessage, getErrorCode, isRetryableError } from '@/lib/config/api';
 
 const ensureWebSocketConnection = () => {
   if (typeof window === 'undefined') return;
@@ -26,14 +23,12 @@ export class ApiClient {
   private baseUrl: string;
   private csrfToken: string | null = null;
 
-  constructor(baseUrl: string = API_BASE_URL) {
+  constructor(baseUrl: string = API_CONFIG.baseUrl) {
     this.baseUrl = baseUrl;
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = endpoint.startsWith('http')
-      ? endpoint
-      : `${this.baseUrl}${endpoint}`;
+    const url = getApiUrl(endpoint);
 
     // Get CSRF token if we don't have one and this is a state-changing request
     if (!this.csrfToken && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method || 'GET')) {
@@ -90,6 +85,15 @@ export class ApiClient {
         } as T;
       }
       
+      // Create structured error object
+      const error = {
+        code: getErrorCode({ status: response.status, message }),
+        message: getErrorMessage({ status: response.status, message }),
+        status: response.status,
+        url: url,
+        details: raw,
+      };
+      
       // Only log error if it's not a handled special case
       console.error('❌ API Error Response:', {
         status: response.status,
@@ -100,7 +104,7 @@ export class ApiClient {
       });
       
       ensureWebSocketConnection();
-      throw new Error(message.trim());
+      throw error;
     }
 
     try {
@@ -117,8 +121,8 @@ export class ApiClient {
 
   private async fetchCSRFToken(): Promise<void> {
     try {
-      console.log('🔐 Fetching CSRF token from:', `${this.baseUrl}/api/post`);
-      const response = await fetch(`${this.baseUrl}/api/post`, {
+      console.log('🔐 Fetching CSRF token from:', getApiUrl('/api/post'));
+      const response = await fetch(getApiUrl('/api/post'), {
         method: 'GET',
         credentials: 'include',
         headers: {

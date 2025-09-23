@@ -1,7 +1,7 @@
 "use client"
 
 import React from 'react';
-import { ChatComponent } from '@/components/chatComponent';
+import { ChatComponent } from '@/components/chat/chatComponent';
 import { useAuth } from '@/context/AuthProvider';
 
 export default function ChatPage() {

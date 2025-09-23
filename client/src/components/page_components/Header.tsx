@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import Link from 'next/link';
-import { ProfileThumbnail } from '@/components/ProfileThumbnail';
+import { ProfileThumbnail } from '@/components/layout/ProfileThumbnail';
 import { ButtonAccept } from '@/components/ui/Button/buttonAccept';
 import { 
   User, 
@@ -17,7 +17,7 @@ import {
   Edit3,
   Lock
 } from 'lucide-react';
-import { NotificationDropdown } from '@/components/NotificationDropdown';
+import { NotificationDropdown } from '@/components/layout/NotificationDropdown';
 
 interface HeaderProps {
   onCreatePost: () => void;

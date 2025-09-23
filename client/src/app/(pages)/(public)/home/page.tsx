@@ -4,9 +4,10 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trash2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthProvider';
-import { PostCard } from '@/components/PostCard';
-import { PostModal } from '@/components/PostModal';
-import { CreatePostModal } from '@/components/CreatePostModal';
+import { PostCard } from '@/components/posts/PostCard';
+import { PostModal } from '@/components/posts/PostModal';
+import { CreatePostModal } from '@/components/forms/CreatePostModal';
+import DevAccessDenied from '@/components/DevAccessDenied';
 import { postApi } from '@/lib/api/post';
 import { groupApi } from '@/lib/api/group';
 import { Post } from '@/lib/types';
@@ -155,6 +156,7 @@ const HomePage: React.FC = () => {
 
   return (
     <div className="w-full">
+      <DevAccessDenied />
       {/* <h1 className="text-2xl font-bold mb-4">
         {user
           ? `Welcome back, ${user.nickname || user.first_name}!`

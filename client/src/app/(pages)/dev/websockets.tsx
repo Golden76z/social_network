@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useState } from 'react';
-import { ChatComponent } from '@/components/chatComponent';
+import { ChatComponent } from '@/components/chat/chatComponent';
 
 export default function WebSocketPage() {  // Changed to default export
   const [authToken, setAuthToken] = useState('');
