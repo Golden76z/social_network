@@ -58,35 +58,31 @@ func (s *Service) DecrementFollowersCount(userID int64) error {
 
 // SyncFollowCounts synchronizes the stored follower/following counts with actual counts from follow_requests table
 func (s *Service) SyncFollowCounts(userID int64) error {
-	// Get actual follower count
-	var actualFollowers int
+	// Get actual counts from follow_requests table
+	var followersCount, followingCount int
 	err := s.DB.QueryRow(`
-		SELECT COUNT(*) 
-		FROM follow_requests 
-		WHERE target_id = ? AND status = 'accepted'
-	`, userID).Scan(&actualFollowers)
+		SELECT 
+			(SELECT COUNT(*) FROM follow_requests WHERE target_id = ? AND status = 'accepted') as followers,
+			(SELECT COUNT(*) FROM follow_requests WHERE requester_id = ? AND status = 'accepted') as following
+	`, userID, userID).Scan(&followersCount, &followingCount)
 	if err != nil {
 		return err
 	}
 
-	// Get actual following count
-	var actualFollowing int
-	err = s.DB.QueryRow(`
-		SELECT COUNT(*) 
-		FROM follow_requests 
-		WHERE requester_id = ? AND status = 'accepted'
-	`, userID).Scan(&actualFollowing)
-	if err != nil {
-		return err
-	}
-
-	// Update stored counts
+	// Update the counts in users table
 	_, err = s.DB.Exec(`
 		UPDATE users 
-		SET followers = ?, followed = ? 
+		SET followers = ?, followed = ?
 		WHERE id = ?
-	`, actualFollowers, actualFollowing, userID)
+	`, followersCount, followingCount, userID)
 	return err
+}
+
+// GetUsernameByID gets username by user ID
+func (s *Service) GetUsernameByID(userID int) (string, error) {
+	var username string
+	err := s.DB.QueryRow(`SELECT nickname FROM users WHERE id = ?`, userID).Scan(&username)
+	return username, err
 }
 
 func (s *Service) CreateUser(req models.User) error {

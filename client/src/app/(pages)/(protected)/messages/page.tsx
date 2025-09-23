@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Conversation, PrivateMessage } from '@/lib/types/chat';
+import { Conversation } from '@/lib/types/chat';
 import { chatAPI, GroupConversation } from '@/lib/api/chat';
 import { useWebSocketContext } from '@/context/webSocketProvider';
 import { useAuth } from '@/context/AuthProvider';
@@ -11,8 +11,8 @@ import { GroupChat } from '@/components/GroupChat';
 import Button from "@/components/ui/button";
 import { NewConversationModal } from "@/components/NewConversationModal";
 import { User } from "@/lib/types/user";
+import type { WebSocketMessage } from '@/lib/hooks/useWebSockets';
 
-type ConversationType = 'private' | 'group';
 type UnifiedConversation = 
   | { type: 'private'; data: Conversation }
   | { type: 'group'; data: GroupConversation };
@@ -28,53 +28,22 @@ export default function MessagesPage() {
   const [showNewConversationModal, setShowNewConversationModal] = useState(false);
   const { lastMessage } = useWebSocketContext();
   const { user } = useAuth();
+  const userId = user?.id;
 
-  // Load conversations on component mount
-  useEffect(() => {
-    loadConversations();
-  }, []);
-
-  // Handle URL parameters for navigation from sidebar
-  useEffect(() => {
-    const groupId = searchParams.get('group');
-    const userId = searchParams.get('user');
-    
-    if (groupId && groupConversations.length > 0) {
-      const groupConv = groupConversations.find(conv => conv.group_id === parseInt(groupId));
-      if (groupConv) {
-        setSelectedConversation({ type: 'group', data: groupConv });
-      }
-    } else if (userId && privateConversations.length > 0) {
-      const privateConv = privateConversations.find(conv => conv.other_user_id === parseInt(userId));
-      if (privateConv) {
-        setSelectedConversation({ type: 'private', data: privateConv });
-      }
-    }
-  }, [searchParams, groupConversations, privateConversations]);
-
-  // Handle real-time message updates
-  useEffect(() => {
-    if ((lastMessage?.type === 'private_message' || lastMessage?.type === 'group_message') && user) {
-      handleNewMessage(lastMessage);
-    }
-  }, [lastMessage, user]);
-
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async () => {
     try {
       setLoading(true);
       const [privateData, groupData] = await Promise.all([
         chatAPI.getConversations(),
         chatAPI.getGroupConversations()
       ]);
-      
-      // Ensure we have arrays, not null values
+
       const privateConversations = privateData || [];
       const groupConversations = groupData || [];
-      
+
       setPrivateConversations(privateConversations);
       setGroupConversations(groupConversations);
-      
-      // Create unified conversations list sorted by last message time
+
       const unified: UnifiedConversation[] = [
         ...privateConversations.map(conv => ({ type: 'private' as const, data: conv })),
         ...groupConversations.map(conv => ({ type: 'group' as const, data: conv }))
@@ -83,32 +52,91 @@ export default function MessagesPage() {
         const bTime = b.type === 'private' ? b.data.last_message_time : b.data.last_message_time;
         return new Date(bTime || 0).getTime() - new Date(aTime || 0).getTime();
       });
-      
+
       setUnifiedConversations(unified);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load conversations');
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  type ConversationUpdatePayload = {
+    conversation_type?: 'private' | 'group';
+    user_id?: number;
+    group_id?: string | number;
+    last_message?: string;
+    last_message_time?: string;
   };
 
-  const handleNewMessage = useCallback((message: any) => {
-    if (!user) return;
+  const handleConversationUpdate = useCallback((message: WebSocketMessage) => {
+    const data = message.data as ConversationUpdatePayload | undefined;
+    if (!data) return;
+
+    const { conversation_type, user_id, group_id, last_message, last_message_time } = data;
+
+    if (conversation_type === 'private') {
+      setPrivateConversations(prev => prev.map(conv => {
+        if (conv.other_user_id === user_id) {
+          return {
+            ...conv,
+            last_message: last_message ?? conv.last_message,
+            last_message_time: last_message_time ?? conv.last_message_time,
+          };
+        }
+        return conv;
+      }));
+    } else if (conversation_type === 'group') {
+      setGroupConversations(prev => prev.map(conv => {
+        if (conv.group_id === Number(group_id)) {
+          return {
+            ...conv,
+            last_message: last_message ?? conv.last_message,
+            last_message_time: last_message_time ?? conv.last_message_time,
+          };
+        }
+        return conv;
+      }));
+    }
+
+    void loadConversations();
+  }, [loadConversations]);
+
+  type PrivateMessagePayload = {
+    sender_id?: number;
+    receiver_id?: number;
+  };
+
+  type GroupMessagePayload = {
+    group_id?: string;
+  };
+
+  const handleNewMessage = useCallback((message: WebSocketMessage) => {
+    if (!userId) return;
 
     if (message.type === 'private_message') {
-      const messageData = message.data as any;
+      const messageData = message.data as PrivateMessagePayload | undefined;
       const senderId = messageData?.sender_id;
       const receiverId = messageData?.receiver_id;
 
-      // Check if this message is for the current user
-      if (receiverId === user.id || senderId === user.id) {
-        // Reload conversations to get updated data
-        loadConversations();
+      if ((receiverId !== undefined && receiverId === userId) || (senderId !== undefined && senderId === userId)) {
+        // Update conversation in the list without reloading
+        const otherUserId = senderId === userId ? receiverId : senderId;
+        
+        if (otherUserId !== undefined) {
+          setPrivateConversations(prev => prev.map(conv => {
+            if (conv.other_user_id === otherUserId) {
+              return {
+                ...conv,
+                last_message: message.content || '',
+                last_message_time: message.timestamp,
+              };
+            }
+            return conv;
+          }));
 
-        // Update selected conversation if it matches
-        if (selectedConversation?.type === 'private') {
-          const otherUserId = senderId === user.id ? receiverId : senderId;
-          if (selectedConversation.data.other_user_id === otherUserId) {
+          // Update selected conversation if it's the current one
+          if (selectedConversation?.type === 'private' && selectedConversation.data.other_user_id === otherUserId) {
             setSelectedConversation(prev => {
               if (!prev || prev.type !== 'private') return prev;
               return {
@@ -124,27 +152,76 @@ export default function MessagesPage() {
         }
       }
     } else if (message.type === 'group_message') {
-      const groupId = message.group_id;
-      
-      // Reload conversations to get updated data
-      loadConversations();
+      const groupPayload = message.data as GroupMessagePayload | undefined;
+      const groupId = message.group_id || groupPayload?.group_id;
 
-      // Update selected conversation if it matches
-      if (selectedConversation?.type === 'group' && selectedConversation.data.group_id.toString() === groupId) {
-        setSelectedConversation(prev => {
-          if (!prev || prev.type !== 'group') return prev;
-          return {
-            ...prev,
-            data: {
-              ...prev.data,
+      if (groupId) {
+        // Update group conversation in the list without reloading
+        setGroupConversations(prev => prev.map(conv => {
+          if (conv.group_id === Number(groupId)) {
+            return {
+              ...conv,
               last_message: message.content || '',
               last_message_time: message.timestamp,
-            }
-          };
-        });
+            };
+          }
+          return conv;
+        }));
+
+        // Update selected conversation if it's the current one
+        if (selectedConversation?.type === 'group' && selectedConversation.data.group_id.toString() === String(groupId)) {
+          setSelectedConversation(prev => {
+            if (!prev || prev.type !== 'group') return prev;
+            return {
+              ...prev,
+              data: {
+                ...prev.data,
+                last_message: message.content || '',
+                last_message_time: message.timestamp,
+              }
+            };
+          });
+        }
       }
     }
-  }, [user, selectedConversation, loadConversations]);
+  }, [userId, selectedConversation]);
+
+  // Handle URL parameters for navigation from sidebar
+  useEffect(() => {
+    const groupId = searchParams.get('group');
+    const userParam = searchParams.get('user');
+    
+    if (groupId && groupConversations.length > 0) {
+      const groupConv = groupConversations.find(conv => conv.group_id === parseInt(groupId));
+      if (groupConv) {
+        setSelectedConversation({ type: 'group', data: groupConv });
+      }
+    } else if (userParam && privateConversations.length > 0) {
+      const privateConv = privateConversations.find(conv => conv.other_user_id === parseInt(userParam));
+      if (privateConv) {
+        setSelectedConversation({ type: 'private', data: privateConv });
+      }
+    }
+  }, [searchParams, groupConversations, privateConversations]);
+
+  // Handle real-time message updates
+  useEffect(() => {
+    if (!lastMessage || !userId) return;
+
+    if (lastMessage.type === 'conversation_update') {
+      handleConversationUpdate(lastMessage);
+      return;
+    }
+
+    if (lastMessage.type === 'private_message' || lastMessage.type === 'group_message') {
+      handleNewMessage(lastMessage);
+    }
+  }, [lastMessage, userId, handleConversationUpdate, handleNewMessage]);
+
+  // Load conversations on component mount
+  useEffect(() => {
+    void loadConversations();
+  }, [loadConversations]);
 
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -237,44 +314,60 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="flex flex-col">
-      <div className="flex items-center justify-between mb-4 flex-shrink-0">
-        <h1 className="text-2xl font-bold text-foreground">Messages</h1>
-        <Button
-          variant="outline"
-          type="button"
-          onClick={() => setShowNewConversationModal(true)}
-        >
-          New Conversation
-        </Button>
-      </div>
+    <div className="flex flex-col h-[calc(100vh-200px)] w-full px-2">
 
       {error && (
-        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 text-destructive text-sm mb-4 flex-shrink-0">
-          {error}
-          <button 
-            onClick={() => setError(null)}
-            className="ml-2 underline"
-          >
-            Dismiss
-          </button>
+        <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-3 text-destructive text-sm mb-4 flex-shrink-0 backdrop-blur-sm">
+          <div className="flex items-center justify-between">
+            <span>{error}</span>
+            <button 
+              onClick={() => setError(null)}
+              className="ml-3 text-destructive/70 hover:text-destructive transition-colors"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
 
-      <div className="grid lg:grid-cols-3 gap-4 flex-1 min-h-0">
+      {/* Main Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0 h-full">
         {/* Conversations List */}
-        <div className="lg:col-span-1">
-          <div className="h-full border border-border rounded-lg bg-card flex flex-col">
-            <div className="p-4 border-b border-border">
-              <h2 className="font-semibold text-card-foreground">Conversations</h2>
+        <div className={`${selectedConversation ? 'hidden lg:block lg:col-span-1' : 'lg:col-span-1'}`}>
+          <div className="h-full border border-border rounded-xl bg-card flex flex-col shadow-sm backdrop-blur-sm">
+            <div className="p-4 border-b border-border bg-gradient-to-r from-purple-50 to-purple-100/50 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-semibold text-card-foreground text-base">Conversations</h2>
+                  <p className="text-muted-foreground text-xs mt-0.5">{unifiedConversations.length} active</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowNewConversationModal(true)}
+                    className="w-8 h-8 rounded-full bg-purple-100 hover:bg-purple-200 border border-purple-200 hover:border-purple-300 transition-all duration-200 flex items-center justify-center text-purple-600 hover:text-purple-700"
+                    title="New Conversation"
+                  >
+                    <span className="text-sm font-medium">+</span>
+                  </button>
+                  {selectedConversation && (
+                    <button
+                      onClick={() => setSelectedConversation(null)}
+                      className="lg:hidden text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
             
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
               {unifiedConversations.length === 0 ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  <div className="text-2xl mb-2">💬</div>
-                  <p>No conversations yet</p>
-                  <p className="text-sm">Start a new conversation to begin messaging</p>
+                <div className="p-6 text-center text-muted-foreground">
+                  <div className="text-4xl mb-4">💬</div>
+                  <p className="font-medium mb-2 text-sm">No conversations yet</p>
+                  <p className="text-xs">Start a new conversation to begin messaging</p>
                 </div>
               ) : (
                 <div className="p-2">
@@ -287,16 +380,22 @@ export default function MessagesPage() {
                     return (
                       <div
                         key={`${conversation.type}-${conversation.type === 'private' ? (conversation.data as Conversation).other_user_id : (conversation.data as GroupConversation).group_id}`}
-                        onClick={() => setSelectedConversation(conversation)}
-                        className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                        onClick={() => {
+                          setSelectedConversation(conversation);
+                          // On mobile, hide the conversation list after selection
+                          if (window.innerWidth < 1024) {
+                            // This will be handled by the responsive classes
+                          }
+                        }}
+                        className={`p-3 rounded-lg cursor-pointer transition-all duration-200 mb-2 ${
                           isSelected
-                            ? 'bg-primary/10 border border-primary/20'
-                            : 'hover:bg-accent'
+                            ? 'bg-purple-100 border border-purple-200 shadow-sm'
+                            : 'hover:bg-purple-50 hover:shadow-sm'
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium flex-shrink-0 ${
-                            conversation.type === 'group' ? 'bg-secondary' : 'bg-primary'
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium flex-shrink-0 shadow-sm ${
+                            conversation.type === 'group' ? 'bg-gradient-to-br from-purple-400 to-purple-500' : 'bg-gradient-to-br from-purple-500 to-purple-600'
                           }`}>
                             {conversation.type === 'private' && conversation.data.other_user_avatar ? (
                               <img
@@ -309,21 +408,21 @@ export default function MessagesPage() {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 mb-1">
                               <div className="font-medium text-sm truncate text-card-foreground">
                                 {getDisplayName(conversation)}
                               </div>
                               {conversation.type === 'group' && (
-                                <span className="text-xs bg-secondary text-secondary-foreground px-1 rounded">
+                                <span className="text-xs bg-purple-200 text-purple-700 px-2 py-0.5 rounded-full">
                                   Group
                                 </span>
                               )}
                             </div>
-                            <div className="text-xs text-muted-foreground truncate">
+                            <div className="text-xs text-muted-foreground truncate line-clamp-1">
                               {getLastMessage(conversation)}
                             </div>
                           </div>
-                          <div className="text-xs text-muted-foreground flex-shrink-0">
+                          <div className="text-xs text-muted-foreground flex-shrink-0 bg-purple-100 px-2 py-1 rounded-full">
                             {getLastMessageTime(conversation) && formatTime(getLastMessageTime(conversation))}
                           </div>
                         </div>
@@ -337,26 +436,39 @@ export default function MessagesPage() {
         </div>
 
         {/* Chat Area */}
-        <div className="lg:col-span-2">
-          <div className="h-full border border-border rounded-lg bg-card">
+        <div className={`${selectedConversation ? 'lg:col-span-2' : 'hidden lg:block lg:col-span-2'}`}>
+          <div className="h-full border border-border rounded-xl bg-card shadow-sm backdrop-blur-sm overflow-hidden">
             {selectedConversation ? (
-              selectedConversation.type === 'private' ? (
-                <PrivateChat 
-                  conversation={selectedConversation.data} 
-                  currentUserId={user?.id || 0} 
-                />
-              ) : (
-                <GroupChat
-                  groupId={selectedConversation.data.group_id}
-                  groupName={selectedConversation.data.group_name}
-                  currentUserId={user?.id || 0}
-                />
-              )
+              <>
+                {/* Mobile back button */}
+                <div className="lg:hidden p-3 border-b border-border bg-gradient-to-r from-purple-100 to-purple-200/50">
+                  <button
+                    onClick={() => setSelectedConversation(null)}
+                    className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <span>←</span>
+                    <span>Back to conversations</span>
+                  </button>
+                </div>
+                {selectedConversation.type === 'private' ? (
+                  <PrivateChat 
+                    conversation={selectedConversation.data} 
+                    currentUserId={user?.id || 0} 
+                  />
+                ) : (
+                  <GroupChat
+                    groupId={selectedConversation.data.group_id}
+                    groupName={selectedConversation.data.group_name}
+                    currentUserId={user?.id || 0}
+                  />
+                )}
+              </>
             ) : (
-              <div className="h-full flex items-center justify-center">
+              <div className="h-full flex items-center justify-center bg-gradient-to-br from-card to-card/50">
                 <div className="text-center text-muted-foreground">
-                  <div className="text-4xl mb-4">💬</div>
-                  <p>Select a conversation to start messaging</p>
+                  <div className="text-6xl mb-6">💬</div>
+                  <h3 className="text-xl font-semibold mb-2">Select a conversation</h3>
+                  <p className="text-sm">Choose a conversation from the sidebar to start messaging</p>
                 </div>
               </div>
             )}

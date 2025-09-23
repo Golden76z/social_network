@@ -139,7 +139,7 @@ func SendMessageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the message
-	err = db.DBService.CreatePrivateMessage(userID, int(req.ReceiverID), req.Body)
+	messageID, err := db.DBService.CreatePrivateMessage(userID, int(req.ReceiverID), req.Body)
 	if err != nil {
 		http.Error(w, "Failed to send message", http.StatusInternalServerError)
 		return
@@ -154,12 +154,26 @@ func SendMessageHandler(w http.ResponseWriter, r *http.Request) {
 			UserID:    int(userID),
 			Username:  r.Context().Value(middleware.UsernameKey).(string),
 			Timestamp: time.Now(),
+			MessageID: messageID,
 			Data: map[string]interface{}{
 				"sender_id":   userID,
 				"receiver_id": req.ReceiverID,
 			},
 		}
 		hub.BroadcastToUser(int(req.ReceiverID), message)
+
+		update := websockets.Message{
+			Type:      websockets.MessageTypeConversationUpdate,
+			Timestamp: time.Now(),
+			Data: map[string]any{
+				"conversation_type": "private",
+				"user_id":           userID,
+				"last_message":      req.Body,
+				"last_message_time": time.Now(),
+			},
+		}
+		hub.BroadcastToUser(int(req.ReceiverID), update)
+		hub.BroadcastToUser(userID, update)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -253,7 +267,7 @@ func SendGroupMessageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the group message
-	err = db.DBService.CreateGroupMessage(int(req.GroupID), userID, req.Body)
+	messageID, err := db.DBService.CreateGroupMessage(int(req.GroupID), userID, req.Body)
 	if err != nil {
 		http.Error(w, "Failed to send group message", http.StatusInternalServerError)
 		return
@@ -269,8 +283,22 @@ func SendGroupMessageHandler(w http.ResponseWriter, r *http.Request) {
 			UserID:    int(userID),
 			Username:  r.Context().Value(middleware.UsernameKey).(string),
 			Timestamp: time.Now(),
+			MessageID: messageID,
 		}
 		hub.BroadcastMessage(message)
+
+		update := websockets.Message{
+			Type:      websockets.MessageTypeConversationUpdate,
+			GroupID:   fmt.Sprintf("%d", req.GroupID),
+			Timestamp: time.Now(),
+			Data: map[string]any{
+				"conversation_type": "group",
+				"group_id":          req.GroupID,
+				"last_message":      req.Body,
+				"last_message_time": time.Now(),
+			},
+		}
+		hub.BroadcastMessage(update)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

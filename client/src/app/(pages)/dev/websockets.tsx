@@ -1,7 +1,6 @@
 "use client"
 
 import React, { useEffect, useState } from 'react';
-import { WebSocketProvider } from '@/context/webSocketProvider';
 import { ChatComponent } from '@/components/chatComponent';
 
 export default function WebSocketPage() {  // Changed to default export
@@ -17,13 +16,12 @@ export default function WebSocketPage() {  // Changed to default export
   }
 
   return (
-    <WebSocketProvider url="ws://localhost:8080/ws">
-      <div className="min-h-screen bg-gray-100 py-8">
-        <div className="container mx-auto px-4">
-          <h1 className="text-3xl font-bold text-center mb-8">Social Network Chat</h1>
-          <ChatComponent />
-        </div>
+    // Remove WebSocketProvider here since it's already provided globally in Providers.tsx
+    <div className="min-h-screen bg-gray-100 py-8">
+      <div className="container mx-auto px-4">
+        <h1 className="text-3xl font-bold text-center mb-8">Social Network Chat</h1>
+        <ChatComponent />
       </div>
-    </WebSocketProvider>
+    </div>
   );
 }

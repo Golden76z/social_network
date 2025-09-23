@@ -3,6 +3,25 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   'http://localhost:8080';
 
+const ensureWebSocketConnection = () => {
+  if (typeof window === 'undefined') return;
+  const reconnect = (window as any).__wsEnsureConnected;
+  if (typeof reconnect === 'function') {
+    try {
+      // Only reconnect if WebSocket is not already connected or connecting
+      const wsContext = (window as any).__wsContext;
+      if (wsContext && wsContext.connectionStatus !== 'connected' && wsContext.connectionStatus !== 'connecting') {
+        console.log('🔌 WebSocket not connected, attempting to reconnect...');
+        reconnect();
+      } else if (wsContext && wsContext.connectionStatus === 'connecting') {
+        console.log('🔌 WebSocket already connecting, skipping reconnection');
+      }
+    } catch (error) {
+      console.error('🔌 Failed to ensure websocket connection:', error);
+    }
+  }
+};
+
 export class ApiClient {
   private baseUrl: string;
   private csrfToken: string | null = null;
@@ -39,6 +58,8 @@ export class ApiClient {
       headers,
       credentials: 'include',
     });
+
+    ensureWebSocketConnection();
 
     console.log('📡 Response status:', response.status);
     console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
@@ -78,6 +99,7 @@ export class ApiClient {
         headers: Object.fromEntries(response.headers.entries())
       });
       
+      ensureWebSocketConnection();
       throw new Error(message.trim());
     }
 
@@ -88,6 +110,7 @@ export class ApiClient {
     } catch (jsonError) {
       console.error('❌ Failed to parse JSON response:', jsonError);
       console.error('❌ Response text:', await response.text());
+      ensureWebSocketConnection();
       throw new Error('Invalid JSON response from server');
     }
   }
@@ -112,6 +135,11 @@ export class ApiClient {
         console.log('🔐 CSRF token fetched:', token.substring(0, 10) + '...');
       } else {
         console.warn('⚠️ No CSRF token found in response headers');
+        // If we get 401, it means we're not authenticated, so we don't need CSRF token
+        if (response.status === 401) {
+          console.log('🔐 Not authenticated, skipping CSRF token requirement');
+          return;
+        }
       }
     } catch (error) {
       console.error('❌ Failed to fetch CSRF token:', error);
