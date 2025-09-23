@@ -52,6 +52,11 @@
   --sidebar-border: oklch(0.9 0.05 300);
   --sidebar-ring: oklch(0.6 0.15 300);
   
+  /* Softer purple tones for text */
+  --text-soft-primary: oklch(0.5 0.12 300);
+  --text-soft-secondary: oklch(0.45 0.1 300);
+  --text-soft-muted: oklch(0.4 0.08 300);
+  
   /* Lighter purple tones */
   --purple-50: oklch(0.98 0.02 300);
   --purple-100: oklch(0.95 0.05 300);
@@ -114,6 +119,11 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  
+  /* Softer purple tones for text */
+  --color-text-soft-primary: var(--text-soft-primary);
+  --color-text-soft-secondary: var(--text-soft-secondary);
+  --color-text-soft-muted: var(--text-soft-muted);
   
   /* Lighter purple tones */
   --color-purple-50: var(--purple-50);
