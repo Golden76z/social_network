@@ -20,7 +20,6 @@ func CreateGroupRequestHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	fmt.Printf("✅ UserID found: %d\n", userID)
 
 	var req struct {
 		GroupID int64 `json:"group_id"`
@@ -73,7 +72,6 @@ func CreateGroupRequestHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the group request
-	fmt.Printf("🔄 Creating group request: GroupID=%d, UserID=%d\n", req.GroupID, userID)
 	err = db.DBService.CreateGroupRequest(req.GroupID, int64(userID), "pending")
 	if err != nil {
 		fmt.Printf("❌ Error creating group request: %v\n", err)
@@ -265,7 +263,6 @@ func UpdateGroupRequestHandler(w http.ResponseWriter, r *http.Request) {
 			Role:      "member",
 			InvitedBy: &invitedBy,
 		}
-		fmt.Printf("Creating group member: GroupID=%d, UserID=%d, Role=%s, InvitedBy=%d\n", member.GroupID, member.UserID, member.Role, *member.InvitedBy)
 		if err := db.DBService.CreateGroupMember(member); err != nil {
 			// Rollback request status if member creation fails
 			fmt.Printf("Error creating group member: %v\n", err)
@@ -273,7 +270,6 @@ func UpdateGroupRequestHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Error adding user to group: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		fmt.Printf("Successfully created group member for user %d in group %d\n", member.UserID, member.GroupID)
 	}
 
 	w.WriteHeader(http.StatusOK)

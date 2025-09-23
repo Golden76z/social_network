@@ -10,11 +10,28 @@ func (s *Service) CreateSession(userID int, token string, tokenLifetime time.Dur
 		return errors.New("nil database connection")
 	}
 
+	// Use transaction to prevent database locks
+	tx, err := s.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
 	// Generate token (you can replace this with your JWT generation)
 	expiresAt := time.Now().Add(tokenLifetime)
 
+	// First, delete any existing sessions for this user to prevent duplicates
+	_, err = tx.Exec("DELETE FROM sessions WHERE user_id = ?", userID)
+	if err != nil {
+		return err
+	}
+
 	// Insert into database
-	_, err := s.DB.Exec(`
+	_, err = tx.Exec(`
 		INSERT INTO sessions (token, user_id, expires_at)
 		VALUES (?, ?, ?)`,
 		token,
@@ -26,7 +43,7 @@ func (s *Service) CreateSession(userID int, token string, tokenLifetime time.Dur
 		return err
 	}
 
-	return nil
+	return tx.Commit()
 }
 
 // VerifyAndDeleteSession checks if session exists and deletes it

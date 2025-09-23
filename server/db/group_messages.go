@@ -13,10 +13,10 @@ type GroupMessage struct {
 	CreatedAt string `json:"created_at"`
 }
 
-func (s *Service) CreateGroupMessage(groupID, senderID int, body string) error {
+func (s *Service) CreateGroupMessage(groupID, senderID int, body string) (int64, error) {
 	tx, err := s.DB.Begin()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer func() {
 		if err != nil {
@@ -25,10 +25,21 @@ func (s *Service) CreateGroupMessage(groupID, senderID int, body string) error {
 			_ = tx.Commit()
 		}
 	}()
-	_, err = tx.Exec(`
+	res, execErr := tx.Exec(`
         INSERT INTO group_messages (group_id, sender_id, body)
         VALUES (?, ?, ?)`, groupID, senderID, body)
-	return err
+	if execErr != nil {
+		err = execErr
+		return 0, execErr
+	}
+
+	messageID, lastIDErr := res.LastInsertId()
+	if lastIDErr != nil {
+		err = lastIDErr
+		return 0, lastIDErr
+	}
+
+	return messageID, nil
 }
 
 func (s *Service) GetGroupMessageByID(id int) (*GroupMessage, error) {

@@ -94,7 +94,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		SameSite: sameSite,
 		Path:     "/",
 		MaxAge:   int(time.Hour * 4), // 4 hours
-		Domain:   "localhost",
+		// Remove Domain to avoid Chrome issues
 	}
 
 	http.SetCookie(w, cookie)
@@ -106,12 +106,9 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		"token":   token,
 	}
 
-	fmt.Printf("DEBUG: About to send response: %+v\n", response)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	fmt.Printf("DEBUG: Headers set, about to encode response\n")
 	json.NewEncoder(w).Encode(response)
-	fmt.Printf("DEBUG: Response sent successfully\n")
 }
 
 // Helper function to validate username (can be email or nickname)

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/Golden76z/social-network/config"
@@ -24,13 +25,17 @@ var upgrader = websocket.Upgrader{
 		allowedOrigins := []string{
 			"https://localhost:3030",
 			"https://yourdomain.com",
+			"http://localhost:3000",
+			"http://127.0.0.1:3000",
 		}
 
 		// For development, allow localhost connections
 		env := os.Getenv("ENV")
 		if env == "DEV" || env == "DEVELOPMENT" || env == "" {
-			// Allow all localhost origins in development
-			if origin == "http://localhost:3000" || origin == "http://localhost:3030" || origin == "" {
+			if origin == "" {
+				return true
+			}
+			if strings.HasPrefix(origin, "http://localhost") || strings.HasPrefix(origin, "http://127.0.0.1") {
 				return true
 			}
 		}
@@ -45,6 +50,7 @@ var upgrader = websocket.Upgrader{
 func WebSocketHandler(hub *Hub, cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var tokenString string
+		usingCookieToken := false
 
 		// Try to get JWT from query parameter first (for WebSocket connections)
 		if token := r.URL.Query().Get("token"); token != "" {
@@ -60,6 +66,7 @@ func WebSocketHandler(hub *Hub, cfg *config.Config) http.HandlerFunc {
 			}
 			tokenString = cookie.Value
 			log.Printf("WebSocket: Using token from cookie")
+			usingCookieToken = true
 		}
 
 		// Decoding the token and getting the User's informations
@@ -73,6 +80,15 @@ func WebSocketHandler(hub *Hub, cfg *config.Config) http.HandlerFunc {
 			log.Printf("WebSocket: Token validation failed: %v", errTokenValidate)
 			http.Error(w, "Error decoding JWT", http.StatusUnauthorized)
 			return
+		}
+		if claims.TokenType != "" && claims.TokenType != "websocket" {
+			if usingCookieToken && claims.TokenType == "session" {
+				log.Printf("WebSocket: Using session token from cookie for user %s", claims.Username)
+			} else {
+				log.Printf("WebSocket: Token type %s not permitted", claims.TokenType)
+				http.Error(w, "Invalid token type", http.StatusUnauthorized)
+				return
+			}
 		}
 		log.Printf("WebSocket: Token validated successfully for user: %s", claims.Username)
 
@@ -88,6 +104,11 @@ func WebSocketHandler(hub *Hub, cfg *config.Config) http.HandlerFunc {
 			log.Printf("WebSocket upgrade error: %v", err)
 			return
 		}
+
+		conn.SetCloseHandler(func(code int, text string) error {
+			log.Printf("WebSocket close frame for user %d: code=%d reason=%s", userID, code, text)
+			return nil
+		})
 
 		// Instantiating a new Client with the User's informations
 		userGroups, err := db.DBService.GetUserGroups(int(userID))
@@ -106,6 +127,9 @@ func WebSocketHandler(hub *Hub, cfg *config.Config) http.HandlerFunc {
 			Send:     make(chan Message, 256),
 			Groups:   make(map[string]*Group),
 		}
+		client.mu.Lock()
+		client.lastHeartbeat = time.Now()
+		client.mu.Unlock()
 
 		// Register client first
 		log.Printf("🔌 Registering client %s for user %d (%s)", client.ID, client.UserID, client.Username)
@@ -121,6 +145,7 @@ func WebSocketHandler(hub *Hub, cfg *config.Config) http.HandlerFunc {
 		log.Printf("🔌 Starting WritePump and ReadPump for client %s (user %d)", client.ID, client.UserID)
 		go client.WritePump()
 		go client.ReadPump()
+		log.Printf("🔌 WritePump and ReadPump started for client %s (user %d)", client.ID, client.UserID)
 	}
 }
 

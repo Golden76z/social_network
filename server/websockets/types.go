@@ -1,6 +1,7 @@
 package websockets
 
 import (
+	"database/sql"
 	"sync"
 	"time"
 
@@ -25,6 +26,8 @@ const (
 	MessageTypePrivateMessage     = "private_message"
 	MessageTypeGroupMessage       = "group_message"
 	MessageTypeConversationUpdate = "conversation_update"
+	MessageTypePrivateMessageAck  = "private_message_ack"
+	MessageTypeGroupMessageAck    = "group_message_ack"
 )
 
 // Message represents a WebSocket message
@@ -34,6 +37,7 @@ type Message struct {
 	GroupID   string    `json:"group_id,omitempty"`
 	UserID    int       `json:"user_id"`
 	Username  string    `json:"username"`
+	MessageID int64     `json:"message_id,omitempty"`
 	Timestamp time.Time `json:"timestamp"`
 	Data      any       `json:"data,omitempty"`
 }
@@ -47,6 +51,8 @@ type Client struct {
 	Hub      *Hub
 	Send     chan Message
 	Groups   map[string]*Group
+	// heartbeat
+	lastHeartbeat time.Time
 	// For thread-safe access to Groups
 	mu sync.RWMutex
 }
@@ -70,6 +76,7 @@ type Hub struct {
 	broadcast  chan Message
 	joinGroup  chan *GroupJoinRequest
 	leaveGroup chan *GroupLeaveRequest
+	db         *sql.DB // Database reference for group membership checks
 	mu         sync.RWMutex
 }
 
