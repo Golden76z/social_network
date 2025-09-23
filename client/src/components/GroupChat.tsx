@@ -29,7 +29,38 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
 
   useEffect(() => {
     loadMessages();
-  }, [groupId]);
+    
+    // Join the WebSocket group when component mounts
+    if (connectionStatus === 'connected' && socket?.readyState === WebSocket.OPEN) {
+      console.log('🔌 GROUP_JOIN: Joining WebSocket group:', groupId);
+      sendWebSocketMessage({
+        type: 'join_group',
+        data: groupId.toString(),
+      });
+    }
+    
+    // Cleanup: Leave the group when component unmounts
+    return () => {
+      if (connectionStatus === 'connected' && socket?.readyState === WebSocket.OPEN) {
+        console.log('🔌 GROUP_LEAVE: Leaving WebSocket group:', groupId);
+        sendWebSocketMessage({
+          type: 'leave_group',
+          data: groupId.toString(),
+        });
+      }
+    };
+  }, [groupId, connectionStatus, socket, sendWebSocketMessage]);
+
+  // Handle WebSocket connection changes - join group when connection becomes available
+  useEffect(() => {
+    if (connectionStatus === 'connected' && socket?.readyState === WebSocket.OPEN) {
+      console.log('🔌 GROUP_JOIN: WebSocket connected, joining group:', groupId);
+      sendWebSocketMessage({
+        type: 'join_group',
+        data: groupId.toString(),
+      });
+    }
+  }, [connectionStatus, socket, groupId, sendWebSocketMessage]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -47,9 +78,12 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
   useEffect(() => {
     if (!lastMessage) return;
 
+    console.log('🔌 GROUP_WS: Received WebSocket message:', lastMessage);
+
     if (lastMessage.type === 'group_message_ack') {
       if (lastMessage.group_id !== groupId.toString()) return;
 
+      console.log('🔌 GROUP_WS: Received group message ack for group:', groupId);
       const ackData = lastMessage.data as { body?: string } | undefined;
       const messageId = `group-ack-${lastMessage.message_id}`;
       setMessages(prev => {
@@ -76,21 +110,21 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
     }
 
     if (lastMessage.type === 'group_message') {
-      console.log('🔍 GroupChat received WebSocket message:', lastMessage);
+      console.log('🔌 GROUP_WS: Received group message:', lastMessage);
       const messageGroupId = lastMessage.group_id || (lastMessage as any).GroupID;
 
-      console.log('🔍 Message group ID:', messageGroupId, 'Current group ID:', groupId);
+      console.log('🔌 GROUP_WS: Message group ID:', messageGroupId, 'Current group ID:', groupId);
 
       // Check if this message is for the current group
       if (messageGroupId === groupId.toString()) {
-        console.log('🔍 Message is for this group, adding to messages');
+        console.log('🔌 GROUP_WS: Message is for this group, adding to messages');
 
         // Check if message already exists to prevent duplicates
         const messageId = lastMessage.message_id ? `group-${lastMessage.message_id}` : `${lastMessage.timestamp}-${lastMessage.user_id}`;
         setMessages(prev => {
           const exists = prev.some(msg => msg.id === messageId);
           if (exists) {
-            console.log('🔍 Group message already exists, skipping duplicate');
+            console.log('🔌 GROUP_WS: Group message already exists, skipping duplicate');
             return prev;
           }
 
@@ -107,7 +141,7 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
 
         // If this is our own message (confirmation), reset sending state
         if (lastMessage.user_id === currentUserId) {
-          console.log('🔍 Received confirmation of our own group message, resetting sending state');
+          console.log('🔌 GROUP_WS: Received confirmation of our own group message, resetting sending state');
           setSending(false);
           if (fallbackTimeoutRef.current) {
             clearTimeout(fallbackTimeoutRef.current);
@@ -115,7 +149,7 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
           }
         }
       } else {
-        console.log('🔍 Message is not for this group, ignoring');
+        console.log('🔌 GROUP_WS: Message is not for this group, ignoring');
       }
     }
   }, [lastMessage, currentUserId, groupId]);
@@ -137,9 +171,7 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
         setLoadingMore(true);
       }
       
-      console.log('🔍 Loading group messages for group:', groupId, 'offset:', offset, 'limit: 20');
       const data = await chatAPI.getGroupMessages(groupId, 20, offset);
-      console.log('🔍 Received group messages data:', data, 'count:', data?.length);
       
       if (!data || !Array.isArray(data)) {
         console.error('❌ Invalid group messages data received:', data);
@@ -159,9 +191,6 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
       // Check if we got fewer messages than requested (indicating no more messages)
       if (data.length < 20) {
         setHasMoreMessages(false);
-        console.log('🔍 No more messages available (loaded', data.length, 'messages)');
-      } else {
-        console.log('🔍 More messages available (loaded', data.length, 'messages)');
       }
       
       if (offset === 0) {
@@ -184,23 +213,23 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
     if (!input.trim() || sending) return;
 
     const messageContent = input.trim();
-    console.log('📤 Sending group message:', messageContent, 'to group:', groupId);
+    console.log('🔌 GROUP_MSG: Sending group message:', messageContent, 'to group:', groupId);
     setInput('');
     setSending(true);
 
     // Fallback timeout in case WebSocket confirmation doesn't come back
     fallbackTimeoutRef.current = setTimeout(() => {
-      console.log('⚠️ WebSocket confirmation timeout, resetting sending state');
+      console.log('🔌 GROUP_MSG: WebSocket confirmation timeout, resetting sending state');
       setSending(false);
       fallbackTimeoutRef.current = null;
     }, 10000); // 10 second timeout
 
     try {
       // Check WebSocket connection status before sending
-      console.log('📤 WebSocket status:', connectionStatus, 'Socket ready:', socket?.readyState === WebSocket.OPEN);
+      console.log('🔌 GROUP_MSG: WebSocket status:', connectionStatus, 'Socket ready:', socket?.readyState === WebSocket.OPEN);
 
       if (connectionStatus !== 'connected' || socket?.readyState !== WebSocket.OPEN) {
-        console.error('❌ WebSocket not connected, cannot send group message');
+        console.error('🔌 GROUP_MSG: WebSocket not connected, cannot send group message');
         setError('WebSocket connection not ready. Please refresh the page.');
         setSending(false);
         if (fallbackTimeoutRef.current) {
@@ -211,19 +240,19 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
       }
 
       // Send via WebSocket only - backend handles DB save and broadcasting
-      console.log('📤 Sending group message via WebSocket...');
+      console.log('🔌 GROUP_MSG: Sending group message via WebSocket...');
       sendWebSocketMessage({
         type: 'group_message',
         content: messageContent,
         group_id: groupId.toString(),
       });
-      console.log('📤 WebSocket group message sent');
+      console.log('🔌 GROUP_MSG: WebSocket group message sent');
 
       // Don't add to local state - wait for WebSocket confirmation
       // The backend will send the message back to us via WebSocket
 
     } catch (err) {
-      console.error('❌ Failed to send group message:', err);
+      console.error('🔌 GROUP_MSG: Failed to send group message:', err);
       setError(err instanceof Error ? err.message : 'Failed to send group message');
       setInput(messageContent); // Restore input on error
       setSending(false); // Reset sending state on error

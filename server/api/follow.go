@@ -397,14 +397,14 @@ func AcceptFollowRequestHandler(w http.ResponseWriter, r *http.Request) {
 	_ = db.DBService.IncrementFollowersCount(int64(currentUserID))
 
 	// Create notification for the requester
-	requester, err := db.DBService.GetUserByID(req.RequesterID)
+	targetUser, err := db.DBService.GetUserByID(int64(currentUserID))
 	if err == nil {
 		avatar := ""
-		if requester.Avatar.Valid {
-			avatar = requester.Avatar.String
+		if targetUser.Avatar.Valid {
+			avatar = targetUser.Avatar.String
 		}
 		notificationData := fmt.Sprintf(`{"target_id": %d, "target_nickname": "%s", "target_avatar": "%s", "type": "follow_accepted"}`,
-			currentUserID, requester.Nickname, avatar)
+			currentUserID, targetUser.Nickname, avatar)
 		notificationReq := models.CreateNotificationRequest{
 			UserID: req.RequesterID,
 			Type:   "follow_accepted",
