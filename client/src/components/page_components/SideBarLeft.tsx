@@ -42,33 +42,68 @@ export const SideBarLeft: React.FC<SideBarLeftProps> = ({
     <nav
       className={
         variant === 'bottom'
-          ? 'flex justify-around items-center h-14'
-          : 'space-y-2 fixed'
+          ? 'flex justify-around items-center h-16 bg-sidebar border-t border-sidebar-border'
+          : 'space-y-2 fixed w-full max-w-xs'
       }
     >
       {navigationItems.map(({ icon: Icon, label, href }) => {
-        const isActive = pathname === href || (pathname === '/home' && href === '/') || (pathname === '/' && href === '/');
+        // Robust active state detection - handle trailing slashes
+        const isActive = pathname === href || 
+                        pathname === href + '/' ||
+                        (href === '/' && (pathname === '/' || pathname === '/home' || pathname === '/home/')) ||
+                        (href !== '/' && (pathname.startsWith(href) || pathname.startsWith(href + '/')));
         
-        const baseStyle = variant === 'bottom'
-          ? isActive
-            ? 'text-primary font-medium'
-            : 'text-muted-foreground hover:text-primary'
-          : isActive
-            ? 'bg-primary/10 text-primary border border-primary/20 font-medium'
-            : 'text-muted-foreground hover:text-primary hover:bg-accent';
+        if (variant === 'bottom') {
+          return (
+            <Link
+              key={label}
+              href={href}
+              className={`flex flex-col items-center justify-center text-sm transition-colors duration-200 ${
+                isActive
+                  ? 'text-primary'
+                  : 'text-muted-foreground hover:text-primary'
+              }`}
+            >
+              <div className={`p-2 rounded-lg transition-colors duration-200 ${
+                isActive 
+                  ? 'bg-accent border-2 border-primary' 
+                  : 'hover:bg-primary/10 border border-transparent hover:border-primary/20'
+              }`}>
+                <Icon className="w-5 h-5" />
+              </div>
+              <span className={`text-xs mt-1 font-medium transition-colors duration-200 ${
+                isActive ? 'text-primary' : 'text-muted-foreground'
+              }`}>
+                {label}
+              </span>
+            </Link>
+          );
+        }
 
+        // Sidebar variant with simple, contained styling
         return (
           <Link
             key={label}
             href={href}
-            className={
-              variant === 'bottom'
-                ? `${baseStyle} flex flex-col items-center justify-center text-sm transition-colors`
-                : `w-full flex items-center space-x-3 px-6 py-4 rounded-lg text-left transition-all duration-200 ${baseStyle}`
-            }
+            className={`group flex items-center space-x-3 mx-4 px-4 py-3 rounded-lg text-left transition-colors duration-200 ${
+              isActive
+                ? 'bg-accent text-primary border-2 border-primary'
+                : 'text-muted-foreground hover:text-primary hover:bg-accent'
+            }`}
           >
-            <Icon className="w-6 h-6" />
-            {variant !== 'bottom' && <span className="text-base">{label}</span>}
+            <div className={`p-2 rounded-md transition-colors duration-200 ${
+              isActive 
+                ? 'bg-primary/20' 
+                : 'bg-muted/30 group-hover:bg-primary/15'
+            }`}>
+              <Icon className="w-5 h-5" />
+            </div>
+            
+            <span className={`text-base font-medium transition-colors duration-200 ${
+              isActive ? 'text-primary' : 'text-muted-foreground'
+            }`}>
+              {label}
+            </span>
           </Link>
         );
       })}

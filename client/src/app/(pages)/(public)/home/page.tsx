@@ -155,7 +155,7 @@ const HomePage: React.FC = () => {
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full max-w-5xl mx-auto">
       <DevAccessDenied />
       {/* <h1 className="text-2xl font-bold mb-4">
         {user
@@ -163,56 +163,52 @@ const HomePage: React.FC = () => {
           : 'Welcome!'}
       </h1> */}
 
-      <div className="space-y-6">
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="font-semibold mb-4">Recent Posts</h3>
-
-          {loadingPosts ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-              <span className="ml-2 text-gray-500">Loading posts...</span>
-            </div>
-          ) : error ? (
-            <div className="text-center py-8">
-              <p className="text-red-500 text-lg">Error loading posts</p>
-              <p className="text-gray-400 text-sm mt-2">{error}</p>
-              <button
-                onClick={() => window.location.reload()}
-                className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                Retry
-              </button>
-            </div>
-          ) : posts.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500 text-lg">No posts available yet.</p>
-              <p className="text-gray-400 text-sm mt-2">
-                {user
-                  ? 'Your personalized feed is empty. Follow some users or create a post!'
-                  : 'No public posts available. Sign in to see more content!'}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {posts.map((post) => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  onLike={handleLike}
-                  onComment={handleComment}
-                  onViewDetails={handleViewDetails}
-                  onUserClick={handleUserClick}
-                  disableLikes={!user}
-                  currentUserId={user?.id}
-                  onEdit={handleEditPost}
-                  onDelete={handleDeletePost}
-                  isGroupPost={post.post_type === 'group_post'}
-                  isGroupAdmin={false} // TODO: Check if user is group admin
-                />
-              ))}
-            </div>
-          )}
+      <div className="pt-8">
+        {loadingPosts ? (
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <span className="ml-2 text-gray-500">Loading posts...</span>
         </div>
+      ) : error ? (
+        <div className="text-center py-8">
+          <p className="text-red-500 text-lg">Error loading posts</p>
+          <p className="text-gray-400 text-sm mt-2">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Retry
+          </button>
+        </div>
+      ) : posts.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-gray-500 text-lg">No posts available yet.</p>
+          <p className="text-gray-400 text-sm mt-2">
+            {user
+              ? 'Your personalized feed is empty. Follow some users or create a post!'
+              : 'No public posts available. Sign in to see more content!'}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {posts.map((post) => (
+            <PostCard
+              key={post.id}
+              post={post}
+              onLike={handleLike}
+              onComment={handleComment}
+              onViewDetails={handleViewDetails}
+              onUserClick={handleUserClick}
+              disableLikes={!user}
+              currentUserId={user?.id}
+              onEdit={handleEditPost}
+              onDelete={handleDeletePost}
+              isGroupPost={post.post_type === 'group_post'}
+              isGroupAdmin={false} // TODO: Check if user is group admin
+            />
+          ))}
+        </div>
+      )}
       </div>
 
       <PostModal
