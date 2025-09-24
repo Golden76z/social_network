@@ -91,6 +91,11 @@ export const UserDisplay: React.FC<UserDisplayProps> = ({
               <PrivacyBadge isPrivate={user.is_private} size="sm" />
             )}
           </div>
+          {showNickname && user.nickname && (
+            <p className="text-xs text-muted-foreground truncate">
+              {getNickname()}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -121,6 +126,11 @@ export const UserDisplay: React.FC<UserDisplayProps> = ({
               )}
             </div>
           )}
+          {showNickname && user.nickname && (
+            <p className="text-xs text-muted-foreground truncate">
+              {getNickname()}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -149,6 +159,11 @@ export const UserDisplay: React.FC<UserDisplayProps> = ({
             <PrivacyBadge isPrivate={user.is_private} size="sm" />
           )}
         </div>
+        {showNickname && user.nickname && (
+          <p className="text-xs text-muted-foreground truncate">
+            {getNickname()}
+          </p>
+        )}
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 // import Image from 'next/image';
 import { X, Heart, MessageCircle, Send, Edit, Trash2 } from 'lucide-react';
 import { Post, Comment } from '@/lib/types';
@@ -8,6 +9,7 @@ import { reactionApi } from '@/lib/api/reaction';
 import { postApi } from '@/lib/api/post';
 import { CommentItem } from '../forms/CommentItem';
 import { ProfileThumbnail } from '../layout/ProfileThumbnail';
+import { UserInfoWithTime } from '../layout/UserInfoWithTime';
 import { CommentForm } from '../forms/CommentForm';
 
 interface PostModalProps {
@@ -39,6 +41,7 @@ export const PostModal: React.FC<PostModalProps> = ({
   isDeleting = false,
   isGroupAdmin = false,
 }) => {
+  const router = useRouter();
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
@@ -295,22 +298,21 @@ export const PostModal: React.FC<PostModalProps> = ({
         <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--color-border)' }}>
           <div className="flex items-center space-x-4">
             {/* Author Info */}
-            <div className="flex items-center space-x-3">
-              <ProfileThumbnail
-                src={getAuthorAvatarUrl()}
-                size="sm"
-                initials={post.author_nickname || post.author_first_name || 'U'}
-                className="flex-shrink-0"
-              />
-              <div>
-                <p className="font-medium" style={{ color: 'var(--color-text)' }}>
-                  {post.author_nickname || post.author_first_name || 'Unknown User'}
-                </p>
-                <p className="text-sm" style={{ color: 'var(--color-text)', opacity: 0.7 }}>
-                  {formatDate(post.created_at)}
-                </p>
-              </div>
-            </div>
+            <UserInfoWithTime
+              user={{
+                id: post.author_id || post.user_id,
+                nickname: post.author_nickname,
+                first_name: post.author_first_name,
+                last_name: post.author_last_name,
+                avatar: getAuthorAvatarUrl()
+              }}
+              time={formatDate(post.created_at)}
+              size="sm"
+              onUserClick={() =>
+                (post.author_id || post.user_id) &&
+                router.push(`/profile?user_id=${post.author_id || post.user_id}`)
+              }
+            />
             
             {/* Separator */}
             <div className="h-8 w-px" style={{ backgroundColor: 'var(--color-border)' }} />

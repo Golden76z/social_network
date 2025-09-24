@@ -201,7 +201,7 @@ export function SearchBar({ className, placeholder = "Search...", onPostClick }:
         router.push(`/profile?userId=${result.id}`);
         break;
       case 'group':
-        router.push(`/groups/${result.id}`);
+        router.push(`/groups/${result.id}/info`);
         break;
       case 'post':
         if (onPostClick) {

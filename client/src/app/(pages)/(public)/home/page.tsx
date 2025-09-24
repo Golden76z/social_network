@@ -11,6 +11,7 @@ import DevAccessDenied from '@/components/DevAccessDenied';
 import { postApi } from '@/lib/api/post';
 import { groupApi } from '@/lib/api/group';
 import { Post } from '@/lib/types';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 const HomePage: React.FC = () => {
   const { user } = useAuth();
@@ -166,8 +167,7 @@ const HomePage: React.FC = () => {
       <div className="pt-8">
         {loadingPosts ? (
         <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-          <span className="ml-2 text-gray-500">Loading posts...</span>
+          <LoadingSpinner size="md" text="Loading posts..." />
         </div>
       ) : error ? (
         <div className="text-center py-8">

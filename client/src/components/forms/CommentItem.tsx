@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { Comment } from '@/lib/types';
 import { ProfileThumbnail } from '../layout/ProfileThumbnail';
 import { UserDisplay } from '../layout/UserDisplay';
+import { UserInfoWithTime } from '../layout/UserInfoWithTime';
 import { ImageModal } from '../media/ImageModal';
 import { formatTimeAgo } from '@/lib/utils/userUtils';
 
@@ -65,35 +66,22 @@ export function CommentItem({ comment, src }: CommentItemProps) {
   return (
     <>
       <div className="flex space-x-3">
-        <UserDisplay
+        <UserInfoWithTime
           user={{
             id: comment.user_id || (comment as any).author_id,
             nickname: comment.username,
             first_name: comment.first_name,
             last_name: comment.last_name,
-            avatar: src || (comment.avatar as string | undefined),
-            is_private: (comment as any).is_private
+            avatar: src || (comment.avatar as string | undefined)
           }}
+          time={formatDate(comment.created_at)}
           size="md"
-          showNickname={false}
-          showFullName={true}
-          showAvatar={true}
-          showPrivacyBadge={true}
-          onClick={handleUserClick}
-          className="mt-3 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+          onUserClick={handleUserClick}
+          className="flex-shrink-0 w-32 items-start"
         />
         <div className="flex-1">
           <div className="bg-muted rounded-lg p-3">
-            <div className="flex items-center space-x-2">
-              <p 
-                className="font-medium text-base cursor-pointer hover:text-primary transition-colors"
-                onClick={handleUserClick}
-              >
-                {comment.username || comment.first_name || 'Unknown User'}
-              </p>
-              <p className="text-sm text-muted-foreground">{formatDate(comment.created_at)}</p>
-            </div>
-            <p className="text-foreground text-base mt-1">{comment.body}</p>
+            <p className="text-foreground text-base">{comment.body}</p>
             
             {/* Comment Images */}
             {comment.images && comment.images.length > 0 && (
