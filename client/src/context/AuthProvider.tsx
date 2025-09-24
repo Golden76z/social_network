@@ -297,7 +297,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Logout function
   const logout = async () => {
     try {
-      console.log('🚪 Logging out...');
+      console.log('🚪 LOGOUT FUNCTION CALLED - Starting logout process...');
       
       // Clear local state immediately for instant UI feedback
       setUser(null);
@@ -317,32 +317,75 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.log('✅ Logout completed');
       
-      // Only redirect if we're not already on the homepage
+      // Redirect logic: redirect from protected/auth routes, but not from root homepage
+      console.log('🚪 About to check redirect logic...');
       if (typeof window !== 'undefined') {
         const currentPath = window.location.pathname;
         console.log('🚪 Logout: Current path:', currentPath);
         
-        // Only redirect if we're on a protected route or auth route
-        const protectedRoutes = ['/home', '/profile', '/groups', '/messages', '/notifications'];
+        // Normalize path by removing trailing slash for comparison
+        const normalizedPath = currentPath.endsWith('/') && currentPath !== '/' ? currentPath.slice(0, -1) : currentPath;
+        console.log('🚪 Logout: Normalized path:', normalizedPath);
+        
+        // Check if we're on the root homepage - if so, don't redirect
+        if (normalizedPath === '/' || normalizedPath === '') {
+          console.log('🚪 Logout: Already on root homepage, no redirect needed');
+          return;
+        }
+        
+        // Define routes that should redirect to homepage after logout
+        const protectedRoutes = ['/home', '/profile', '/groups', '/messages', '/notifications', '/settings'];
         const authRoutes = ['/login', '/register'];
         
-        if (protectedRoutes.includes(currentPath) || authRoutes.includes(currentPath)) {
-          console.log('🚪 Logout: Redirecting to homepage from:', currentPath);
+        console.log('🚪 Logout: Checking against routes:', { protectedRoutes, authRoutes });
+        
+        // Check if current path is a protected or auth route
+        const isProtectedRoute = protectedRoutes.some(route => {
+          const matches = normalizedPath === route || normalizedPath.startsWith(route + '/');
+          console.log(`🚪 Logout: Checking protected route "${route}" against "${normalizedPath}":`, matches);
+          return matches;
+        });
+        
+        const isAuthRoute = authRoutes.some(route => {
+          const matches = normalizedPath === route || normalizedPath.startsWith(route + '/');
+          console.log(`🚪 Logout: Checking auth route "${route}" against "${normalizedPath}":`, matches);
+          return matches;
+        });
+        
+        console.log('🚪 Logout: Final route analysis:', { isProtectedRoute, isAuthRoute, normalizedPath });
+        
+        if (isProtectedRoute || isAuthRoute) {
+          console.log('🚪 Logout: REDIRECTING TO HOMEPAGE from:', currentPath);
+          console.log('🚪 Logout: Setting window.location.href to "/"');
           window.location.href = '/';
+          console.log('🚪 Logout: Redirect command executed');
         } else {
-          console.log('🚪 Logout: Already on homepage, no redirect needed');
+          console.log('🚪 Logout: On public page, no redirect needed');
         }
-        // If already on homepage (/), no redirect needed
       }
     } catch (error) {
       console.error('⚠️ Logout error:', error);
       // Even if there's an error, still redirect if needed
       if (typeof window !== 'undefined') {
         const currentPath = window.location.pathname;
-        const protectedRoutes = ['/home', '/profile', '/groups', '/messages', '/notifications'];
+        const normalizedPath = currentPath.endsWith('/') && currentPath !== '/' ? currentPath.slice(0, -1) : currentPath;
+        
+        // Don't redirect if already on root homepage
+        if (normalizedPath === '/' || normalizedPath === '') {
+          return;
+        }
+        
+        const protectedRoutes = ['/home', '/profile', '/groups', '/messages', '/notifications', '/settings'];
         const authRoutes = ['/login', '/register'];
         
-        if (protectedRoutes.includes(currentPath) || authRoutes.includes(currentPath)) {
+        const isProtectedRoute = protectedRoutes.some(route => 
+          normalizedPath === route || normalizedPath.startsWith(route + '/')
+        );
+        const isAuthRoute = authRoutes.some(route => 
+          normalizedPath === route || normalizedPath.startsWith(route + '/')
+        );
+        
+        if (isProtectedRoute || isAuthRoute) {
           window.location.href = '/';
         }
       }
