@@ -23,15 +23,8 @@ func AuthMiddleware() func(http.Handler) http.Handler {
 	//fmt.Println("[AuthMiddleware]")
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// 1. Check session cookie
-			token, err := r.Cookie("jwt_token")
-			if err != nil {
-				http.Error(w, "Unauthorized: Missing token", http.StatusUnauthorized)
-				return
-			}
-
-			// 2. Extract user ID and username from JWT token (more reliable than session lookup)
-			claims, err := utils.ValidateToken(token.Value)
+			// 1. Extract user ID and username from JWT token (from cookie or Authorization header)
+			claims, err := utils.GetUserFromJWT(r)
 			if err != nil {
 				http.Error(w, "Invalid token", http.StatusUnauthorized)
 				return
@@ -46,17 +39,30 @@ func AuthMiddleware() func(http.Handler) http.Handler {
 			}
 
 			// 4. Optionally verify session exists (but don't fail if it doesn't)
-			var sessionExists bool
-			err = db.DBService.DB.QueryRow(`
-                SELECT EXISTS(SELECT 1 FROM sessions 
-                WHERE token = ? AND expires_at > ?)`,
-				token.Value,
-				time.Now(),
-			).Scan(&sessionExists)
+			// Get token string for session verification
+			var tokenString string
+			authHeader := r.Header.Get("Authorization")
+			if authHeader != "" && len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+				tokenString = authHeader[7:]
+			} else {
+				if cookie, err := r.Cookie("jwt_token"); err == nil {
+					tokenString = cookie.Value
+				}
+			}
 
-			// If session doesn't exist, create one (but don't fail if this fails)
-			if err == nil && !sessionExists {
-				_ = db.DBService.CreateSession(userID, token.Value, config.GetConfig().JwtExpiration)
+			if tokenString != "" {
+				var sessionExists bool
+				err = db.DBService.DB.QueryRow(`
+	                SELECT EXISTS(SELECT 1 FROM sessions 
+	                WHERE token = ? AND expires_at > ?)`,
+					tokenString,
+					time.Now(),
+				).Scan(&sessionExists)
+
+				// If session doesn't exist, create one (but don't fail if this fails)
+				if err == nil && !sessionExists {
+					_ = db.DBService.CreateSession(userID, tokenString, config.GetConfig().JwtExpiration)
+				}
 			}
 
 			// 5. Attach user data to context using custom keys

@@ -4,6 +4,7 @@ export interface GroupConversation {
   group_id: number;
   group_name: string;
   group_description: string;
+  group_avatar?: string;
   last_message: string;
   last_message_time: string;
 }

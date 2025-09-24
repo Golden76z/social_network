@@ -343,3 +343,18 @@ func (s *Service) DeleteGroupMember(request models.LeaveGroupRequest, userID int
 
 	return nil
 }
+
+// IsGroupMember checks if a user is a member of a group
+func (s *Service) IsGroupMember(userID, groupID int64) (bool, error) {
+	var exists bool
+	err := s.DB.QueryRow(`
+		SELECT EXISTS(
+			SELECT 1 FROM group_members 
+			WHERE group_id = ? AND user_id = ?
+		)
+	`, groupID, userID).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}

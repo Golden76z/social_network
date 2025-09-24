@@ -7,14 +7,17 @@ import { SideBarLeft } from '@/components/page_components/SideBarLeft';
 import { SideBarRight } from '@/components/page_components/SideBarRight';
 import Footer from '@/components/page_components/Footer';
 import { CreatePostModal } from '@/components/forms/CreatePostModal';
+import { PostModalWrapper } from '@/components/posts/PostModalWrapper';
 
 export default function PagesLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { isLoading, hasCheckedAuth } = useAuth();
+  const { isLoading, hasCheckedAuth, user } = useAuth();
   const [showCreatePostModal, setShowCreatePostModal] = useState(false);
+  const [postModalOpen, setPostModalOpen] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
 
   const handleCreatePostSuccess = () => {
     setShowCreatePostModal(false);
@@ -24,6 +27,16 @@ export default function PagesLayout({
 
   const handleCreatePostClose = () => {
     setShowCreatePostModal(false);
+  };
+
+  const handlePostClick = (postId: number) => {
+    setSelectedPostId(postId);
+    setPostModalOpen(true);
+  };
+
+  const handleClosePostModal = () => {
+    setPostModalOpen(false);
+    setSelectedPostId(null);
   };
 
   // Show loading spinner while checking authentication
@@ -42,6 +55,7 @@ export default function PagesLayout({
     <div className="min-h-screen bg-background pb-20">
       <Header 
         onCreatePost={() => setShowCreatePostModal(true)}
+        onPostClick={handlePostClick}
       />
       <div className="flex flex-col md:flex-row max-w-full mx-auto">
         {/* Left Sidebar - desktop only */}
@@ -73,6 +87,15 @@ export default function PagesLayout({
         isOpen={showCreatePostModal}
         onClose={handleCreatePostClose}
         onSuccess={handleCreatePostSuccess}
+      />
+
+      {/* Post Modal - rendered at layout level */}
+      <PostModalWrapper
+        postId={selectedPostId}
+        isOpen={postModalOpen}
+        onClose={handleClosePostModal}
+        isAuthenticated={!!user}
+        currentUserId={user?.id}
       />
     </div>
   );

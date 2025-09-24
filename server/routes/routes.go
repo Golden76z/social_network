@@ -50,5 +50,6 @@ func setupProtectedRoutes(r *Router) {
 		setupFollowRoutes(r)
 		setupChatRoutes(r)
 		setupNotificationsRoutes(r)
+		setupSearchRoutes(r)
 	})
 }

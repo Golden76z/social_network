@@ -4,6 +4,7 @@ import { Home, MessageCircle, Heart, Users } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
+import { useNotifications } from '@/hooks/useNotifications';
 
 type Variant = 'sidebar' | 'bottom';
 
@@ -22,13 +23,19 @@ export const SideBarLeft: React.FC<SideBarLeftProps> = ({
 }) => {
   const pathname = usePathname();
   const { isAuthenticated } = useAuth();
+  const { unreadCount } = useNotifications();
+
+  // Custom notification icon component
+  const NotificationIcon = () => (
+    <Heart className={`w-5 h-5 ${unreadCount > 0 ? 'fill-current' : ''}`} />
+  );
 
   // Navigation items for authenticated users
   const authenticatedItems: NavigationItem[] = [
     { icon: Home, label: 'Home', href: '/' },
     { icon: Users, label: 'Groups', href: '/groups' },
     { icon: MessageCircle, label: 'Messages', href: '/messages' },
-    { icon: Heart, label: 'Notifications', href: '/notifications' },
+    { icon: NotificationIcon, label: 'Notifications', href: '/notifications' },
   ];
 
   // Navigation items for non-authenticated users (only Home)
@@ -64,12 +71,17 @@ export const SideBarLeft: React.FC<SideBarLeftProps> = ({
                   : 'text-muted-foreground hover:text-primary'
               }`}
             >
-              <div className={`p-2 rounded-lg transition-colors duration-200 ${
+              <div className={`relative p-2 rounded-lg transition-colors duration-200 ${
                 isActive 
                   ? 'bg-accent border-2 border-primary' 
                   : 'hover:bg-primary/10 border border-transparent hover:border-primary/20'
               }`}>
                 <Icon className="w-5 h-5" />
+                {label === 'Notifications' && unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-[var(--purple-400)] text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-medium text-[10px]">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
               </div>
               <span className={`text-xs mt-1 font-medium transition-colors duration-200 ${
                 isActive ? 'text-primary' : 'text-muted-foreground'
@@ -91,12 +103,17 @@ export const SideBarLeft: React.FC<SideBarLeftProps> = ({
                 : 'text-muted-foreground hover:text-primary hover:bg-accent'
             }`}
           >
-            <div className={`p-2 rounded-md transition-colors duration-200 ${
+            <div className={`relative p-2 rounded-md transition-colors duration-200 ${
               isActive 
                 ? 'bg-primary/20' 
                 : 'bg-muted/30 group-hover:bg-primary/15'
             }`}>
               <Icon className="w-5 h-5" />
+              {label === 'Notifications' && unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[var(--purple-400)] text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-medium text-[10px]">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </div>
             
             <span className={`text-base font-medium transition-colors duration-200 ${

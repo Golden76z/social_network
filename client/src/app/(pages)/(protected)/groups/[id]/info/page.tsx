@@ -917,8 +917,8 @@ export default function GroupPage() {
   }
 
   return (
-    <div className="w-full">
-      <h1 className="text-2xl font-bold mb-6">{group.title}</h1>
+    <div className="w-full pt-8">
+      {/* <h1 className="text-2xl font-bold mb-6">{group.title}</h1> */}
 
       <div className="space-y-6">
         {/* Group Header */}
@@ -1517,7 +1517,7 @@ export default function GroupPage() {
                 <div key={member.id} className="flex items-center gap-3 p-3 border border-border rounded-lg">
                   <div 
                     className="cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => router.push(`/profile/${member.user_id}`)}
+                    onClick={() => router.push(`/profile?userId=${member.user_id}`)}
                   >
                     <ProfileThumbnail
                       src={member.avatar}
@@ -1529,7 +1529,7 @@ export default function GroupPage() {
                   </div>
                   <div 
                     className="flex-1 cursor-pointer hover:text-primary transition-colors"
-                    onClick={() => router.push(`/profile/${member.user_id}`)}
+                    onClick={() => router.push(`/profile?userId=${member.user_id}`)}
                   >
                     <p className="font-medium">
                       {member.nickname || 
@@ -2261,7 +2261,7 @@ export default function GroupPage() {
                           <div key={rsvp.id} className="flex items-center gap-3 p-3 bg-green-50/50 dark:bg-green-950/10 rounded-lg border border-green-200/50 dark:border-green-800/30">
                             <div 
                               className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500/20 to-green-600/10 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
-                              onClick={() => router.push(`/profile/${rsvp.user_id}`)}
+                              onClick={() => router.push(`/profile?userId=${rsvp.user_id}`)}
                             >
                               {rsvp.avatar ? (
                                 <img
@@ -2277,7 +2277,7 @@ export default function GroupPage() {
                             </div>
                             <div 
                               className="flex-1 min-w-0 cursor-pointer hover:text-green-600 dark:hover:text-green-200 transition-colors"
-                              onClick={() => router.push(`/profile/${rsvp.user_id}`)}
+                              onClick={() => router.push(`/profile?userId=${rsvp.user_id}`)}
                             >
                               <p className="font-medium text-sm text-green-700 dark:text-green-300 truncate">
                                 {rsvp.nickname || `${rsvp.first_name || ''} ${rsvp.last_name || ''}`.trim() || 'Unknown User'}
@@ -2309,7 +2309,7 @@ export default function GroupPage() {
                           <div key={rsvp.id} className="flex items-center gap-3 p-3 bg-yellow-50/50 dark:bg-yellow-950/10 rounded-lg border border-yellow-200/50 dark:border-yellow-800/30">
                             <div 
                               className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
-                              onClick={() => router.push(`/profile/${rsvp.user_id}`)}
+                              onClick={() => router.push(`/profile?userId=${rsvp.user_id}`)}
                             >
                               {rsvp.avatar ? (
                                 <img
@@ -2325,7 +2325,7 @@ export default function GroupPage() {
                             </div>
                             <div 
                               className="flex-1 min-w-0 cursor-pointer hover:text-yellow-600 dark:hover:text-yellow-200 transition-colors"
-                              onClick={() => router.push(`/profile/${rsvp.user_id}`)}
+                              onClick={() => router.push(`/profile?userId=${rsvp.user_id}`)}
                             >
                               <p className="font-medium text-sm text-yellow-700 dark:text-yellow-300 truncate">
                                 {rsvp.nickname || `${rsvp.first_name || ''} ${rsvp.last_name || ''}`.trim() || 'Unknown User'}
@@ -2357,7 +2357,7 @@ export default function GroupPage() {
                           <div key={rsvp.id} className="flex items-center gap-3 p-3 bg-red-50/50 dark:bg-red-950/10 rounded-lg border border-red-200/50 dark:border-red-800/30">
                             <div 
                               className="w-8 h-8 rounded-full bg-gradient-to-br from-red-500/20 to-red-600/10 flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
-                              onClick={() => router.push(`/profile/${rsvp.user_id}`)}
+                              onClick={() => router.push(`/profile?userId=${rsvp.user_id}`)}
                             >
                               {rsvp.avatar ? (
                                 <img
@@ -2373,7 +2373,7 @@ export default function GroupPage() {
                             </div>
                             <div 
                               className="flex-1 min-w-0 cursor-pointer hover:text-red-600 dark:hover:text-red-200 transition-colors"
-                              onClick={() => router.push(`/profile/${rsvp.user_id}`)}
+                              onClick={() => router.push(`/profile?userId=${rsvp.user_id}`)}
                             >
                               <p className="font-medium text-sm text-red-700 dark:text-red-300 truncate">
                                 {rsvp.nickname || `${rsvp.first_name || ''} ${rsvp.last_name || ''}`.trim() || 'Unknown User'}

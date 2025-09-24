@@ -220,18 +220,7 @@ export default function GroupsPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Groups</h1>
-          <p className="text-muted-foreground">Discover and join communities that interest you</p>
-        </div>
-        <button 
-          onClick={handleCreateGroup}
-          className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2"
-        >
-          <span className="text-lg">+</span>
-          Create Group
-        </button>
+      <div className="mb-8">
       </div>
 
       {/* Toggle Buttons */}
@@ -261,12 +250,16 @@ export default function GroupsPage() {
       {/* Groups Section */}
       <div className="bg-card rounded-xl border border-border/50 p-8 shadow-sm">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold">
+          <h2 className="text-xl font-medium">
             {activeTab === 'my-groups' ? 'My Groups' : 'All Groups'}
           </h2>
-          <span className="text-sm text-muted-foreground">
-            {activeTab === 'my-groups' ? myGroups.length : allGroups.length} groups
-          </span>
+          <button 
+            onClick={handleCreateGroup}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2 font-bold"
+          >
+            <span className="text-lg">+</span>
+            New group
+          </button>
         </div>
         
         {(() => {

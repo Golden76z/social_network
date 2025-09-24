@@ -35,9 +35,13 @@ export class ApiClient {
       await this.fetchCSRFToken();
     }
 
+    // Get JWT token from localStorage
+    const jwtToken = this.getToken();
+
     const headers = {
       'Content-Type': 'application/json',
       'X-Requested-With': 'XMLHttpRequest',
+      ...(jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {}),
       ...(this.csrfToken && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method || 'GET') 
         ? { 'X-CSRF-Token': this.csrfToken } 
         : {}),

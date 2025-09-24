@@ -1,10 +1,12 @@
 "use client"
 
 import { useEffect, useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Conversation, PrivateMessage, ChatMessage } from '@/lib/types/chat';
 import { chatAPI } from '@/lib/api/chat';
 import { useWebSocketContext } from '@/context/webSocketProvider';
 import { EmojiPicker } from '../media/EmojiPicker';
+import { PrivacyBadge } from '@/components/ui/PrivacyBadge';
 
 interface PrivateChatProps {
   conversation: Conversation;
@@ -12,6 +14,7 @@ interface PrivateChatProps {
 }
 
 export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
+  const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -24,7 +27,7 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const { sendMessage: sendWebSocketMessage, lastMessage, connectionStatus, socket } = useWebSocketContext();
+  const { sendMessage: sendWebSocketMessage, lastMessage, connectionStatus, socket, onlineUsers } = useWebSocketContext();
 
   useEffect(() => {
     loadMessages();
@@ -260,6 +263,14 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
       .slice(0, 2);
   };
 
+  const handleProfileClick = () => {
+    router.push(`/profile?userId=${conversation.other_user_id}`);
+  };
+
+  const isUserOnline = () => {
+    return onlineUsers.some(user => user.id === conversation.other_user_id);
+  };
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-card to-card/50">
@@ -275,25 +286,38 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
     <div className="flex flex-col h-full bg-gradient-to-br from-purple-50 to-purple-100/30">
       {/* Header */}
       <div className="p-3 border-b border-border bg-gradient-to-r from-purple-100 to-purple-200/50 backdrop-blur-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-primary-foreground text-xs font-medium shadow-sm">
+        <div className="flex items-center gap-3">
+          <div 
+            onClick={handleProfileClick}
+            className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-primary-foreground text-sm font-medium shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+          >
             {conversation.other_user_avatar && typeof conversation.other_user_avatar === 'string' ? (
               <img
-                src={conversation.other_user_avatar}
+                src={conversation.other_user_avatar.startsWith('http') 
+                  ? conversation.other_user_avatar 
+                  : `http://localhost:8080${conversation.other_user_avatar}`}
                 alt={getDisplayName()}
                 className="w-full h-full rounded-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                }}
               />
-            ) : (
-              getInitials()
-            )}
+            ) : null}
+            <div className={`w-full h-full rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium ${conversation.other_user_avatar ? 'hidden' : ''}`}>
+              {getInitials()}
+            </div>
           </div>
           <div className="flex-1">
-            <h2 className="font-semibold text-card-foreground text-base">{getDisplayName()}</h2>
-            <div className="flex items-center gap-1">
-              <div className={`w-1.5 h-1.5 rounded-full ${connectionStatus === 'connected' ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-              <p className="text-xs text-muted-foreground">
-                {conversation.other_user_is_private ? 'Private' : 'Public'} profile
-              </p>
+            <h2 
+              onClick={handleProfileClick}
+              className="font-semibold text-card-foreground text-base cursor-pointer hover:text-primary transition-colors"
+            >
+              {getDisplayName()}
+            </h2>
+            <div className="flex items-center gap-2">
+              <div className={`w-1.5 h-1.5 rounded-full ${isUserOnline() ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+              <PrivacyBadge isPrivate={conversation.other_user_is_private} size="sm" />
             </div>
           </div>
         </div>

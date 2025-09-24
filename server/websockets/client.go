@@ -29,30 +29,19 @@ func (c *Client) ReadPump() {
 	})
 
 	for {
-		log.Printf("🔍 ReadPump waiting for message from user %d", c.UserID)
 		var msg Message
 		err := c.Conn.ReadJSON(&msg)
 		if err != nil {
-			log.Printf("🔍 ReadPump error for user %d: %v", c.UserID, err)
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("WebSocket error: %v", err)
 			}
 			break
 		}
-		log.Printf("🔍 ReadPump received raw message from user %d: %+v", c.UserID, msg)
 
 		// Add client info to message
 		msg.UserID = c.UserID
 		msg.Username = c.Username
 		msg.Timestamp = time.Now()
-
-		// Debug: Log all incoming messages
-		log.Printf("🔍 Received WebSocket message from user %d: type=%s, content=%s, data=%v", c.UserID, msg.Type, msg.Content, msg.Data)
-
-		// Additional debugging for private messages
-		if msg.Type == "private_message" {
-			log.Printf("🔍 Processing private message from user %d: content='%s', data=%+v", c.UserID, msg.Content, msg.Data)
-		}
 
 		c.mu.Lock()
 		c.lastHeartbeat = time.Now()
@@ -119,10 +108,7 @@ func (c *Client) WritePump() {
 				c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-			// Only log group-related messages for debugging
-			if message.Type == "group_message" || message.Type == "group_message_ack" || message.Type == "join_group" || message.Type == "leave_group" {
-				log.Printf("🔌 GROUP_WS: Writing message to WebSocket for user %d: type=%s, content=%s, groupID=%s", c.UserID, message.Type, message.Content, message.GroupID)
-			}
+			// Removed WebSocket logging
 			if err := c.Conn.WriteJSON(message); err != nil {
 				log.Printf("❌ WebSocket write error: %v", err)
 				return

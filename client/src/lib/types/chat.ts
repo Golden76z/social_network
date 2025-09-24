@@ -26,6 +26,9 @@ export interface GroupMessage {
   id: number;
   group_id: number;
   sender_id: number;
+  sender_nickname?: string;
+  sender_first_name?: string;
+  sender_last_name?: string;
   body: string;
   created_at: string;
 }
