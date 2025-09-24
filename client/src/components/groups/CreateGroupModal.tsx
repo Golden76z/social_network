@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { uploadPostImage } from '@/lib/api/upload';
 import { groupApi } from '@/lib/api/group';
 import { compressImageToJpeg } from '@/lib/utils';
@@ -11,6 +11,7 @@ import { ModernTextarea } from '../ui/modern-textarea';
 import { ModernSection } from '../ui/modern-section';
 import { ConfirmationModal } from '../ui/confirmation-modal';
 import { X, Users } from 'lucide-react';
+import { animateModalClose } from '@/lib/utils/modalCloseAnimation';
 
 interface CreateGroupModalProps {
   isOpen: boolean;
@@ -32,6 +33,8 @@ export function CreateGroupModal({
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [showImageErrorModal, setShowImageErrorModal] = useState(false);
   const [imageErrorMessage, setImageErrorMessage] = useState('');
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const maxSize = 5 * 1024 * 1024; // 5MB
 
@@ -142,8 +145,10 @@ export function CreateGroupModal({
   };
 
   const handleClose = () => {
-    resetForm();
-    onClose();
+    animateModalClose(() => {
+      resetForm();
+      onClose();
+    }, backdropRef, contentRef);
   };
 
   // Handle escape key
@@ -164,7 +169,8 @@ export function CreateGroupModal({
 
   return (
     <div 
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4"
+      ref={backdropRef}
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           handleClose();
@@ -172,7 +178,8 @@ export function CreateGroupModal({
       }}
     >
       <div 
-        className="w-full max-w-2xl max-h-[90vh] rounded-xl shadow-xl overflow-hidden bg-card border border-border/50"
+        ref={contentRef}
+        className="w-full max-w-2xl max-h-[90vh] rounded-xl shadow-xl overflow-hidden bg-card border border-border/50 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -218,16 +225,18 @@ export function CreateGroupModal({
                   </div>
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-foreground mb-2">Avatar</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
+                  <div className="flex items-center gap-4 mb-2">
+                    <h3 className="text-lg font-semibold text-foreground">Avatar</h3>
+                    <AvatarFileInput
+                      onChange={handleAvatarChange}
+                      onError={(title, message) => {
+                        setError(`${title}: ${message}`);
+                      }}
+                    />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
                     Add a photo to help people recognize your group
                   </p>
-                  <AvatarFileInput
-                    onChange={handleAvatarChange}
-                    onError={(title, message) => {
-                      setError(`${title}: ${message}`);
-                    }}
-                  />
                 </div>
               </div>
             </ModernSection>

@@ -331,7 +331,7 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="flex flex-col pt-8">
+    <div className="flex flex-col pt-4">
 
       {error && (
         <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 text-destructive text-sm mb-4 flex-shrink-0">

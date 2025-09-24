@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { uploadPostImage } from '@/lib/api/upload';
 import { postApi } from '@/lib/api/post';
 import { groupApi } from '@/lib/api/group';
@@ -8,6 +8,7 @@ import { compressImageToJpeg } from '@/lib/utils';
 import { ImageModal } from '../media/ImageModal';
 import { EmojiPicker } from '../media/EmojiPicker';
 import { ImageIcon, X, Plus } from 'lucide-react';
+import { animateModalClose } from '@/lib/utils/modalCloseAnimation';
 
 type LocalImage = { file: File; preview: string };
 
@@ -44,6 +45,8 @@ export function CreatePostModal({
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const maxImages = 4;
   const maxSize = 5 * 1024 * 1024; // 5MB
 
@@ -162,15 +165,18 @@ export function CreatePostModal({
   };
 
   const handleClose = () => {
-    resetForm();
-    onClose();
+    animateModalClose(() => {
+      resetForm();
+      onClose();
+    }, backdropRef, contentRef);
   };
 
   if (!isOpen) return null;
 
   return (
     <div 
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4"
+      ref={backdropRef}
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           handleClose();
@@ -178,7 +184,8 @@ export function CreatePostModal({
       }}
     >
       <div 
-        className="w-full max-w-3xl max-h-[90vh] rounded-lg shadow-lg overflow-hidden bg-card border border-border"
+        ref={contentRef}
+        className="w-full max-w-3xl max-h-[90vh] rounded-lg shadow-lg overflow-hidden bg-card border border-border animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

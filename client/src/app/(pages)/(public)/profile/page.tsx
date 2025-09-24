@@ -90,10 +90,10 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
       <div
         ref={modalRef}
-        className="bg-card rounded-lg max-w-md w-full border border-border"
+        className="bg-card rounded-lg max-w-md w-full border border-border animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
       >
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-lg font-semibold text-card-foreground">{title}</h2>
@@ -172,7 +172,7 @@ const FollowersModal: React.FC<FollowersModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-300"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
@@ -181,7 +181,7 @@ const FollowersModal: React.FC<FollowersModalProps> = ({
     >
       <div
         ref={modalRef}
-        className="bg-card border border-border rounded-lg p-6 max-w-lg w-full mx-4 max-h-[85vh] overflow-y-auto"
+        className="bg-card border border-border rounded-lg p-6 max-w-lg w-full mx-4 max-h-[85vh] overflow-y-auto animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">

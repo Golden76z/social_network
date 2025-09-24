@@ -11,6 +11,7 @@ import { CommentItem } from '../forms/CommentItem';
 import { ProfileThumbnail } from '../layout/ProfileThumbnail';
 import { UserInfoWithTime } from '../layout/UserInfoWithTime';
 import { CommentForm } from '../forms/CommentForm';
+import { animateModalClose } from '@/lib/utils/modalCloseAnimation';
 
 interface PostModalProps {
   post: Post | null;
@@ -51,6 +52,7 @@ export const PostModal: React.FC<PostModalProps> = ({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
 
   const apiBase =
     process.env.NEXT_PUBLIC_API_URL ||
@@ -114,7 +116,7 @@ export const PostModal: React.FC<PostModalProps> = ({
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
-        onClose();
+        animateModalClose(onClose, backdropRef, modalRef);
       }
       const total = post?.images?.length || 0;
       if (e.key === 'ArrowRight' && isOpen && total > 1) {
@@ -273,11 +275,12 @@ export const PostModal: React.FC<PostModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 flex items-center justify-center z-[9999] p-4"
+      ref={backdropRef}
+      className="fixed inset-0 flex items-center justify-center z-[9999] p-4 animate-in fade-in duration-300"
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
-          onClose();
+          animateModalClose(onClose, backdropRef, modalRef);
         }
       }}
     >
@@ -286,7 +289,7 @@ export const PostModal: React.FC<PostModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
-        className="max-w-4xl w-full max-h-[95vh] overflow-hidden rounded-lg shadow-lg"
+        className="max-w-4xl w-full max-h-[95vh] overflow-hidden rounded-lg shadow-lg animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
         style={{
           backgroundColor: 'var(--color-card)',
           borderColor: 'var(--color-border)',

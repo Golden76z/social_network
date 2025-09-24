@@ -185,8 +185,8 @@ export const UserFriendlyError: React.FC<{
 
   if (variant === 'modal') {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-        <div className={`bg-white rounded-lg p-6 max-w-md w-full mx-4 ${styles.container}`}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 animate-in fade-in duration-300">
+        <div className={`bg-white rounded-lg p-6 max-w-md w-full mx-4 ${styles.container} animate-in zoom-in-95 slide-in-from-bottom-4 duration-300`}>
           <div className="text-center">
             <div className={`text-4xl mb-4 ${styles.icon}`}>
               {config.icon}

@@ -74,9 +74,9 @@ export const PostModalWrapper: React.FC<PostModalWrapperProps> = ({
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center z-[9999] p-4">
+      <div className="fixed inset-0 flex items-center justify-center z-[9999] p-4 animate-in fade-in duration-300">
         <div 
-          className="bg-card border border-border rounded-lg p-8 max-w-md w-full mx-4 text-center"
+          className="bg-card border border-border rounded-lg p-8 max-w-md w-full mx-4 text-center animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
           style={{ backgroundColor: 'var(--color-card)' }}
         >
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
@@ -88,9 +88,9 @@ export const PostModalWrapper: React.FC<PostModalWrapperProps> = ({
 
   if (error) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center z-[9999] p-4">
+      <div className="fixed inset-0 flex items-center justify-center z-[9999] p-4 animate-in fade-in duration-300">
         <div 
-          className="bg-card border border-border rounded-lg p-8 max-w-md w-full mx-4 text-center"
+          className="bg-card border border-border rounded-lg p-8 max-w-md w-full mx-4 text-center animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
           style={{ backgroundColor: 'var(--color-card)' }}
         >
           <div className="text-destructive mb-4">

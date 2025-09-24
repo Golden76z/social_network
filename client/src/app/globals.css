@@ -190,6 +190,11 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* Poppins font family */
+  .font-poppins {
+    font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+  }
 }
 
 @layer components {
@@ -213,5 +218,57 @@
     cursor: not-allowed;
     transform: none;
     box-shadow: none;
+  }
+  
+  /* Modal closing animations */
+  .modal-closing {
+    animation: modalClose 300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+  
+  .modal-backdrop-closing {
+    animation: modalBackdropClose 300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+  
+  @keyframes modalClose {
+    0% {
+      transform: scale(1) translateY(0);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(0.95) translateY(16px);
+      opacity: 0;
+    }
+  }
+  
+  @keyframes modalBackdropClose {
+    0% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+  
+  /* Firefox-specific fixes */
+  @-moz-document url-prefix() {
+    .messages-container {
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    
+    /* Fix for Firefox text rendering issues */
+    .font-poppins {
+      -moz-osx-font-smoothing: grayscale;
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    /* Fix for Firefox backdrop-filter issues */
+    .backdrop-blur-sm {
+      background-color: rgba(255, 255, 255, 0.8);
+    }
+    
+    .dark .backdrop-blur-sm {
+      background-color: rgba(0, 0, 0, 0.8);
+    }
   }
 }
