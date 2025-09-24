@@ -624,7 +624,7 @@ export default function NotificationsPage() {
   return (
     <div>
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-8 pt-4">
         <div className="flex space-x-1 bg-muted p-1 rounded-lg">
           <button
             onClick={() => setFilter('all')}

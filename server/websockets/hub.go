@@ -49,27 +49,21 @@ func NewHub(db *sql.DB) *Hub {
 
 // Run starts the hub's main loop
 func (h *Hub) Run() {
-	log.Printf("🔌 Hub Run() method started")
 	for {
 		select {
 		case client := <-h.register:
-			log.Printf("🔌 Hub received client registration: %s (user %d)", client.ID, client.UserID)
 			h.RegisterClient(client)
 
 		case client := <-h.unregister:
-			log.Printf("🔌 Hub received client unregistration: %s (user %d)", client.ID, client.UserID)
 			h.UnregisterClient(client)
 
 		case message := <-h.broadcast:
-			log.Printf("🔌 Hub received broadcast message: type=%s", message.Type)
 			h.BroadcastMessage(message)
 
 		case joinReq := <-h.joinGroup:
-			log.Printf("🔌 Hub received join group request: %s for group %s", joinReq.Client.ID, joinReq.GroupID)
 			h.JoinGroup(joinReq.Client, joinReq.GroupID)
 
 		case leaveReq := <-h.leaveGroup:
-			log.Printf("🔌 Hub received leave group request: %s for group %s", leaveReq.Client.ID, leaveReq.GroupID)
 			h.LeaveGroup(leaveReq.Client, leaveReq.GroupID)
 		}
 	}

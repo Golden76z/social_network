@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { GroupMessage, ChatMessage } from '@/lib/types/chat';
 import { chatAPI } from '@/lib/api/chat';
 import { useWebSocketContext } from '@/context/webSocketProvider';
@@ -9,10 +10,12 @@ import { EmojiPicker } from '../media/EmojiPicker';
 interface GroupChatProps {
   groupId: number;
   groupName: string;
+  groupAvatar?: string;
   currentUserId: number;
 }
 
-export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps) {
+export function GroupChat({ groupId, groupName, groupAvatar, currentUserId }: GroupChatProps) {
+  const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -181,7 +184,7 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
       
       const chatMessages: ChatMessage[] = data.map(msg => ({
         id: msg.id.toString(),
-        username: msg.sender_id === currentUserId ? 'You' : `User ${msg.sender_id}`, // TODO: Get actual username
+        username: msg.sender_id === currentUserId ? 'You' : (msg.sender_nickname || `${msg.sender_first_name} ${msg.sender_last_name}`.trim() || `User ${msg.sender_id}`),
         content: msg.body,
         timestamp: msg.created_at,
         isOwn: msg.sender_id === currentUserId,
@@ -272,6 +275,10 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
     return groupName.charAt(0).toUpperCase();
   };
 
+  const handleGroupClick = () => {
+    router.push(`/groups/${groupId}/info`);
+  };
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-purple-50 to-purple-100/30">
@@ -287,12 +294,35 @@ export function GroupChat({ groupId, groupName, currentUserId }: GroupChatProps)
     <div className="flex flex-col h-full bg-gradient-to-br from-purple-50 to-purple-100/30">
       {/* Header */}
       <div className="p-3 border-b border-border bg-gradient-to-r from-purple-100 to-purple-200/50 backdrop-blur-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-purple-500 flex items-center justify-center text-primary-foreground text-xs font-medium shadow-sm">
-            {getInitials()}
+        <div className="flex items-center gap-3">
+          <div 
+            onClick={handleGroupClick}
+            className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-purple-500 flex items-center justify-center text-primary-foreground text-sm font-medium shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            {groupAvatar ? (
+              <img
+                src={groupAvatar.startsWith('http') 
+                  ? groupAvatar 
+                  : `http://localhost:8080${groupAvatar}`}
+                alt={groupName}
+                className="w-full h-full rounded-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                }}
+              />
+            ) : null}
+            <div className={`w-full h-full rounded-full flex items-center justify-center text-primary-foreground text-sm font-medium ${groupAvatar ? 'hidden' : ''}`}>
+              {getInitials()}
+            </div>
           </div>
           <div className="flex-1">
-            <h2 className="font-semibold text-card-foreground text-base">{groupName}</h2>
+            <h2 
+              onClick={handleGroupClick}
+              className="font-semibold text-card-foreground text-base cursor-pointer hover:text-primary transition-colors"
+            >
+              {groupName}
+            </h2>
             <div className="flex items-center gap-1">
               <div className={`w-1.5 h-1.5 rounded-full ${connectionStatus === 'connected' ? 'bg-green-500' : 'bg-gray-400'}`}></div>
               <p className="text-xs text-muted-foreground">Group chat</p>

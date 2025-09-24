@@ -94,7 +94,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		SameSite: sameSite,
 		Path:     "/",
 		MaxAge:   int(time.Hour * 4), // 4 hours
-		// Remove Domain to avoid Chrome issues
+		Domain:   "localhost",        // Set domain to localhost to work across ports
 	}
 
 	http.SetCookie(w, cookie)

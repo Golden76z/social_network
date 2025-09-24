@@ -76,3 +76,15 @@ func (u *User) GetBio() string {
 	}
 	return ""
 }
+
+// Search result models
+type UserSearchResult struct {
+	ID          int64  `json:"id"`
+	Nickname    string `json:"nickname"`
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
+	Avatar      string `json:"avatar"`
+	IsPrivate   bool   `json:"is_private"`
+	Followers   int    `json:"followers"`
+	IsFollowing *bool  `json:"isFollowing,omitempty"`
+}

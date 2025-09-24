@@ -17,13 +17,14 @@ import {
   Edit3,
   Lock
 } from 'lucide-react';
-import { NotificationDropdown } from '@/components/layout/NotificationDropdown';
+import { SearchBar } from '@/components/ui/SearchBar';
 
 interface HeaderProps {
   onCreatePost: () => void;
+  onPostClick?: (postId: number) => void;
 }
 
-export default function Header({ onCreatePost }: HeaderProps) {
+export default function Header({ onCreatePost, onPostClick }: HeaderProps) {
   const router = useRouter();
   const { logout, isAuthenticated, user } = useAuth();
 
@@ -45,6 +46,7 @@ export default function Header({ onCreatePost }: HeaderProps) {
   }, []);
 
 
+
   return (
     <header className="w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3">
@@ -57,12 +59,10 @@ export default function Header({ onCreatePost }: HeaderProps) {
             <Link href="/" className="font-bold text-3xl text-primary">
               Deustagram
             </Link>
-            <div className="hidden md:block w-full max-w-md relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search..."
-                className="w-full pl-10 pr-4 py-2.5 border border-border/50 rounded-xl bg-background/50 backdrop-blur-sm text-base focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-border transition-all duration-200"
+            <div className="hidden md:block w-full max-w-2xl">
+              <SearchBar 
+                placeholder="Search users, groups, posts..."
+                onPostClick={onPostClick}
               />
             </div>
           </div>
@@ -83,8 +83,6 @@ export default function Header({ onCreatePost }: HeaderProps) {
                 </span>
               </button>
 
-              {/* Notifications */}
-              <NotificationDropdown />
 
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -164,14 +162,10 @@ export default function Header({ onCreatePost }: HeaderProps) {
       {/* Mobile menu */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-border/50 px-4 py-4 space-y-3 bg-background/50 backdrop-blur-sm">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search..."
-              className="w-full pl-10 pr-4 py-2.5 border border-border/50 rounded-xl bg-background/50 backdrop-blur-sm text-sm focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-border transition-all duration-200"
-            />
-          </div>
+          <SearchBar 
+            placeholder="Search users, groups, posts..."
+            onPostClick={onPostClick}
+          />
 
           {isAuthenticated ? (
             <div className="space-y-2">
@@ -188,10 +182,6 @@ export default function Header({ onCreatePost }: HeaderProps) {
                 </span>
               </button>
               
-              {/* Mobile Notifications */}
-              <div className="flex justify-center">
-                <NotificationDropdown />
-              </div>
               
               <Link
                 href="/profile"
@@ -228,6 +218,7 @@ export default function Header({ onCreatePost }: HeaderProps) {
           )}
         </div>
       )}
+
     </header>
   );
 }

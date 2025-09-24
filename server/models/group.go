@@ -183,3 +183,13 @@ type CancelRSVPRequest struct {
 	UserID  int64  `json:"user_id"`
 	Status  string `json:"status"`
 }
+
+// Search result models
+type GroupSearchResult struct {
+	ID        int64  `json:"id"`
+	Title     string `json:"title"`
+	Bio       string `json:"bio"`
+	Avatar    string `json:"avatar"`
+	CreatorID int64  `json:"creator_id"`
+	IsMember  *bool  `json:"isMember,omitempty"`
+}
