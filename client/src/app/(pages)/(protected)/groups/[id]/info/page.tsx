@@ -1567,7 +1567,7 @@ export default function GroupPage() {
       {/* Invite Modal */}
       {showInviteModal && (
         <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-300"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowInviteModal(false);
@@ -1709,7 +1709,7 @@ export default function GroupPage() {
       {/* Group Requests Management Modal */}
       {showRequestsModal && (
         <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-300"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowRequestsModal(false);
@@ -1821,7 +1821,7 @@ export default function GroupPage() {
       {/* Create Event Modal */}
       {showCreateEventModal && (
         <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-300"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowCreateEventModal(false);
@@ -1931,7 +1931,7 @@ export default function GroupPage() {
       {/* Remove Member Confirmation Modal */}
       {showRemoveMemberModal && memberToRemove && (
         <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-300"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowRemoveMemberModal(false);
@@ -2006,7 +2006,7 @@ export default function GroupPage() {
       {/* Delete Post Confirmation Modal */}
       {showDeletePostModal && postToDelete && (
         <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-300"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowDeletePostModal(false);
@@ -2068,7 +2068,7 @@ export default function GroupPage() {
       {/* Delete Event Confirmation Modal */}
       {showDeleteEventModal && eventToDelete && (
         <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-300"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowDeleteEventModal(false);
@@ -2133,7 +2133,7 @@ export default function GroupPage() {
       {/* Join Success Modal */}
       {showJoinSuccessModal && (
         <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-300"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowJoinSuccessModal(false);
@@ -2198,7 +2198,7 @@ export default function GroupPage() {
       {/* RSVP Modal */}
       {showRSVPModal && selectedEvent && (
         <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-300"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowRSVPModal(false);

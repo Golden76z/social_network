@@ -49,17 +49,17 @@ export default function Header({ onCreatePost, onPostClick }: HeaderProps) {
 
   return (
     <header className="w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-      <div className="container mx-auto px-4 py-3">
-        <div className="flex items-center justify-between">
-          {/* Left side - empty for centering */}
-          <div className="flex-1"></div>
+      <div className="mx-auto px-4 py-3">
+        <div className="grid grid-cols-5 gap-4 items-center">
+          {/* Left side - 20% (1 column) */}
+          <div className="col-span-1"></div>
 
-          {/* Center - Logo and Search bar */}
-          <div className="flex-1 flex flex-col items-center gap-3">
-            <Link href="/" className="font-bold text-3xl text-primary">
+          {/* Center - 60% (3 columns) - Logo and Search bar */}
+          <div className="col-span-3 flex flex-col items-center gap-3">
+            <Link href="/" className="font-bold text-3xl md:text-4xl text-primary font-poppins tracking-tight hover:text-primary/80 transition-colors duration-200 drop-shadow-sm" style={{ WebkitTextStroke: '1px var(--purple-200)' }}>
               Deustagram
             </Link>
-            <div className="hidden md:block w-full max-w-2xl">
+            <div className="hidden md:block w-full max-w-xl">
               <SearchBar 
                 placeholder="Search users, groups, posts..."
                 onPostClick={onPostClick}
@@ -67,10 +67,10 @@ export default function Header({ onCreatePost, onPostClick }: HeaderProps) {
             </div>
           </div>
 
-          {/* Right side - Menu */}
-          <div className="flex-1 flex justify-end">
+          {/* Right side - 20% (1 column) - Menu */}
+          <div className="col-span-1 flex justify-center">
             {/* Desktop menu */}
-            <div className="hidden md:flex items-center gap-3 relative" ref={dropdownRef}>
+            <div className="hidden md:flex items-center justify-center gap-3 relative" ref={dropdownRef}>
           {isAuthenticated ? (
             <>
               <button 
@@ -147,16 +147,16 @@ export default function Header({ onCreatePost, onPostClick }: HeaderProps) {
             </ButtonAccept>
           )}
             </div>
+            
+            {/* Mobile hamburger */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden flex items-center justify-center w-10 h-10 rounded-xl border border-border/50 hover:border-border bg-background/50 hover:bg-accent/50 backdrop-blur-sm transition-all duration-200"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
           </div>
         </div>
-
-        {/* Mobile hamburger */}
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden flex items-center justify-center w-10 h-10 rounded-xl border border-border/50 hover:border-border bg-background/50 hover:bg-accent/50 backdrop-blur-sm transition-all duration-200"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
       </div>
 
       {/* Mobile menu */}

@@ -24,11 +24,11 @@ export const ImageModal: React.FC<ImageModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 flex items-center justify-center z-50"
+      className="fixed inset-0 flex items-center justify-center z-50 animate-in fade-in duration-300"
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.9)' }}
       onClick={onClose}
     >
-      <div className="relative max-w-[90vw] max-h-[90vh] flex items-center justify-center">
+      <div className="relative max-w-[90vw] max-h-[90vh] flex items-center justify-center animate-in zoom-in-95 duration-300">
         {/* Close button */}
         <button
           onClick={onClose}

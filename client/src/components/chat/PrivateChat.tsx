@@ -39,15 +39,23 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     if (messagesContainerRef.current && messages.length > 0) {
-      // Small delay to ensure DOM is updated
+      // Firefox-specific: Use longer delay and different scroll method
+      const scrollDelay = isFirefox ? 150 : 100;
       setTimeout(() => {
-        messagesContainerRef.current?.scrollTo({
-          top: messagesContainerRef.current.scrollHeight,
-          behavior: 'smooth'
-        });
-      }, 100);
+        if (messagesContainerRef.current) {
+          if (isFirefox) {
+            // Firefox sometimes has issues with smooth scrolling
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+          } else {
+            messagesContainerRef.current.scrollTo({
+              top: messagesContainerRef.current.scrollHeight,
+              behavior: 'smooth'
+            });
+          }
+        }
+      }, scrollDelay);
     }
-  }, [messages]);
+  }, [messages, isFirefox]);
 
   useEffect(() => {
     if (!lastMessage) return;
@@ -225,7 +233,7 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
 
       // Firefox-specific handling: Add small delay for WebSocket stability
       if (isFirefox) {
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise(resolve => setTimeout(resolve, 100)); // Increased delay for Firefox
       }
 
       // Send via WebSocket only - backend handles DB save and broadcasting
@@ -339,7 +347,7 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
       {/* Messages */}
       <div 
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent min-h-0"
+        className={`flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent min-h-0 ${isFirefox ? 'messages-container' : ''}`}
         style={{ maxHeight: 'calc(100vh - 400px)' }}
       >
         <div className="p-3 space-y-2">

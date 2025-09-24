@@ -49,7 +49,7 @@ export const AvatarFileInput: React.FC<AvatarFileInputProps> = ({
       />
       <button
         type="button"
-        className="px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors pointer-events-none"
+        className="px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
       >
         Choose Photo
       </button>

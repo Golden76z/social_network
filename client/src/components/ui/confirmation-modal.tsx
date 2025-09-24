@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useRef } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
+import { animateModalClose } from '@/lib/utils/modalCloseAnimation';
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -26,6 +27,8 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   variant = 'danger',
   isLoading = false,
 }) => {
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   if (!isOpen) return null;
 
   const getVariantStyles = () => {
@@ -64,13 +67,13 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
-      onClose();
+      animateModalClose(onClose, backdropRef, contentRef);
     }
   };
 
   const handleEscape = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
-      onClose();
+      animateModalClose(onClose, backdropRef, contentRef);
     }
   };
 
@@ -83,10 +86,15 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50"
+      ref={backdropRef}
+      className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-300"
       onClick={handleBackdropClick}
     >
-      <div className="bg-card/95 backdrop-blur-md border border-border/50 rounded-xl p-6 max-w-md w-full mx-4 shadow-xl">
+      <div 
+        ref={contentRef}
+        className="bg-card/95 backdrop-blur-md border border-border/50 rounded-xl p-6 max-w-md w-full mx-4 shadow-xl animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
