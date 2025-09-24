@@ -6,6 +6,7 @@ import { Post } from '@/lib/types';
 import { reactionApi } from '@/lib/api/reaction';
 import { ProfileThumbnail } from '../layout/ProfileThumbnail';
 import { UserDisplay } from '../layout/UserDisplay';
+import { UserInfoWithTime } from '../layout/UserInfoWithTime';
 import { getUserDisplayName, getUserInitials } from '@/lib/utils/userUtils';
 
 interface PostCardProps {
@@ -149,28 +150,24 @@ export const PostCard: React.FC<PostCardProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-3">
-          <UserDisplay
+          <UserInfoWithTime
             user={{
               id: post.author_id || post.user_id,
               nickname: (post as Post & { author_nickname?: string }).author_nickname,
               first_name: (post as Post & { author_first_name?: string }).author_first_name,
               last_name: (post as Post & { author_last_name?: string }).author_last_name,
-              avatar: getAuthorAvatarUrl(),
-              is_private: (post as Post & { author_is_private?: boolean }).author_is_private
+              avatar: getAuthorAvatarUrl()
             }}
+            time={formatDate(post.created_at)}
             size="md"
-            showNickname={false}
-            showFullName={true}
-            showAvatar={true}
-            showPrivacyBadge={true}
-            onClick={() =>
+            onUserClick={() =>
               (post.author_id || post.user_id) &&
               onUserClick?.(post.author_id || post.user_id)
             }
-            className="cursor-pointer hover:opacity-80 transition-opacity"
           />
-          <div className="flex items-center gap-2">
-            {post.post_type === 'group_post' && post.group_name && (
+          {post.post_type === 'group_post' && post.group_name && (
+            <>
+              <span className="text-muted-foreground text-sm">•</span>
               <button
                 onClick={() => post.group_id && router.push(`/groups/${post.group_id}/info`)}
                 className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-full text-sm text-primary hover:bg-primary/20 hover:border-primary/30 transition-all duration-200 cursor-pointer"
@@ -178,12 +175,8 @@ export const PostCard: React.FC<PostCardProps> = ({
                 <Users className="w-4 h-4" />
                 <span className="font-medium">{post.group_name}</span>
               </button>
-            )}
-            <span className="text-muted-foreground text-sm">•</span>
-            <p className="text-sm text-muted-foreground">
-              {formatDate(post.created_at)}
-            </p>
-          </div>
+            </>
+          )}
         </div>
         
         {/* Action buttons - only show if user has permissions */}
@@ -237,7 +230,7 @@ export const PostCard: React.FC<PostCardProps> = ({
                     }${post.images[0]}`
               }
               alt="Post image"
-              className="w-full max-h-48 object-cover rounded-lg cursor-pointer"
+              className="w-full max-h-64 object-cover rounded-lg cursor-pointer"
               onClick={handleViewDetails}
             />
           ) : (
@@ -255,7 +248,7 @@ export const PostCard: React.FC<PostCardProps> = ({
                         }${image}`
                   }
                   alt={`Post image ${index + 1}`}
-                  className="w-full h-24 object-cover rounded-lg cursor-pointer"
+                  className="w-full h-32 object-cover rounded-lg cursor-pointer"
                   onClick={handleViewDetails}
                 />
               ))}

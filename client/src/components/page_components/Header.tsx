@@ -75,10 +75,10 @@ export default function Header({ onCreatePost, onPostClick }: HeaderProps) {
             <>
               <button 
                 onClick={onCreatePost}
-                className="flex items-center space-x-3 px-5 py-3 rounded-xl border border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/15 backdrop-blur-sm transition-all duration-200 hover:shadow-md group"
+                className="flex items-center space-x-3 px-6 py-3.5 rounded-xl border border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/15 backdrop-blur-sm transition-all duration-200 hover:shadow-md group"
               >
-                <Edit3 className="w-4 h-4 text-primary transition-colors" />
-                <span className="text-sm font-medium text-primary transition-colors">
+                <Edit3 className="w-5 h-5 text-primary transition-colors" />
+                <span className="text-base font-medium text-primary transition-colors">
                   Post
                 </span>
               </button>
@@ -86,7 +86,7 @@ export default function Header({ onCreatePost, onPostClick }: HeaderProps) {
 
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="flex items-center space-x-3 px-4 py-2.5 rounded-xl border border-border/50 hover:border-border bg-background/50 hover:bg-accent/50 backdrop-blur-sm transition-all duration-200 hover:shadow-sm group"
+                className="flex items-center space-x-3 px-4 py-2.5 rounded-xl border border-[var(--purple-300)] hover:border-[var(--purple-400)] bg-background/50 hover:bg-accent/50 backdrop-blur-sm transition-all duration-200 hover:shadow-sm group"
               >
                 <ProfileThumbnail
                   src={user?.avatar}

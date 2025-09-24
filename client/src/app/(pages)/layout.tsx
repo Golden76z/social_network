@@ -8,13 +8,14 @@ import { SideBarRight } from '@/components/page_components/SideBarRight';
 import Footer from '@/components/page_components/Footer';
 import { CreatePostModal } from '@/components/forms/CreatePostModal';
 import { PostModalWrapper } from '@/components/posts/PostModalWrapper';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 export default function PagesLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { isLoading, hasCheckedAuth, user } = useAuth();
+  const { isLoading, hasCheckedAuth, isInitializing, user } = useAuth();
   const [showCreatePostModal, setShowCreatePostModal] = useState(false);
   const [postModalOpen, setPostModalOpen] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
@@ -39,17 +40,22 @@ export default function PagesLayout({
     setSelectedPostId(null);
   };
 
-  // Show loading spinner while checking authentication
-  if (!hasCheckedAuth || isLoading) {
+  // Show loading spinner while initializing or checking authentication
+  // Keep loading screen persistent until we're fully ready to show content
+  if (isInitializing || !hasCheckedAuth || isLoading) {
+    console.log('🔄 PagesLayout: Showing loading screen', { isInitializing, hasCheckedAuth, isLoading });
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--background)' }}>
+        <LoadingSpinner 
+          size="xl" 
+          text="Loading..." 
+          className="min-h-screen"
+        />
       </div>
     );
   }
+
+  console.log('✅ PagesLayout: Rendering content', { isInitializing, hasCheckedAuth, isLoading, user: user?.nickname });
 
   return (
     <div className="min-h-screen bg-background pb-20">

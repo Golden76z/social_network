@@ -30,6 +30,9 @@ export function GroupChat({ groupId, groupName, groupAvatar, currentUserId }: Gr
   const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { sendMessage: sendWebSocketMessage, lastMessage, connectionStatus, socket } = useWebSocketContext();
 
+  // Detect Firefox browser
+  const isFirefox = typeof window !== 'undefined' && /Firefox/.test(navigator.userAgent);
+
   useEffect(() => {
     loadMessages();
     
@@ -58,12 +61,22 @@ export function GroupChat({ groupId, groupName, groupAvatar, currentUserId }: Gr
   useEffect(() => {
     if (connectionStatus === 'connected' && socket?.readyState === WebSocket.OPEN) {
       console.log('🔌 GROUP_JOIN: WebSocket connected, joining group:', groupId);
-      sendWebSocketMessage({
-        type: 'join_group',
-        data: groupId.toString(),
-      });
+      
+      // Firefox-specific: Add small delay to ensure connection is stable
+      const joinGroup = () => {
+        sendWebSocketMessage({
+          type: 'join_group',
+          data: groupId.toString(),
+        });
+      };
+      
+      if (isFirefox) {
+        setTimeout(joinGroup, 100);
+      } else {
+        joinGroup();
+      }
     }
-  }, [connectionStatus, socket, groupId, sendWebSocketMessage]);
+  }, [connectionStatus, socket, groupId, sendWebSocketMessage, isFirefox]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -82,6 +95,9 @@ export function GroupChat({ groupId, groupName, groupAvatar, currentUserId }: Gr
     if (!lastMessage) return;
 
     console.log('🔌 GROUP_WS: Received WebSocket message:', lastMessage);
+    if (isFirefox) {
+      console.log('🔌 GROUP_WS: Firefox detected - message processing');
+    }
 
     if (lastMessage.type === 'group_message_ack') {
       if (lastMessage.group_id !== groupId.toString()) return;
@@ -213,6 +229,7 @@ export function GroupChat({ groupId, groupName, groupAvatar, currentUserId }: Gr
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation(); // Prevent event bubbling
     if (!input.trim() || sending) return;
 
     const messageContent = input.trim();
@@ -240,6 +257,11 @@ export function GroupChat({ groupId, groupName, groupAvatar, currentUserId }: Gr
           fallbackTimeoutRef.current = null;
         }
         return;
+      }
+
+      // Firefox-specific handling: Add small delay for WebSocket stability
+      if (isFirefox) {
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
 
       // Send via WebSocket only - backend handles DB save and broadcasting

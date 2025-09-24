@@ -8,6 +8,7 @@ import { useAuth } from '@/context/AuthProvider';
 import { GroupCard } from '@/components/groups/GroupCard';
 import { CreateGroupModal } from '@/components/groups/CreateGroupModal';
 import { UserCheck } from 'lucide-react';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 export default function GroupsPage() {
   const router = useRouter();
@@ -194,10 +195,7 @@ export default function GroupsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading groups...</p>
-        </div>
+        <LoadingSpinner size="lg" text="Loading groups..." />
       </div>
     );
   }

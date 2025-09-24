@@ -12,6 +12,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   hasCheckedAuth: boolean;
+  isInitializing: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (userData: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
@@ -60,16 +61,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false); // Always start as false, let checkAuth() determine the real state
   const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true); // New state to track initial setup
 
   // Check if user is authenticated (no backend dependency for initial check)
   const checkAuth = async () => {
     try {
-      setIsLoading(true);
-      console.log('🔍 Starting auth check...');
+      console.log('🔍 Starting auth check...', { hasCheckedAuth, isInitializing });
       
       // Wait a bit to ensure cookies are available (especially after page reload)
       if (typeof window !== 'undefined') {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 150));
       }
   
       // Check if we have a JWT token in cookies first
@@ -82,6 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsAuthenticated(false);
         setHasCheckedAuth(true);
         setIsLoading(false);
+        setIsInitializing(false);
         return;
       }
 
@@ -99,6 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsAuthenticated(false);
         setHasCheckedAuth(true);
         setIsLoading(false);
+        setIsInitializing(false);
         return;
       }
   
@@ -125,6 +128,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticated(true);
       setHasCheckedAuth(true);
       setIsLoading(false);
+      setIsInitializing(false);
       console.log('✅ User set from token:', basicUser);
 
       // Try to fetch full profile in background (non-critical)
@@ -136,6 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticated(false);
       setHasCheckedAuth(true);
       setIsLoading(false);
+      setIsInitializing(false);
     }
   };
 
@@ -225,6 +230,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw error;
     } finally {
       setIsLoading(false);
+      setIsInitializing(false);
     }
   };
 
@@ -284,6 +290,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw error;
     } finally {
       setIsLoading(false);
+      setIsInitializing(false);
     }
   };
 
@@ -292,26 +299,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('🚪 Logging out...');
       
-      // Call logout endpoint
-      await apiClient.post(authRoutes.logout, {});
-    } catch (error) {
-      console.error('⚠️ Logout endpoint failed:', error);
-    } finally {
-      // Always clear local state
+      // Clear local state immediately for instant UI feedback
       setUser(null);
       setIsAuthenticated(false);
       setIsLoading(false);
+      setIsInitializing(false);
       
-      // Clear any stored tokens
+      // Clear any stored tokens immediately
       if (typeof window !== 'undefined') {
         localStorage.removeItem('jwt_token');
       }
       
+      // Call logout endpoint in background (don't wait for it)
+      apiClient.post(authRoutes.logout, {}).catch(error => {
+        console.error('⚠️ Logout endpoint failed:', error);
+      });
+      
       console.log('✅ Logout completed');
       
-      // Redirect to home page after logout
+      // Only redirect if we're not already on the homepage
       if (typeof window !== 'undefined') {
-        window.location.href = '/';
+        const currentPath = window.location.pathname;
+        console.log('🚪 Logout: Current path:', currentPath);
+        
+        // Only redirect if we're on a protected route or auth route
+        const protectedRoutes = ['/home', '/profile', '/groups', '/messages', '/notifications'];
+        const authRoutes = ['/login', '/register'];
+        
+        if (protectedRoutes.includes(currentPath) || authRoutes.includes(currentPath)) {
+          console.log('🚪 Logout: Redirecting to homepage from:', currentPath);
+          window.location.href = '/';
+        } else {
+          console.log('🚪 Logout: Already on homepage, no redirect needed');
+        }
+        // If already on homepage (/), no redirect needed
+      }
+    } catch (error) {
+      console.error('⚠️ Logout error:', error);
+      // Even if there's an error, still redirect if needed
+      if (typeof window !== 'undefined') {
+        const currentPath = window.location.pathname;
+        const protectedRoutes = ['/home', '/profile', '/groups', '/messages', '/notifications'];
+        const authRoutes = ['/login', '/register'];
+        
+        if (protectedRoutes.includes(currentPath) || authRoutes.includes(currentPath)) {
+          window.location.href = '/';
+        }
       }
     }
   };
@@ -326,6 +359,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading,
     isAuthenticated,
     hasCheckedAuth,
+    isInitializing,
     login,
     register,
     logout,

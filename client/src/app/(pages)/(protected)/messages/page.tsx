@@ -11,6 +11,7 @@ import { GroupChat } from '@/components/chat/GroupChat';
 import Button from "@/components/ui/button";
 import { ChatPlusModal } from "@/components/chat/ChatPlusModal";
 import { User, UserDisplayInfo } from "@/lib/types/user";
+import { motion, AnimatePresence } from 'framer-motion';
 
 type ConversationType = 'private' | 'group';
 type UnifiedConversation = 
@@ -103,8 +104,26 @@ export default function MessagesPage() {
 
       // Check if this message is for the current user
       if (receiverId === user.id || senderId === user.id) {
-        // Reload conversations to get updated data
-        loadConversations();
+        // Update conversations list without reloading all conversations
+        setUnifiedConversations(prev => {
+          return prev.map(conv => {
+            if (conv.type === 'private' && conv.data.other_user_id === (senderId === user.id ? receiverId : senderId)) {
+              return {
+                ...conv,
+                data: {
+                  ...conv.data,
+                  last_message: message.content || '',
+                  last_message_time: message.timestamp,
+                }
+              };
+            }
+            return conv;
+          }).sort((a, b) => {
+            const aTime = a.type === 'private' ? a.data.last_message_time : a.data.last_message_time;
+            const bTime = b.type === 'private' ? b.data.last_message_time : b.data.last_message_time;
+            return new Date(bTime || 0).getTime() - new Date(aTime || 0).getTime();
+          });
+        });
 
         // Update selected conversation if it matches
         if (selectedConversation?.type === 'private') {
@@ -127,8 +146,26 @@ export default function MessagesPage() {
     } else if (message.type === 'group_message') {
       const groupId = message.group_id;
       
-      // Reload conversations to get updated data
-      loadConversations();
+      // Update conversations list without reloading all conversations
+      setUnifiedConversations(prev => {
+        return prev.map(conv => {
+          if (conv.type === 'group' && conv.data.group_id.toString() === groupId) {
+            return {
+              ...conv,
+              data: {
+                ...conv.data,
+                last_message: message.content || '',
+                last_message_time: message.timestamp,
+              }
+            };
+          }
+          return conv;
+        }).sort((a, b) => {
+          const aTime = a.type === 'private' ? a.data.last_message_time : a.data.last_message_time;
+          const bTime = b.type === 'private' ? b.data.last_message_time : b.data.last_message_time;
+          return new Date(bTime || 0).getTime() - new Date(aTime || 0).getTime();
+        });
+      });
 
       // Update selected conversation if it matches
       if (selectedConversation?.type === 'group' && selectedConversation.data.group_id.toString() === groupId) {
@@ -145,7 +182,7 @@ export default function MessagesPage() {
         });
       }
     }
-  }, [user, selectedConversation, loadConversations]);
+  }, [user, selectedConversation]);
 
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -154,7 +191,7 @@ export default function MessagesPage() {
 
     if (diffInHours < 1) {
       const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-      return `${diffInMinutes}m`;
+      return diffInMinutes === 0 ? 'now' : `${diffInMinutes}m`;
     } else if (diffInHours < 24) {
       return `${Math.floor(diffInHours)}h`;
     } else {
@@ -332,22 +369,32 @@ export default function MessagesPage() {
                 </div>
               ) : (
                 <div className="p-2">
-                  {unifiedConversations.map((conversation) => {
-                    const isSelected = selectedConversation?.type === conversation.type && 
-                      (conversation.type === 'private' 
-                        ? (selectedConversation.data as Conversation).other_user_id === (conversation.data as Conversation).other_user_id
-                        : (selectedConversation.data as GroupConversation).group_id === (conversation.data as GroupConversation).group_id);
-                    
-                    return (
-                      <div
-                        key={`${conversation.type}-${conversation.type === 'private' ? (conversation.data as Conversation).other_user_id : (conversation.data as GroupConversation).group_id}`}
-                        onClick={() => setSelectedConversation(conversation)}
-                        className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                          isSelected
-                            ? 'bg-primary/10 border border-primary/20'
-                            : 'hover:bg-accent'
-                        }`}
-                      >
+                  <AnimatePresence mode="popLayout">
+                    {unifiedConversations.map((conversation, index) => {
+                      const isSelected = selectedConversation?.type === conversation.type && 
+                        (conversation.type === 'private' 
+                          ? (selectedConversation.data as Conversation).other_user_id === (conversation.data as Conversation).other_user_id
+                          : (selectedConversation.data as GroupConversation).group_id === (conversation.data as GroupConversation).group_id);
+                      
+                      return (
+                        <motion.div
+                          key={`${conversation.type}-${conversation.type === 'private' ? (conversation.data as Conversation).other_user_id : (conversation.data as GroupConversation).group_id}`}
+                          layout
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -20 }}
+                          transition={{ 
+                            duration: 0.3, 
+                            delay: index * 0.05,
+                            layout: { duration: 0.4, ease: "easeInOut" }
+                          }}
+                          onClick={() => setSelectedConversation(conversation)}
+                          className={`p-3 rounded-lg cursor-pointer transition-all duration-300 ease-in-out ${
+                            isSelected
+                              ? 'bg-primary/10 border border-primary/20'
+                              : 'hover:bg-accent'
+                          }`}
+                        >
                         <div className="flex items-center gap-3">
                           <div 
                             onClick={(e) => handleConversationClick(conversation, e)}
@@ -391,9 +438,10 @@ export default function MessagesPage() {
                             {getLastMessageTime(conversation) && formatTime(getLastMessageTime(conversation))}
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
                 </div>
               )}
             </div>

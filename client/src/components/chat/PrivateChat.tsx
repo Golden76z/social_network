@@ -29,6 +29,9 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
   const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { sendMessage: sendWebSocketMessage, lastMessage, connectionStatus, socket, onlineUsers } = useWebSocketContext();
 
+  // Detect Firefox browser
+  const isFirefox = typeof window !== 'undefined' && /Firefox/.test(navigator.userAgent);
+
   useEffect(() => {
     loadMessages();
   }, [conversation.other_user_id]);
@@ -48,6 +51,10 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
 
   useEffect(() => {
     if (!lastMessage) return;
+
+    if (isFirefox) {
+      console.log('📤 Firefox detected - message processing:', lastMessage);
+    }
 
     if (lastMessage.type === 'private_message_ack') {
       const ackData = lastMessage.data as { body?: string; receiver_id?: number } | undefined;
@@ -185,6 +192,7 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation(); // Prevent event bubbling
     if (!input.trim() || sending) return;
 
     const messageContent = input.trim();
@@ -213,6 +221,11 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
           fallbackTimeoutRef.current = null;
         }
         return;
+      }
+
+      // Firefox-specific handling: Add small delay for WebSocket stability
+      if (isFirefox) {
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
 
       // Send via WebSocket only - backend handles DB save and broadcasting

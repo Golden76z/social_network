@@ -61,12 +61,18 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/home', request.url));
   }
   
-  // Redirect root to appropriate page based on auth status
+  // Handle root path - be less aggressive with redirects
   if (pathname === '/') {
+    // Only redirect to /home if user is authenticated AND has a valid session
+    // This prevents redirect loops during logout
     if (isAuthenticated) {
-      return NextResponse.redirect(new URL('/home', request.url));
+      // Check if the cookie has a valid value (not just present)
+      const token = request.cookies.get('jwt_token');
+      if (token && token.value && token.value !== '') {
+        return NextResponse.redirect(new URL('/home', request.url));
+      }
     }
-    // If not authenticated, show the public landing page (no redirect needed)
+    // If not authenticated or token is invalid, show the public landing page
   }
   
   return NextResponse.next();
