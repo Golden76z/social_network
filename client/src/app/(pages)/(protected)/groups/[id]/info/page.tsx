@@ -423,23 +423,32 @@ export default function GroupPage() {
         groupApi.getGroupInvitations(group.id)
       ]);
       
+      console.log('🔍 DEBUG - Group ID:', group.id);
+      console.log('🔍 DEBUG - Followers:', followers);
+      console.log('🔍 DEBUG - Group Members:', groupMembers);
+      console.log('🔍 DEBUG - Pending Invitations:', pendingInvitations);
+      
       // Create a set of existing member IDs to filter them out
       const memberIds = new Set(groupMembers.map((member: any) => member.user_id || member.id));
       
-      // Create a set of user IDs with pending invitations
+      // Create a set of user IDs with pending invitations FOR THIS SPECIFIC GROUP
       const pendingInvitationIds = new Set(
         (pendingInvitations as any[])
-          .filter((invitation: any) => invitation.status === 'pending')
+          .filter((invitation: any) => invitation.status === 'pending' && invitation.group_id === group.id)
           .map((invitation: any) => invitation.invited_user_id)
       );
+      
+      console.log('🔍 DEBUG - Member IDs:', Array.from(memberIds));
+      console.log('🔍 DEBUG - Pending Invitation IDs for this group:', Array.from(pendingInvitationIds));
       
       // Filter followers to exclude existing group members and users with pending invitations
       const invitableUsers = followers.filter(follower => 
         follower.id !== user.id && // Don't include the current user
         !memberIds.has(follower.id) && // Don't include existing members
-        !pendingInvitationIds.has(follower.id) // Don't include users with pending invitations
+        !pendingInvitationIds.has(follower.id) // Don't include users with pending invitations to THIS group
       );
       
+      console.log('🔍 DEBUG - Invitable Users:', invitableUsers);
       setMutualFollowers(invitableUsers);
     } catch (error) {
       console.error('Failed to get invitable users:', error);

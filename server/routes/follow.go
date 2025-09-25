@@ -10,6 +10,7 @@ func setupFollowRoutes(r *Router) {
 	r.GET("/api/user/follower", api.GetFollowerHandler)
 	r.GET("/api/user/following", api.GetFollowingHandler)
 	r.GET("/api/user/mutual-friends", api.GetMutualFriendsHandler)
+	r.GET("/api/user/followers-for-post", api.GetFollowersForPostCreationHandler)
 	r.PUT("/api/user/follow", api.UpdateFollowHandler)
 	r.DELETE("/api/user/follow", api.DeleteFollowHandler)
 

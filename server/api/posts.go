@@ -274,6 +274,121 @@ func DeletePostHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"message": "Post deleted successfully"})
 }
 
+// GetPostVisibilityHandler returns who can see a specific private post
+func GetPostVisibilityHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET method allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	postIDStr := utils.GetPathParam(r, "id")
+	postID, err := strconv.ParseInt(postIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify ownership
+	post, err := db.DBService.GetPostByID(postID, int64(currentUserID))
+	if err != nil {
+		http.Error(w, "Post not found", http.StatusNotFound)
+		return
+	}
+	if post.AuthorID != int64(currentUserID) {
+		http.Error(w, "You are not authorized to view this post's visibility settings", http.StatusForbidden)
+		return
+	}
+
+	// Get visibility users
+	userIDs, err := db.DBService.GetPostVisibilityUsers(postID)
+	if err != nil {
+		http.Error(w, "Error fetching post visibility", http.StatusInternalServerError)
+		return
+	}
+
+	// Get user details for each ID
+	var users []map[string]interface{}
+	for _, userID := range userIDs {
+		user, err := db.DBService.GetUserByID(userID)
+		if err != nil {
+			continue // Skip if user not found
+		}
+		users = append(users, map[string]interface{}{
+			"id":         user.ID,
+			"nickname":   user.Nickname,
+			"fullName":   fmt.Sprintf("%s %s", user.FirstName, user.LastName),
+			"first_name": user.FirstName,
+			"last_name":  user.LastName,
+			"avatar":     user.GetAvatar(),
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(users)
+}
+
+// UpdatePostVisibilityHandler updates who can see a specific private post
+func UpdatePostVisibilityHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "Only PUT method allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	postIDStr := utils.GetPathParam(r, "id")
+	postID, err := strconv.ParseInt(postIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify ownership
+	post, err := db.DBService.GetPostByID(postID, int64(currentUserID))
+	if err != nil {
+		http.Error(w, "Post not found", http.StatusNotFound)
+		return
+	}
+	if post.AuthorID != int64(currentUserID) {
+		http.Error(w, "You are not authorized to modify this post's visibility settings", http.StatusForbidden)
+		return
+	}
+
+	var req struct {
+		SelectedFollowers []int64 `json:"selected_followers"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Update post visibility
+	err = db.DBService.DeletePostVisibilityForPost(postID)
+	if err != nil {
+		http.Error(w, "Error updating post visibility", http.StatusInternalServerError)
+		return
+	}
+
+	err = db.DBService.CreatePostVisibilityForFollowers(postID, req.SelectedFollowers)
+	if err != nil {
+		http.Error(w, "Error updating post visibility", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "Post visibility updated successfully"})
+}
+
 // GetPublicPostsHandler handles getting posts for public access (no authentication required)
 func GetPublicPostsHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {

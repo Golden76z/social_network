@@ -4,10 +4,12 @@ import { useState, useEffect, useRef } from 'react';
 import { uploadPostImage } from '@/lib/api/upload';
 import { postApi } from '@/lib/api/post';
 import { groupApi } from '@/lib/api/group';
+import { userApi } from '@/lib/api/user';
 import { compressImageToJpeg } from '@/lib/utils';
 import { ImageModal } from '../media/ImageModal';
 import { EmojiPicker } from '../media/EmojiPicker';
-import { ImageIcon, X, Plus } from 'lucide-react';
+import { FollowerSelectionModal } from '../modals/FollowerSelectionModal';
+import { ImageIcon, X, Plus, Users, Lock } from 'lucide-react';
 import { animateModalClose } from '@/lib/utils/modalCloseAnimation';
 
 type LocalImage = { file: File; preview: string };
@@ -45,6 +47,11 @@ export function CreatePostModal({
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [visibility, setVisibility] = useState<'public' | 'private'>('public');
+  const [selectedFollowers, setSelectedFollowers] = useState<number[]>([]);
+  const [showFollowerModal, setShowFollowerModal] = useState(false);
+  const [followers, setFollowers] = useState<any[]>([]);
+  const [loadingFollowers, setLoadingFollowers] = useState(false);
   const backdropRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const maxImages = 4;
@@ -88,11 +95,31 @@ export function CreatePostModal({
     }
   };
 
+  const loadFollowers = async () => {
+    if (followers.length > 0) return; // Already loaded
+    
+    setLoadingFollowers(true);
+    try {
+      const followersData = await userApi.getFollowersForPost();
+      setFollowers(followersData);
+      // Auto-select all followers for private posts
+      if (visibility === 'private') {
+        setSelectedFollowers(followersData.map((f: any) => f.id));
+      }
+    } catch (error) {
+      console.error('Failed to load followers:', error);
+    } finally {
+      setLoadingFollowers(false);
+    }
+  };
+
   const resetForm = () => {
     images.forEach((i) => URL.revokeObjectURL(i.preview));
     setImages([]);
     setTitle(initialTitle);
     setContent(initialContent);
+    setVisibility('public');
+    setSelectedFollowers([]);
     setShowEmojiPicker(false);
   };
 
@@ -101,6 +128,15 @@ export function CreatePostModal({
     setTitle(initialTitle);
     setContent(initialContent);
   }, [initialTitle, initialContent]);
+
+  // Load followers when visibility changes to private
+  useEffect(() => {
+    if (visibility === 'private' && !isGroupPost) {
+      loadFollowers();
+    } else {
+      setSelectedFollowers([]);
+    }
+  }, [visibility, isGroupPost]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -146,7 +182,8 @@ export function CreatePostModal({
             title,
             body: content,
             images: imageUrls,
-            visibility: 'public',
+            visibility,
+            selected_followers: visibility === 'private' ? selectedFollowers : undefined,
           });
         }
       }
@@ -265,6 +302,65 @@ export function CreatePostModal({
               </div>
             </div>
 
+            {/* Visibility Selector - Only show for user posts, not group posts */}
+            {!isGroupPost && (
+              <div className="space-y-3">
+                <label className="block text-sm font-semibold text-foreground">
+                  Post Visibility
+                </label>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setVisibility('public')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all duration-200 ${
+                      visibility === 'public'
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground hover:border-primary/50'
+                    }`}
+                  >
+                    <Users className="w-4 h-4" />
+                    Public
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVisibility('private')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all duration-200 ${
+                      visibility === 'private'
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground hover:border-primary/50'
+                    }`}
+                  >
+                    <Lock className="w-4 h-4" />
+                    Private
+                  </button>
+                </div>
+                
+                {/* Follower Selection Button for Private Posts */}
+                {visibility === 'private' && (
+                  <div className="mt-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowFollowerModal(true)}
+                      disabled={loadingFollowers}
+                      className="flex items-center gap-2 px-4 py-2 text-sm border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
+                    >
+                      <Users className="w-4 h-4" />
+                      {loadingFollowers ? (
+                        'Loading followers...'
+                      ) : selectedFollowers.length > 0 ? (
+                        `${selectedFollowers.length} follower${selectedFollowers.length !== 1 ? 's' : ''} selected`
+                      ) : (
+                        'Select followers'
+                      )}
+                    </button>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Choose which of your followers can see this post
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Image Upload Section */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -302,7 +398,7 @@ export function CreatePostModal({
               {images.length > 0 && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {images.map((img, idx) => (
-                    <div key={idx} className="relative group">
+                    <div key={`img-${idx}-${img.preview}`} className="relative group">
                       <img
                         src={img.preview}
                         alt={`Preview ${idx + 1}`}
@@ -361,6 +457,15 @@ export function CreatePostModal({
         onClose={closeImageModal}
         onPrevious={() => navigateImage('prev')}
         onNext={() => navigateImage('next')}
+      />
+
+      {/* Follower Selection Modal */}
+      <FollowerSelectionModal
+        isOpen={showFollowerModal}
+        onClose={() => setShowFollowerModal(false)}
+        onConfirm={(selected) => setSelectedFollowers(selected)}
+        initialSelection={selectedFollowers}
+        followers={followers}
       />
     </div>
   );

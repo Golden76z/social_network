@@ -901,32 +901,34 @@ function ProfilePageContent() {
                   {/* Edit Mode Header with Privacy Switch */}
                   <div className="flex items-center justify-between pb-4 border-b border-purple-200/50 dark:border-purple-800/30">
                     <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                        <h3 className="text-lg font-semibold text-foreground">Edit Profile</h3>
-                      </div>
-                      
-                      {/* Privacy Switch */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">
-                          {formState.is_private ? 'Private' : 'Public'}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleChange('is_private', !formState.is_private)}
-                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
-                            formState.is_private 
-                              ? 'bg-purple-600' 
-                              : 'bg-gray-200 dark:bg-gray-700'
-                          }`}
-                        >
-                          <span
-                            className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-                              formState.is_private ? 'translate-x-5' : 'translate-x-1'
-                            }`}
-                          />
-                        </button>
-                      </div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-foreground">Edit Profile</h3>
+            </div>
+            
+            {/* Separator */}
+            <div className="h-6 w-px bg-purple-200 dark:bg-purple-800"></div>
+            
+            {/* Privacy Switch */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                {formState.is_private ? 'Private' : 'Public'}
+              </span>
+              <button
+                type="button"
+                onClick={() => handleChange('is_private', !formState.is_private)}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                  formState.is_private 
+                    ? 'bg-purple-600' 
+                    : 'bg-gray-200 dark:bg-gray-700'
+                }`}
+              >
+                <span
+                  className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                    formState.is_private ? 'translate-x-5' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
                     </div>
                     
                     {/* Photo Upload Button */}

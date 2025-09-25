@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { User } from '@/lib/types/user';
-import { chatAPI } from '@/lib/api/chat';
+import { userApi } from '@/lib/api/user';
+import { useAuth } from '@/context/AuthProvider';
 
 interface NewConversationModalProps {
   isOpen: boolean;
@@ -16,12 +17,13 @@ export function NewConversationModal({ isOpen, onClose, onUserSelect }: NewConve
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const modalRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
-    if (isOpen) {
-      loadMessageableUsers();
+    if (isOpen && user) {
+      loadMutualFriends();
     }
-  }, [isOpen]);
+  }, [isOpen, user]);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -47,16 +49,18 @@ export function NewConversationModal({ isOpen, onClose, onUserSelect }: NewConve
     };
   }, [isOpen, onClose]);
 
-  const loadMessageableUsers = async () => {
+  const loadMutualFriends = async () => {
+    if (!user) return;
+    
     try {
       setLoading(true);
       setError(null);
-      const data = await chatAPI.getMessageableUsers();
-      console.log('🔍 getMessageableUsers response:', data);
+      const data = await userApi.getMutualFriends(user.id);
+      console.log('🔍 getMutualFriends response:', data);
       console.log('🔍 First user in response:', data[0]);
       setUsers(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load users');
+      setError(err instanceof Error ? err.message : 'Failed to load mutual friends');
       setUsers([]);
     } finally {
       setLoading(false);
@@ -91,52 +95,64 @@ export function NewConversationModal({ isOpen, onClose, onUserSelect }: NewConve
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-      <div ref={modalRef} className="bg-white rounded-lg max-w-md w-full max-h-[80vh] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold">Start New Conversation</h2>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-300">
+      <div ref={modalRef} className="bg-card border border-border rounded-xl p-6 max-w-md w-full max-h-[80vh] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+              <span className="text-2xl">💬</span>
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Start New Conversation</h2>
+              <p className="text-sm text-muted-foreground">Choose a mutual friend to message</p>
+            </div>
+          </div>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-full text-gray-500 hover:text-gray-700"
+            className="p-2 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition-colors"
           >
             ✕
           </button>
         </div>
         
-        <div className="p-4 border-b">
+        <div className="mb-4">
           <input
             type="text"
-            placeholder="Search users..."
+            placeholder="Search mutual friends..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full border border-border rounded-lg px-3 py-2 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           />
         </div>
         
-        <div className="overflow-y-auto max-h-[50vh] p-4">
+        <div className="overflow-y-auto max-h-[50vh]">
           {loading ? (
             <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-              <p className="text-gray-500 mt-2">Loading users...</p>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="text-muted-foreground mt-2">Loading mutual friends...</p>
             </div>
           ) : error ? (
             <div className="text-center py-8">
-              <p className="text-red-600 mb-4">{error}</p>
+              <p className="text-destructive mb-4">{error}</p>
               <button
-                onClick={loadMessageableUsers}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                onClick={loadMutualFriends}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
               >
                 Retry
               </button>
             </div>
           ) : filteredUsers.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-500">
-                {searchTerm ? 'No users found matching your search.' : 'No users available to message.'}
+              <div className="text-4xl mb-4">👥</div>
+              <p className="text-muted-foreground">
+                {searchTerm ? 'No mutual friends found matching your search.' : 'No mutual friends available to message.'}
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Mutual friends are users who follow you and whom you follow back.
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {filteredUsers.map((user) => (
                 <div
                   key={user.id}
@@ -146,27 +162,37 @@ export function NewConversationModal({ isOpen, onClose, onUserSelect }: NewConve
                     onUserSelect(user);
                     onClose();
                   }}
-                  className="flex items-center space-x-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors"
+                  className="flex items-center gap-3 p-3 hover:bg-accent rounded-lg cursor-pointer transition-colors group"
                 >
-                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
+                  <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-primary/10 rounded-full flex items-center justify-center text-primary font-medium flex-shrink-0">
                     {user.avatar && typeof user.avatar === 'string' ? (
                       <img
                         src={user.avatar}
                         alt={getDisplayName(user)}
                         className="w-full h-full rounded-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                        }}
                       />
-                    ) : (
-                      getInitials(user)
-                    )}
+                    ) : null}
+                    <div className={`w-full h-full rounded-full flex items-center justify-center text-primary font-medium ${user.avatar && typeof user.avatar === 'string' ? 'hidden' : ''}`}>
+                      {getInitials(user)}
+                    </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm truncate">{getDisplayName(user)}</p>
-                    <p className="text-xs text-gray-500 truncate">@{user.nickname}</p>
-                    {user.is_private && (
-                      <span className="inline-block mt-1 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
-                        Private
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-sm truncate text-foreground">{getDisplayName(user)}</p>
+                      {user.is_private && (
+                        <span className="inline-block px-2 py-0.5 text-xs bg-orange-100 text-orange-600 rounded-full">
+                          Private
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">@{user.nickname}</p>
+                  </div>
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="w-2 h-2 rounded-full bg-primary"></div>
                   </div>
                 </div>
               ))}

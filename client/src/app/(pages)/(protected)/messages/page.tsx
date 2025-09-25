@@ -56,8 +56,12 @@ export default function MessagesPage() {
 
   // Handle real-time message updates
   useEffect(() => {
-    if ((lastMessage?.type === 'private_message' || lastMessage?.type === 'group_message') && user) {
+    if (!lastMessage || !user) return;
+
+    if (lastMessage.type === 'private_message' || lastMessage.type === 'group_message') {
       handleNewMessage(lastMessage);
+    } else if (lastMessage.type === 'private_message_ack' || lastMessage.type === 'group_message_ack') {
+      handleMessageAck(lastMessage);
     }
   }, [lastMessage, user]);
 
@@ -94,6 +98,64 @@ export default function MessagesPage() {
     }
   };
 
+  const handleMessageAck = useCallback((message: any) => {
+    if (!user) return;
+
+    if (message.type === 'private_message_ack') {
+      const ackData = message.data as any;
+      const receiverId = ackData?.receiver_id;
+      
+      if (receiverId && (receiverId === user.id || ackData.sender_id === user.id)) {
+        // Update conversations list with the acknowledged message
+        setUnifiedConversations(prev => {
+          return prev.map(conv => {
+            if (conv.type === 'private') {
+              const otherUserId = ackData.sender_id === user.id ? receiverId : ackData.sender_id;
+              if (conv.data.other_user_id === otherUserId) {
+                return {
+                  ...conv,
+                  data: {
+                    ...conv.data,
+                    last_message: ackData.body || message.content || '',
+                    last_message_time: message.timestamp,
+                  }
+                };
+              }
+            }
+            return conv;
+          }).sort((a, b) => {
+            const aTime = a.type === 'private' ? a.data.last_message_time : a.data.last_message_time;
+            const bTime = b.type === 'private' ? b.data.last_message_time : b.data.last_message_time;
+            return new Date(bTime || 0).getTime() - new Date(aTime || 0).getTime();
+          });
+        });
+      }
+    } else if (message.type === 'group_message_ack') {
+      const groupId = message.group_id;
+      
+      // Update conversations list with the acknowledged message
+      setUnifiedConversations(prev => {
+        return prev.map(conv => {
+          if (conv.type === 'group' && conv.data.group_id.toString() === groupId) {
+            return {
+              ...conv,
+              data: {
+                ...conv.data,
+                last_message: message.content || '',
+                last_message_time: message.timestamp,
+              }
+            };
+          }
+          return conv;
+        }).sort((a, b) => {
+          const aTime = a.type === 'private' ? a.data.last_message_time : a.data.last_message_time;
+          const bTime = b.type === 'private' ? b.data.last_message_time : b.data.last_message_time;
+          return new Date(bTime || 0).getTime() - new Date(aTime || 0).getTime();
+        });
+      });
+    }
+  }, [user]);
+
   const handleNewMessage = useCallback((message: any) => {
     if (!user) return;
 
@@ -104,30 +166,54 @@ export default function MessagesPage() {
 
       // Check if this message is for the current user
       if (receiverId === user.id || senderId === user.id) {
+        const otherUserId = senderId === user.id ? receiverId : senderId;
+        
         // Update conversations list without reloading all conversations
         setUnifiedConversations(prev => {
-          return prev.map(conv => {
-            if (conv.type === 'private' && conv.data.other_user_id === (senderId === user.id ? receiverId : senderId)) {
-              return {
-                ...conv,
-                data: {
-                  ...conv.data,
-                  last_message: message.content || '',
-                  last_message_time: message.timestamp,
-                }
-              };
-            }
-            return conv;
-          }).sort((a, b) => {
-            const aTime = a.type === 'private' ? a.data.last_message_time : a.data.last_message_time;
-            const bTime = b.type === 'private' ? b.data.last_message_time : b.data.last_message_time;
-            return new Date(bTime || 0).getTime() - new Date(aTime || 0).getTime();
-          });
+          // Check if conversation already exists
+          const existingConvIndex = prev.findIndex(conv => 
+            conv.type === 'private' && conv.data.other_user_id === otherUserId
+          );
+          
+          if (existingConvIndex !== -1) {
+            // Update existing conversation
+            return prev.map(conv => {
+              if (conv.type === 'private' && conv.data.other_user_id === otherUserId) {
+                return {
+                  ...conv,
+                  data: {
+                    ...conv.data,
+                    last_message: message.content || '',
+                    last_message_time: message.timestamp,
+                  }
+                };
+              }
+              return conv;
+            }).sort((a, b) => {
+              const aTime = a.type === 'private' ? a.data.last_message_time : a.data.last_message_time;
+              const bTime = b.type === 'private' ? b.data.last_message_time : b.data.last_message_time;
+              return new Date(bTime || 0).getTime() - new Date(aTime || 0).getTime();
+            });
+          } else {
+            // Create new conversation if it doesn't exist (this shouldn't happen with our fix, but as fallback)
+            const newConversation: Conversation = {
+              other_user_id: otherUserId,
+              other_user_nickname: message.username || 'Unknown',
+              other_user_first_name: '',
+              other_user_last_name: '',
+              other_user_avatar: '',
+              other_user_is_private: false,
+              last_message: message.content || '',
+              last_message_time: message.timestamp,
+            };
+            
+            const newUnifiedConversation = { type: 'private' as const, data: newConversation };
+            return [newUnifiedConversation, ...prev];
+          }
         });
 
         // Update selected conversation if it matches
         if (selectedConversation?.type === 'private') {
-          const otherUserId = senderId === user.id ? receiverId : senderId;
           if (selectedConversation.data.other_user_id === otherUserId) {
             setSelectedConversation(prev => {
               if (!prev || prev.type !== 'private') return prev;
@@ -262,6 +348,16 @@ export default function MessagesPage() {
         last_message_time: new Date().toISOString(),
       };
 
+      // Add the new conversation to the conversations list immediately
+      setUnifiedConversations(prev => {
+        const newUnifiedConversation = { type: 'private' as const, data: newConversation };
+        // Add to the beginning of the list (most recent)
+        return [newUnifiedConversation, ...prev];
+      });
+
+      // Also add to private conversations list
+      setPrivateConversations(prev => [newConversation, ...prev]);
+
       setSelectedConversation({ type: 'private', data: newConversation });
     }
   };
@@ -289,7 +385,7 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="flex flex-col pt-4">
+    <div className="flex flex-col pt-4 h-full">
 
       {error && (
         <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 text-destructive text-sm mb-4 flex-shrink-0">
@@ -303,7 +399,7 @@ export default function MessagesPage() {
         </div>
       )}
 
-      <div className="grid lg:grid-cols-3 gap-4 flex-1 min-h-0">
+      <div className="grid lg:grid-cols-4 gap-4 flex-1 min-h-0 h-full">
         {/* Conversations List */}
         <div className="lg:col-span-1">
           <div className="h-full border border-border rounded-lg bg-card flex flex-col">
@@ -407,7 +503,7 @@ export default function MessagesPage() {
         </div>
 
         {/* Chat Area */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-3 h-full">
           <div className="h-full border border-border rounded-lg bg-card">
             {selectedConversation ? (
               selectedConversation.type === 'private' ? (
