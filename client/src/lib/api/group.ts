@@ -189,6 +189,29 @@ export const groupApi = {
     });
   },
 
+  // ===== GROUP INVITATIONS =====
+
+  createGroupInvitation: (data: { group_id: number; user_id: number }) => {
+    return apiClient.post('/api/group/invitation', data);
+  },
+
+  getGroupInvitations: (groupId: string | number) => {
+    return apiClient.get(`/api/group/invitation?group_id=${groupId}`);
+  },
+
+  updateGroupInvitation: (invitationId: string | number, status: 'accepted' | 'declined') => {
+    return apiClient.put('/api/group/invitation', { id: invitationId, status });
+  },
+
+  deleteGroupInvitation: (invitationId: string | number) => {
+    return apiClient.delete('/api/group/invitation', {
+      body: JSON.stringify({ id: invitationId }),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+  },
+
   // ===== RSVP =====
 
   getEventRSVPs: (eventId: string | number) => {
