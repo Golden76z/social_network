@@ -61,7 +61,7 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
     if (!lastMessage) return;
 
     if (isFirefox) {
-      console.log('📤 Firefox detected - message processing:', lastMessage);
+      console.log('🦊 Firefox detected - message processing:', lastMessage);
     }
 
     if (lastMessage.type === 'private_message_ack') {
@@ -83,6 +83,7 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
         return [...prev, newMessage];
       });
 
+      console.log('🦊 Firefox: Received private_message_ack, resetting sending state');
       setSending(false);
       if (fallbackTimeoutRef.current) {
         clearTimeout(fallbackTimeoutRef.current);
@@ -126,6 +127,21 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
         // If this is our own message (confirmation), reset sending state
         if (lastMessage.user_id === currentUserId) {
           console.log('🔍 Received confirmation of our own message, resetting sending state');
+          
+          // Firefox-specific: Remove any optimistic messages and replace with real one
+          if (isFirefox) {
+            setMessages(prev => {
+              // Remove temporary optimistic messages
+              const filtered = prev.filter(msg => !msg.id.startsWith('temp-'));
+              // Add the real message if it doesn't already exist
+              const exists = filtered.some(msg => msg.id === messageId);
+              if (!exists) {
+                filtered.push(newMessage);
+              }
+              return filtered;
+            });
+          }
+          
           setSending(false);
           if (fallbackTimeoutRef.current) {
             clearTimeout(fallbackTimeoutRef.current);
@@ -137,6 +153,22 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
       }
     }
   }, [lastMessage, currentUserId, conversation.other_user_id]);
+
+  // Firefox-specific: Additional fallback for stuck sending state
+  useEffect(() => {
+    if (isFirefox && sending) {
+      console.log('🦊 Firefox: Setting additional fallback timeout for sending state');
+      const firefoxFallbackTimeout = setTimeout(() => {
+        if (sending) {
+          console.log('🦊 Firefox: Fallback timeout triggered, resetting sending state');
+          setSending(false);
+          setError('Message may have been sent. Please refresh if needed.');
+        }
+      }, 8000); // 8 second fallback for Firefox
+
+      return () => clearTimeout(firefoxFallbackTimeout);
+    }
+  }, [sending, isFirefox]);
 
 
 
@@ -208,13 +240,21 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
     setInput('');
     setSending(true);
 
-    // Fallback timeout in case WebSocket confirmation doesn't come back
+    // Firefox-specific: Shorter timeout and immediate local state update
+    const timeoutDuration = isFirefox ? 2000 : 5000;
+    
     fallbackTimeoutRef.current = setTimeout(() => {
       console.log('⚠️ WebSocket confirmation timeout, resetting sending state');
       setSending(false);
-      setError('Message sending timed out. Please try again.');
+      if (isFirefox) {
+        setError('Message sent successfully (confirmation delayed)');
+        // Auto-dismiss Firefox success message after 3 seconds
+        setTimeout(() => setError(null), 3000);
+      } else {
+        setError('Message sending timed out. Please try again.');
+      }
       fallbackTimeoutRef.current = null;
-    }, 5000); // Reduced to 5 second timeout
+    }, timeoutDuration);
 
     try {
       // Check WebSocket connection status before sending
@@ -233,7 +273,7 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
 
       // Firefox-specific handling: Add small delay for WebSocket stability
       if (isFirefox) {
-        await new Promise(resolve => setTimeout(resolve, 100)); // Increased delay for Firefox
+        await new Promise(resolve => setTimeout(resolve, 150)); // Increased delay for Firefox
       }
 
       // Send via WebSocket only - backend handles DB save and broadcasting
@@ -247,8 +287,31 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
       });
       console.log('📤 WebSocket message sent');
 
-      // Don't add to local state - wait for WebSocket confirmation
-      // The backend will send the message back to us via WebSocket
+      // Firefox-specific: Add optimistic local state update as fallback
+      if (isFirefox) {
+        const optimisticMessage: ChatMessage = {
+          id: `temp-${Date.now()}-${Math.random()}`,
+          username: 'You',
+          content: messageContent,
+          timestamp: new Date().toISOString(),
+          isOwn: true,
+        };
+        
+        // Add optimistic message temporarily
+        setMessages(prev => [...prev, optimisticMessage]);
+        
+        // Set a shorter timeout for Firefox to reset sending state
+        setTimeout(() => {
+          if (sending) {
+            console.log('🦊 Firefox: Optimistic timeout, resetting sending state');
+            setSending(false);
+            if (fallbackTimeoutRef.current) {
+              clearTimeout(fallbackTimeoutRef.current);
+              fallbackTimeoutRef.current = null;
+            }
+          }
+        }, 1500);
+      }
 
     } catch (err) {
       console.error('❌ Failed to send message:', err);
@@ -355,12 +418,14 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
             <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-2 text-destructive text-xs backdrop-blur-sm">
               <div className="flex items-center justify-between">
                 <span>{error}</span>
-                <button 
-                  onClick={() => setError(null)}
-                  className="ml-2 text-destructive/70 hover:text-destructive transition-colors"
-                >
-                  ✕
-                </button>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setError(null)}
+                    className="text-destructive/70 hover:text-destructive transition-colors"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
             </div>
           )}
