@@ -62,6 +62,7 @@ export default function GroupPage() {
   const [loadingMutualFollowers, setLoadingMutualFollowers] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<Set<number>>(new Set());
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [inviteSuccessMessage, setInviteSuccessMessage] = useState<string | null>(null);
   const [leavingGroup, setLeavingGroup] = useState(false);
   const [groupRequests, setGroupRequests] = useState<any[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
@@ -74,6 +75,10 @@ export default function GroupPage() {
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [eventRSVPs, setEventRSVPs] = useState<Map<number, any[]>>(new Map());
+  
+  // Computed values
+  const activeEvents = events.filter(event => new Date(event.event_datetime) >= new Date());
+  const activeEventsCount = activeEvents.length;
   
   // Modal states
   const [showCreatePostModal, setShowCreatePostModal] = useState(false);
@@ -191,7 +196,7 @@ export default function GroupPage() {
     }
   }, [groupId, user]);
 
-  // Load posts and events when active tab changes
+  // Load posts and events when user becomes a member or tab changes
   useEffect(() => {
     if (isMember && groupId) {
       if (activeTab === 'posts') {
@@ -201,6 +206,13 @@ export default function GroupPage() {
       }
     }
   }, [activeTab, isMember, groupId]);
+
+  // Load events immediately when user becomes a member (for stats display)
+  useEffect(() => {
+    if (isMember && groupId) {
+      loadEvents();
+    }
+  }, [isMember, groupId]);
 
   // Handle escape key for modals
   useEffect(() => {
@@ -398,27 +410,39 @@ export default function GroupPage() {
     setAvatarFile(null);
   };
 
-  const getMutualFollowers = async () => {
-    if (!user) return;
+  const getInvitableUsers = async () => {
+    if (!user || !group) return;
     
     try {
       setLoadingMutualFollowers(true);
       
-      // Get followers and following lists
-      const [followers, following] = await Promise.all([
+      // Get followers list, current group members, and pending invitations
+      const [followers, groupMembers, pendingInvitations] = await Promise.all([
         userApi.getFollowers(user.id),
-        userApi.getFollowing(user.id)
+        groupApi.getGroupMembers(group.id),
+        groupApi.getGroupInvitations(group.id)
       ]);
       
-      // Find mutual followers (users who follow you and you follow back)
-      const followersSet = new Set(followers.map(f => f.id));
-      const mutual = following.filter(followingUser => 
-        followersSet.has(followingUser.id)
+      // Create a set of existing member IDs to filter them out
+      const memberIds = new Set(groupMembers.map((member: any) => member.user_id || member.id));
+      
+      // Create a set of user IDs with pending invitations
+      const pendingInvitationIds = new Set(
+        (pendingInvitations as any[])
+          .filter((invitation: any) => invitation.status === 'pending')
+          .map((invitation: any) => invitation.invited_user_id)
       );
       
-      setMutualFollowers(mutual);
+      // Filter followers to exclude existing group members and users with pending invitations
+      const invitableUsers = followers.filter(follower => 
+        follower.id !== user.id && // Don't include the current user
+        !memberIds.has(follower.id) && // Don't include existing members
+        !pendingInvitationIds.has(follower.id) // Don't include users with pending invitations
+      );
+      
+      setMutualFollowers(invitableUsers);
     } catch (error) {
-      console.error('Failed to get mutual followers:', error);
+      console.error('Failed to get invitable users:', error);
       setMutualFollowers([]);
     } finally {
       setLoadingMutualFollowers(false);
@@ -427,7 +451,7 @@ export default function GroupPage() {
 
   const handleInvite = () => {
     setShowInviteModal(true);
-    getMutualFollowers();
+    getInvitableUsers();
   };
 
   const handleUserSelection = (userId: number) => {
@@ -443,19 +467,28 @@ export default function GroupPage() {
   };
 
   const handleSendInvitations = async () => {
-    if (selectedUsers.size === 0) return;
+    if (selectedUsers.size === 0 || !group) return;
     
     try {
-      // TODO: Implement group invitation API
-      console.log('Sending invitations to:', Array.from(selectedUsers));
+      const invitationPromises = Array.from(selectedUsers).map(userId => 
+        groupApi.createGroupInvitation({ group_id: group.id, user_id: userId })
+      );
       
-      // For now, just show success message
-      alert(`Invitations sent to ${selectedUsers.size} user(s)!`);
-      setSelectedUsers(new Set());
-      setShowInviteModal(false);
+      await Promise.all(invitationPromises);
+      
+      // Show success message in modal
+      setInviteSuccessMessage(`Invitations sent to ${selectedUsers.size} user(s)!`);
+      
+      // Clear selection and close modal after a delay
+      setTimeout(() => {
+        setSelectedUsers(new Set());
+        setShowInviteModal(false);
+        setInviteSuccessMessage(null);
+      }, 2000);
     } catch (error) {
       console.error('Failed to send invitations:', error);
-      alert('Failed to send invitations. Please try again.');
+      setInviteSuccessMessage('Failed to send invitations. Please try again.');
+      setTimeout(() => setInviteSuccessMessage(null), 3000);
     }
   };
 
@@ -522,7 +555,15 @@ export default function GroupPage() {
       setLoadingEvents(true);
       const eventsData = await groupApi.getGroupEvents(groupId);
       const eventsArray = Array.isArray(eventsData) ? eventsData : [];
-      setEvents(eventsArray);
+      
+      // Sort events from newest to oldest by event_datetime
+      const sortedEvents = eventsArray.sort((a, b) => {
+        const dateA = new Date(a.event_datetime);
+        const dateB = new Date(b.event_datetime);
+        return dateB.getTime() - dateA.getTime(); // Newest first
+      });
+      
+      setEvents(sortedEvents);
       
       // Load RSVPs for each event
       const rsvpPromises = eventsArray.map(async (event) => {
@@ -1115,7 +1156,7 @@ export default function GroupPage() {
               <div className="text-sm text-muted-foreground">Posts</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold">{events.length}</div>
+              <div className="text-2xl font-bold">{activeEventsCount}</div>
               <div className="text-sm text-muted-foreground">Events</div>
             </div>
           </div>
@@ -1145,7 +1186,7 @@ export default function GroupPage() {
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                Events
+                Events ({activeEventsCount})
               </button>
             </div>
 
@@ -1240,7 +1281,7 @@ export default function GroupPage() {
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold flex items-center gap-2">
                     <Calendar className="w-5 h-5" />
-                    Events ({events.length})
+                    Events ({activeEventsCount})
                   </h3>
                   <button 
                     onClick={() => setShowCreateEventModal(true)}
@@ -1270,8 +1311,12 @@ export default function GroupPage() {
                       return (
                         <div 
                           key={event.id} 
-                          className="group relative bg-gradient-to-br from-card to-card/50 border border-border/50 rounded-xl p-6 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 hover:border-primary/20 cursor-pointer"
-                          onClick={() => handleShowRSVPModal(event)}
+                          className={`group relative bg-gradient-to-br from-card to-card/50 border border-border/50 rounded-xl p-6 transition-all duration-300 ${
+                            isPastEvent 
+                              ? 'opacity-50 cursor-not-allowed' 
+                              : 'hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20 cursor-pointer'
+                          }`}
+                          onClick={() => !isPastEvent && handleShowRSVPModal(event)}
                         >
                           {/* Event Header */}
                           <div className="flex items-start justify-between mb-4">
@@ -1292,7 +1337,7 @@ export default function GroupPage() {
                                 </div>
                               </div>
                             </div>
-                            {((user && event.creator_id === user.id) || isAdmin) && (
+                            {((user && event.creator_id === user.id) || isAdmin) && !isPastEvent && (
                               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 {(user && event.creator_id === user.id) && (
                                   <button 
@@ -1317,6 +1362,11 @@ export default function GroupPage() {
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </button>
+                              </div>
+                            )}
+                            {isPastEvent && (
+                              <div className="px-2 py-1 bg-destructive/10 text-destructive text-xs rounded-full">
+                                Past Event
                               </div>
                             )}
                           </div>
@@ -1367,115 +1417,145 @@ export default function GroupPage() {
                                 <span className="text-muted-foreground">Not Going</span>
                               </div>
                             </div>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleShowRSVPModal(event);
-                              }}
-                              className="flex items-center gap-2 px-3 py-1.5 text-sm text-primary hover:text-primary-foreground hover:bg-primary rounded-lg transition-colors"
-                            >
-                              <Users2 className="w-4 h-4" />
-                              View All ({rsvps.length})
-                            </button>
-                          </div>
-                          
-                          {/* RSVP Actions */}
-                          <div className="flex gap-2">
-                            {userRSVP ? (
-                              <div className="flex gap-2 flex-wrap">
-                                <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 text-primary rounded-lg text-sm font-medium">
-                                  {userRSVP.status === 'come' ? (
-                                    <>
-                                      <CheckCircle className="w-4 h-4" />
-                                      Going
-                                    </>
-                                  ) : userRSVP.status === 'interested' ? (
-                                    <>
-                                      <AlertCircle className="w-4 h-4" />
-                                      Maybe
-                                    </>
-                                  ) : (
-                                    <>
-                                      <XCircle className="w-4 h-4" />
-                                      Not Going
-                                    </>
-                                  )}
-                                </div>
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleUpdateRSVP(userRSVP.id, 'come');
-                                  }}
-                                  className="flex items-center gap-1 px-3 py-2 bg-green-500/80 text-white rounded-lg text-sm hover:bg-green-500 transition-colors"
-                                >
-                                  <CheckCircle className="w-4 h-4" />
-                                  Going
-                                </button>
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleUpdateRSVP(userRSVP.id, 'interested');
-                                  }}
-                                  className="flex items-center gap-1 px-3 py-2 bg-yellow-500/80 text-white rounded-lg text-sm hover:bg-yellow-500 transition-colors"
-                                >
-                                  <AlertCircle className="w-4 h-4" />
-                                  Maybe
-                                </button>
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleUpdateRSVP(userRSVP.id, 'not_come');
-                                  }}
-                                  className="flex items-center gap-1 px-3 py-2 bg-red-500/80 text-white rounded-lg text-sm hover:bg-red-500 transition-colors"
-                                >
-                                  <XCircle className="w-4 h-4" />
-                                  Not Going
-                                </button>
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleCancelRSVP(userRSVP.id);
-                                  }}
-                                  className="px-3 py-2 border border-border text-muted-foreground rounded-lg text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex gap-2 flex-wrap">
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRSVP(event.id, 'come');
-                                  }}
-                                  className="flex items-center gap-1 px-3 py-2 bg-green-500/80 text-white rounded-lg text-sm hover:bg-green-500 transition-colors"
-                                >
-                                  <CheckCircle className="w-4 h-4" />
-                                  Going
-                                </button>
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRSVP(event.id, 'interested');
-                                  }}
-                                  className="flex items-center gap-1 px-3 py-2 bg-yellow-500/80 text-white rounded-lg text-sm hover:bg-yellow-500 transition-colors"
-                                >
-                                  <AlertCircle className="w-4 h-4" />
-                                  Maybe
-                                </button>
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRSVP(event.id, 'not_come');
-                                  }}
-                                  className="flex items-center gap-1 px-3 py-2 bg-red-500/80 text-white rounded-lg text-sm hover:bg-red-500 transition-colors"
-                                >
-                                  <XCircle className="w-4 h-4" />
-                                  Not Going
-                                </button>
+                            {!isPastEvent && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleShowRSVPModal(event);
+                                }}
+                                className="flex items-center gap-2 px-3 py-1.5 text-sm text-primary hover:text-primary-foreground hover:bg-primary rounded-lg transition-colors"
+                              >
+                                <Users2 className="w-4 h-4" />
+                                View All ({rsvps.length})
+                              </button>
+                            )}
+                            {isPastEvent && (
+                              <div className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground">
+                                <Users2 className="w-4 h-4" />
+                                {rsvps.length} Participants
                               </div>
                             )}
                           </div>
+                          
+                          {/* RSVP Actions */}
+                          {!isPastEvent && (
+                            <div className="flex gap-2">
+                              {userRSVP ? (
+                                <div className="flex gap-2 flex-wrap">
+                                  <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 text-primary rounded-lg text-sm font-medium">
+                                    {userRSVP.status === 'come' ? (
+                                      <>
+                                        <CheckCircle className="w-4 h-4" />
+                                        Going
+                                      </>
+                                    ) : userRSVP.status === 'interested' ? (
+                                      <>
+                                        <AlertCircle className="w-4 h-4" />
+                                        Maybe
+                                      </>
+                                    ) : (
+                                      <>
+                                        <XCircle className="w-4 h-4" />
+                                        Not Going
+                                      </>
+                                    )}
+                                  </div>
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleUpdateRSVP(userRSVP.id, 'come');
+                                    }}
+                                    className="flex items-center gap-1 px-3 py-2 bg-green-500/80 text-white rounded-lg text-sm hover:bg-green-500 transition-colors"
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                    Going
+                                  </button>
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleUpdateRSVP(userRSVP.id, 'interested');
+                                    }}
+                                    className="flex items-center gap-1 px-3 py-2 bg-yellow-500/80 text-white rounded-lg text-sm hover:bg-yellow-500 transition-colors"
+                                  >
+                                    <AlertCircle className="w-4 h-4" />
+                                    Maybe
+                                  </button>
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleUpdateRSVP(userRSVP.id, 'not_come');
+                                    }}
+                                    className="flex items-center gap-1 px-3 py-2 bg-red-500/80 text-white rounded-lg text-sm hover:bg-red-500 transition-colors"
+                                  >
+                                    <XCircle className="w-4 h-4" />
+                                    Not Going
+                                  </button>
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCancelRSVP(userRSVP.id);
+                                    }}
+                                    className="px-3 py-2 border border-border text-muted-foreground rounded-lg text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex gap-2 flex-wrap">
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRSVP(event.id, 'come');
+                                    }}
+                                    className="flex items-center gap-1 px-3 py-2 bg-green-500/80 text-white rounded-lg text-sm hover:bg-green-500 transition-colors"
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                    Going
+                                  </button>
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRSVP(event.id, 'interested');
+                                    }}
+                                    className="flex items-center gap-1 px-3 py-2 bg-yellow-500/80 text-white rounded-lg text-sm hover:bg-yellow-500 transition-colors"
+                                  >
+                                    <AlertCircle className="w-4 h-4" />
+                                    Maybe
+                                  </button>
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRSVP(event.id, 'not_come');
+                                    }}
+                                    className="flex items-center gap-1 px-3 py-2 bg-red-500/80 text-white rounded-lg text-sm hover:bg-red-500 transition-colors"
+                                  >
+                                    <XCircle className="w-4 h-4" />
+                                    Not Going
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {isPastEvent && userRSVP && (
+                            <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 text-muted-foreground rounded-lg text-sm">
+                              {userRSVP.status === 'come' ? (
+                                <>
+                                  <CheckCircle className="w-4 h-4" />
+                                  You were going
+                                </>
+                              ) : userRSVP.status === 'interested' ? (
+                                <>
+                                  <AlertCircle className="w-4 h-4" />
+                                  You were interested
+                                </>
+                              ) : (
+                                <>
+                                  <XCircle className="w-4 h-4" />
+                                  You were not going
+                                </>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -1485,7 +1565,7 @@ export default function GroupPage() {
                           onClick={() => router.push(`/groups/${group.id}/events`)}
                           className="px-8 py-3 bg-gradient-to-r from-primary/80 to-primary/60 text-primary-foreground rounded-xl hover:from-primary hover:to-primary/80 transition-all duration-300 shadow-lg hover:shadow-primary/25 font-medium"
                         >
-                          View All Events ({events.length})
+                          View All Events ({activeEventsCount})
                         </button>
                       </div>
                     )}
@@ -1572,10 +1652,11 @@ export default function GroupPage() {
             if (e.target === e.currentTarget) {
               setShowInviteModal(false);
               setSelectedUsers(new Set());
+              setInviteSuccessMessage(null);
             }
           }}
         >
-          <div className="bg-card border border-border rounded-lg p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto">
+          <div className="bg-card border border-border rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
                 <UserCheck className="w-5 h-5" />
@@ -1585,6 +1666,7 @@ export default function GroupPage() {
                 onClick={() => {
                   setShowInviteModal(false);
                   setSelectedUsers(new Set());
+                  setInviteSuccessMessage(null);
                 }}
                 className="text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-accent transition-colors"
               >
@@ -1592,17 +1674,38 @@ export default function GroupPage() {
               </button>
             </div>
             
-            <div className="space-y-4">
-              {/* Mutual Followers Section */}
+            {/* Success/Error Message */}
+            {inviteSuccessMessage && (
+              <div className={`p-4 rounded-lg text-sm ${
+                inviteSuccessMessage.includes('Failed') 
+                  ? 'bg-destructive/10 border border-destructive/20 text-destructive' 
+                  : 'bg-green-500/10 border border-green-500/20 text-green-600'
+              }`}>
+                <div className="flex items-center gap-2">
+                  {inviteSuccessMessage.includes('Failed') ? (
+                    <span className="text-destructive">⚠️</span>
+                  ) : (
+                    <span className="text-green-600">✅</span>
+                  )}
+                  {inviteSuccessMessage}
+                </div>
+              </div>
+            )}
+            
+            <div className={`space-y-4 ${inviteSuccessMessage ? 'pb-6' : ''}`}>
+              {/* Followers Section */}
               <div>
                 <h4 className="text-sm font-medium text-foreground mb-3">
-                  Invite Mutual Followers ({mutualFollowers.length})
+                  Invite Followers ({mutualFollowers.length})
                 </h4>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Select followers to invite to this group. Existing members and users with pending invitations are not shown.
+                </p>
                 
                 {loadingMutualFollowers ? (
                   <div className="text-center py-4">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
-                    <p className="text-sm text-muted-foreground">Loading mutual followers...</p>
+                    <p className="text-sm text-muted-foreground">Loading followers...</p>
                   </div>
                 ) : mutualFollowers.length > 0 ? (
                   <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -1644,8 +1747,8 @@ export default function GroupPage() {
                 ) : (
                   <div className="text-center py-4 text-muted-foreground">
                     <UserCheck className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No mutual followers found</p>
-                    <p className="text-xs">Follow more people to see mutual connections</p>
+                    <p className="text-sm">No followers to invite</p>
+                    <p className="text-xs">All your followers are already members, have pending invitations, or you have no followers yet</p>
                   </div>
                 )}
               </div>

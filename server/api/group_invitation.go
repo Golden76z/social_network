@@ -23,14 +23,21 @@ func CreateGroupInvitationHandler(w http.ResponseWriter, r *http.Request) {
 		creatorID = int64(ctxID)
 	}
 
-	// Check if creator is owner of the group
+	// Check if the user is a member of the group (creator or regular member)
 	group, err := db.DBService.GetGroupByID(req.GroupID)
 	if err != nil {
 		http.Error(w, "Group not found", http.StatusNotFound)
 		return
 	}
-	if group.CreatorID != creatorID {
-		http.Error(w, "Only the group creator can send invitations", http.StatusForbidden)
+
+	// Check if the user is a member of the group (creator or regular member can invite)
+	inviterIsMember, err := db.DBService.IsUserInGroup(creatorID, req.GroupID)
+	if err != nil {
+		http.Error(w, "Error checking membership", http.StatusInternalServerError)
+		return
+	}
+	if !inviterIsMember {
+		http.Error(w, "Only group members can send invitations", http.StatusForbidden)
 		return
 	}
 
