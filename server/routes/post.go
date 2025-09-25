@@ -10,6 +10,10 @@ func setupPostRoutes(r *Router) {
 	r.PUT("/api/post/{id}", api.UpdatePostHandler)
 	r.DELETE("/api/post/{id}", api.DeletePostHandler)
 
+	// Post visibility management
+	r.GET("/api/post/{id}/visibility", api.GetPostVisibilityHandler)
+	r.PUT("/api/post/{id}/visibility", api.UpdatePostVisibilityHandler)
+
 	// Upload post image
 	r.POST("/api/upload/post-image", api.UploadPostImageHandler)
 }

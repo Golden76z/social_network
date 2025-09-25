@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 // We use <img src="/uploads/..."/> per project choice; disable next/image here.
-import { Heart, MessageCircle, MoreHorizontal, Edit, Trash2, Users } from 'lucide-react';
+import { Heart, MessageCircle, MoreHorizontal, Edit, Trash2, Users, Lock } from 'lucide-react';
+import { PostVisibilityModal } from '../modals/PostVisibilityModal';
 import { useRouter } from 'next/navigation';
 import { Post } from '@/lib/types';
 import { reactionApi } from '@/lib/api/reaction';
@@ -44,6 +45,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   const [isLiked, setIsLiked] = useState(post.user_liked || false);
   const [likeCount, setLikeCount] = useState(post.likes || 0);
   const [isLoading, setIsLoading] = useState(false);
+  const [showVisibilityModal, setShowVisibilityModal] = useState(false);
 
   const apiBase =
     process.env.NEXT_PUBLIC_API_URL ||
@@ -137,12 +139,12 @@ export const PostCard: React.FC<PostCardProps> = ({
   // Determine if current user can edit/delete this post
   const canEdit = currentUserId && (
     isGroupAdmin || // Group admin can edit any group post
-    (post.author_id === currentUserId || post.user_id === currentUserId) // Author can edit their own post
+    post.author_id === currentUserId // Author can edit their own post
   );
   
   const canDelete = currentUserId && (
     isGroupAdmin || // Group admin can delete any group post
-    (post.author_id === currentUserId || post.user_id === currentUserId) // Author can delete their own post
+    post.author_id === currentUserId // Author can delete their own post
   );
 
   return (
@@ -152,7 +154,7 @@ export const PostCard: React.FC<PostCardProps> = ({
         <div className="flex items-center space-x-3">
           <UserInfoWithTime
             user={{
-              id: post.author_id || post.user_id,
+              id: post.author_id,
               nickname: (post as Post & { author_nickname?: string }).author_nickname,
               first_name: (post as Post & { author_first_name?: string }).author_first_name,
               last_name: (post as Post & { author_last_name?: string }).author_last_name,
@@ -161,8 +163,8 @@ export const PostCard: React.FC<PostCardProps> = ({
             time={formatDate(post.created_at)}
             size="md"
             onUserClick={() =>
-              (post.author_id || post.user_id) &&
-              onUserClick?.(post.author_id || post.user_id)
+              post.author_id &&
+              onUserClick?.(post.author_id)
             }
           />
           {post.post_type === 'group_post' && post.group_name && (
@@ -174,6 +176,19 @@ export const PostCard: React.FC<PostCardProps> = ({
               >
                 <Users className="w-4 h-4" />
                 <span className="font-medium">{post.group_name}</span>
+              </button>
+            </>
+          )}
+          {post.visibility === 'private' && post.post_type !== 'group_post' && (
+            <>
+              <span className="text-muted-foreground text-sm">•</span>
+              <button
+                onClick={() => setShowVisibilityModal(true)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-full text-sm text-amber-700 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer"
+                title="Manage who can see this post"
+              >
+                <Lock className="w-4 h-4" />
+                <span className="font-medium">Private</span>
               </button>
             </>
           )}
@@ -298,6 +313,19 @@ export const PostCard: React.FC<PostCardProps> = ({
           View Details
         </button>
       </div>
+
+      {/* Post Visibility Modal */}
+      {post.visibility === 'private' && post.post_type !== 'group_post' && currentUserId === post.author_id && (
+        <PostVisibilityModal
+          isOpen={showVisibilityModal}
+          onClose={() => setShowVisibilityModal(false)}
+          postId={post.id}
+          onSuccess={() => {
+            // Optionally refresh the post or show success message
+            console.log('Post visibility updated successfully');
+          }}
+        />
+      )}
     </div>
   );
 };

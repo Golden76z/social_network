@@ -241,6 +241,43 @@ func GetFollowingHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(displayInfo)
 }
 
+// GetFollowersForPostCreationHandler returns followers for post creation (private posts)
+func GetFollowersForPostCreationHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET method allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Get current user's followers
+	followers, err := db.DBService.GetFollowers(int64(currentUserID))
+	if err != nil {
+		http.Error(w, "Error fetching followers", http.StatusInternalServerError)
+		return
+	}
+
+	// Transform User objects to simplified format for follower selection
+	var displayInfo []map[string]interface{}
+	for _, user := range followers {
+		displayInfo = append(displayInfo, map[string]interface{}{
+			"id":         user.ID,
+			"nickname":   user.Nickname,
+			"fullName":   fmt.Sprintf("%s %s", user.FirstName, user.LastName),
+			"first_name": user.FirstName,
+			"last_name":  user.LastName,
+			"avatar":     user.GetAvatar(),
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(displayInfo)
+}
+
 // UpdateFollowHandler allows the target user to accept or decline a follow request. Only 'accepted' or 'declined' are valid statuses. If already in the requested status, returns an error.
 func UpdateFollowHandler(w http.ResponseWriter, r *http.Request) {
 	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)

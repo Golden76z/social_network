@@ -75,4 +75,16 @@ export const postApi = {
     const query = params.toString() ? `?${params.toString()}` : '';
     return apiClient.get<Post[]>(`${postRoutes.base}${query}`);
   },
+
+  // GET /api/post/{id}/visibility - Get who can see a private post
+  getPostVisibility: (postId: string | number): Promise<any[]> => {
+    return apiClient.get<any[]>(`${postRoutes.base}/${postId}/visibility`);
+  },
+
+  // PUT /api/post/{id}/visibility - Update who can see a private post
+  updatePostVisibility: (postId: string | number, selectedFollowers: number[]): Promise<void> => {
+    return apiClient.put<void>(`${postRoutes.base}/${postId}/visibility`, {
+      selected_followers: selectedFollowers
+    });
+  },
 };

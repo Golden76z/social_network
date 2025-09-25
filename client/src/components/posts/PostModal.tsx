@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 // import Image from 'next/image';
-import { X, Heart, MessageCircle, Send, Edit, Trash2 } from 'lucide-react';
+import { X, Heart, MessageCircle, Send, Edit, Trash2, Lock, Users } from 'lucide-react';
+import { PostVisibilityModal } from '../modals/PostVisibilityModal';
 import { Post, Comment } from '@/lib/types';
 import { commentApi } from '@/lib/api/comment';
 import { groupApi } from '@/lib/api/group';
@@ -51,6 +52,7 @@ export const PostModal: React.FC<PostModalProps> = ({
   const [isLiking, setIsLiking] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showVisibilityModal, setShowVisibilityModal] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
 
@@ -235,7 +237,7 @@ export const PostModal: React.FC<PostModalProps> = ({
   };
 
   const canEditOrDelete = currentUserId && post && (
-    post.user_id === currentUserId || 
+    post.author_id === currentUserId || 
     (isGroupPost && isGroupAdmin)
   );
 
@@ -303,7 +305,7 @@ export const PostModal: React.FC<PostModalProps> = ({
             {/* Author Info */}
             <UserInfoWithTime
               user={{
-                id: post.author_id || post.user_id,
+                id: post.author_id,
                 nickname: post.author_nickname,
                 first_name: post.author_first_name,
                 last_name: post.author_last_name,
@@ -312,8 +314,8 @@ export const PostModal: React.FC<PostModalProps> = ({
               time={formatDate(post.created_at)}
               size="sm"
               onUserClick={() =>
-                (post.author_id || post.user_id) &&
-                router.push(`/profile?user_id=${post.author_id || post.user_id}`)
+                post.author_id &&
+                router.push(`/profile?user_id=${post.author_id}`)
               }
             />
             
@@ -324,6 +326,21 @@ export const PostModal: React.FC<PostModalProps> = ({
             <h2 id="modal-title" className="text-xl font-semibold" style={{ color: 'var(--color-text)' }}>
               {post.title}
             </h2>
+            
+            {/* Private Post Badge */}
+            {post.visibility === 'private' && post.post_type !== 'group_post' && (
+              <>
+                <div className="h-8 w-px" style={{ backgroundColor: 'var(--color-border)' }} />
+                <button
+                  onClick={() => setShowVisibilityModal(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-full text-sm text-amber-700 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer"
+                  title="Manage who can see this post"
+                >
+                  <Lock className="w-4 h-4" />
+                  <span className="font-medium">Private</span>
+                </button>
+              </>
+            )}
           </div>
           
           <div className="flex items-center space-x-2">
@@ -654,6 +671,19 @@ export const PostModal: React.FC<PostModalProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Post Visibility Modal */}
+      {post && post.visibility === 'private' && post.post_type !== 'group_post' && currentUserId === post.author_id && (
+        <PostVisibilityModal
+          isOpen={showVisibilityModal}
+          onClose={() => setShowVisibilityModal(false)}
+          postId={post.id}
+          onSuccess={() => {
+            // Optionally refresh the post or show success message
+            console.log('Post visibility updated successfully');
+          }}
+        />
       )}
     </div>
   );

@@ -53,4 +53,9 @@ export const userApi = {
   getMutualFriends: (userId: number): Promise<UserDisplayInfo[]> => {
     return apiClient.get<UserDisplayInfo[]>(`${userRoutes.mutualFriends}?userId=${userId}`);
   },
+
+  // GET /api/user/followers-for-post - Get followers for post creation (private posts)
+  getFollowersForPost: (): Promise<UserDisplayInfo[]> => {
+    return apiClient.get<UserDisplayInfo[]>('/api/user/followers-for-post');
+  },
 };
