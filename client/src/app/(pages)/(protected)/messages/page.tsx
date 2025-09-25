@@ -9,8 +9,8 @@ import { useAuth } from '@/context/AuthProvider';
 import { PrivateChat } from '@/components/chat/PrivateChat';
 import { GroupChat } from '@/components/chat/GroupChat';
 import Button from "@/components/ui/button";
-import { ChatPlusModal } from "@/components/chat/ChatPlusModal";
-import { User, UserDisplayInfo } from "@/lib/types/user";
+import { NewConversationModal } from "@/components/chat/NewConversationModal";
+import { User } from "@/lib/types/user";
 import { motion, AnimatePresence } from 'framer-motion';
 
 type ConversationType = 'private' | 'group';
@@ -27,7 +27,7 @@ export default function MessagesPage() {
   const [selectedConversation, setSelectedConversation] = useState<UnifiedConversation | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showChatPlusModal, setShowChatPlusModal] = useState(false);
+  const [showNewConversationModal, setShowNewConversationModal] = useState(false);
   const { lastMessage } = useWebSocketContext();
   const { user } = useAuth();
 
@@ -266,48 +266,6 @@ export default function MessagesPage() {
     }
   };
 
-  const handleUserSelect = (user: UserDisplayInfo) => {
-    // Convert UserDisplayInfo to User format for handleStartNewConversation
-    const userForConversation: User = {
-      id: user.id,
-      email: '', // Not needed for conversation
-      nickname: user.nickname || '',
-      first_name: user.first_name || '',
-      last_name: user.last_name || '',
-      avatar: user.avatar || '',
-      is_private: user.is_private || false,
-      date_of_birth: '', // Not needed for conversation
-      created_at: '', // Not needed for conversation
-      followers: 0, // Not needed for conversation
-      followed: 0, // Not needed for conversation
-    };
-    
-    handleStartNewConversation(userForConversation);
-  };
-
-  const handleGroupSelect = (group: any) => {
-    // Find if group conversation already exists
-    const existingGroupConversation = groupConversations.find(
-      conv => conv.group_id === group.id
-    );
-
-    if (existingGroupConversation) {
-      // Select existing group conversation
-      setSelectedConversation({ type: 'group', data: existingGroupConversation });
-    } else {
-      // Create new group conversation object
-      const newGroupConversation: GroupConversation = {
-        group_id: group.id,
-        group_name: group.title,
-        group_description: group.bio || '',
-        group_avatar: group.avatar || '',
-        last_message: '',
-        last_message_time: new Date().toISOString(),
-      };
-
-      setSelectedConversation({ type: 'group', data: newGroupConversation });
-    }
-  };
 
   const handleConversationClick = (conversation: UnifiedConversation, event: React.MouseEvent) => {
     // Prevent the conversation selection if clicking on icon or name
@@ -353,10 +311,10 @@ export default function MessagesPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowChatPlusModal(true)}
+                onClick={() => setShowNewConversationModal(true)}
                 className="w-full justify-center"
               >
-                Chat +
+                New Chat
               </Button>
             </div>
             
@@ -477,12 +435,11 @@ export default function MessagesPage() {
         </div>
         </div>
 
-      <ChatPlusModal
-        isOpen={showChatPlusModal}
-        onClose={() => setShowChatPlusModal(false)}
-            onUserSelect={handleUserSelect}
-        onGroupSelect={handleGroupSelect}
-          />
+      <NewConversationModal
+        isOpen={showNewConversationModal}
+        onClose={() => setShowNewConversationModal(false)}
+        onUserSelect={handleStartNewConversation}
+      />
     </div>
   );
 }

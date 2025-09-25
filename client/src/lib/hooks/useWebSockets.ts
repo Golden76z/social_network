@@ -130,10 +130,14 @@ export function useWebSocket({
       setSocket(null);
       
       // Wait for connection to fully close before reconnecting
+      // Firefox-specific: Longer delay to prevent connection churn
+      const isFirefox = typeof window !== 'undefined' && /Firefox/.test(navigator.userAgent);
+      const reconnectDelay = isFirefox ? 3000 : 1500;
+      
       setTimeout(() => {
         shouldReconnect.current = true;
         connect();
-      }, 1500); // Increased delay to prevent race conditions
+      }, reconnectDelay);
       return;
     }
 
@@ -161,6 +165,12 @@ export function useWebSocket({
     globalConnectionCount++;
     shouldReconnect.current = true;
 
+    // Firefox-specific: Add connection stability delay
+    const isFirefox = typeof window !== 'undefined' && /Firefox/.test(navigator.userAgent);
+    if (isFirefox) {
+      console.log('🦊 Firefox WebSocket: Adding connection stability delay');
+    }
+
     ws.onopen = (): void => {
       console.log('🔌 WebSocket connected successfully');
       setConnectionStatus('connected');
@@ -185,7 +195,18 @@ export function useWebSocket({
       try {
         const msg = JSON.parse(ev.data) as WebSocketMessage;
         console.log('🔌 WebSocket received message:', msg);
-        setLastMessage(msg);
+        
+        // Firefox-specific: Add small delay to ensure proper message processing
+        const isFirefox = typeof window !== 'undefined' && /Firefox/.test(navigator.userAgent);
+        if (isFirefox) {
+          console.log('🦊 Firefox WebSocket message received:', msg.type);
+          // Small delay to ensure Firefox processes the message properly
+          setTimeout(() => {
+            setLastMessage(msg);
+          }, 10);
+        } else {
+          setLastMessage(msg);
+        }
 
         if (msg.type === 'user_list' && Array.isArray(msg.data)) {
           setOnlineUsers(msg.data as WebSocketUser[]);

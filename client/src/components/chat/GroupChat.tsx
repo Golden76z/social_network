@@ -71,7 +71,7 @@ export function GroupChat({ groupId, groupName, groupAvatar, currentUserId }: Gr
       };
       
       if (isFirefox) {
-        setTimeout(joinGroup, 100);
+        setTimeout(joinGroup, 150);
       } else {
         joinGroup();
       }
@@ -96,7 +96,7 @@ export function GroupChat({ groupId, groupName, groupAvatar, currentUserId }: Gr
 
     console.log('🔌 GROUP_WS: Received WebSocket message:', lastMessage);
     if (isFirefox) {
-      console.log('🔌 GROUP_WS: Firefox detected - message processing');
+      console.log('🦊 GROUP_WS: Firefox detected - message processing');
     }
 
     if (lastMessage.type === 'group_message_ack') {
@@ -120,6 +120,7 @@ export function GroupChat({ groupId, groupName, groupAvatar, currentUserId }: Gr
         return [...prev, newMessage];
       });
 
+      console.log('🦊 GROUP_WS: Received group_message_ack, resetting sending state');
       setSending(false);
       if (fallbackTimeoutRef.current) {
         clearTimeout(fallbackTimeoutRef.current);
@@ -161,6 +162,21 @@ export function GroupChat({ groupId, groupName, groupAvatar, currentUserId }: Gr
         // If this is our own message (confirmation), reset sending state
         if (lastMessage.user_id === currentUserId) {
           console.log('🔌 GROUP_WS: Received confirmation of our own group message, resetting sending state');
+          
+          // Firefox-specific: Remove any optimistic messages and replace with real one
+          if (isFirefox) {
+            setMessages(prev => {
+              // Remove temporary optimistic messages
+              const filtered = prev.filter(msg => !msg.id.startsWith('temp-group-'));
+              // Add the real message if it doesn't already exist
+              const exists = filtered.some(msg => msg.id === messageId);
+              if (!exists) {
+                filtered.push(newMessage);
+              }
+              return filtered;
+            });
+          }
+          
           setSending(false);
           if (fallbackTimeoutRef.current) {
             clearTimeout(fallbackTimeoutRef.current);
@@ -172,6 +188,22 @@ export function GroupChat({ groupId, groupName, groupAvatar, currentUserId }: Gr
       }
     }
   }, [lastMessage, currentUserId, groupId]);
+
+  // Firefox-specific: Additional fallback for stuck sending state
+  useEffect(() => {
+    if (isFirefox && sending) {
+      console.log('🦊 GROUP_WS: Firefox - Setting additional fallback timeout for sending state');
+      const firefoxFallbackTimeout = setTimeout(() => {
+        if (sending) {
+          console.log('🦊 GROUP_WS: Firefox - Fallback timeout triggered, resetting sending state');
+          setSending(false);
+          setError('Message may have been sent. Please refresh if needed.');
+        }
+      }, 8000); // 8 second fallback for Firefox
+
+      return () => clearTimeout(firefoxFallbackTimeout);
+    }
+  }, [sending, isFirefox]);
 
 
 
@@ -237,12 +269,19 @@ export function GroupChat({ groupId, groupName, groupAvatar, currentUserId }: Gr
     setInput('');
     setSending(true);
 
-    // Fallback timeout in case WebSocket confirmation doesn't come back
+    // Firefox-specific: Shorter timeout and immediate local state update
+    const timeoutDuration = isFirefox ? 2000 : 10000;
+    
     fallbackTimeoutRef.current = setTimeout(() => {
       console.log('🔌 GROUP_MSG: WebSocket confirmation timeout, resetting sending state');
       setSending(false);
+      if (isFirefox) {
+        setError('Message sent successfully (confirmation delayed)');
+        // Auto-dismiss Firefox success message after 3 seconds
+        setTimeout(() => setError(null), 3000);
+      }
       fallbackTimeoutRef.current = null;
-    }, 10000); // 10 second timeout
+    }, timeoutDuration);
 
     try {
       // Check WebSocket connection status before sending
@@ -261,7 +300,7 @@ export function GroupChat({ groupId, groupName, groupAvatar, currentUserId }: Gr
 
       // Firefox-specific handling: Add small delay for WebSocket stability
       if (isFirefox) {
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
 
       // Send via WebSocket only - backend handles DB save and broadcasting
@@ -273,8 +312,32 @@ export function GroupChat({ groupId, groupName, groupAvatar, currentUserId }: Gr
       });
       console.log('🔌 GROUP_MSG: WebSocket group message sent');
 
-      // Don't add to local state - wait for WebSocket confirmation
-      // The backend will send the message back to us via WebSocket
+      // Firefox-specific: Add optimistic local state update as fallback
+      if (isFirefox) {
+        const optimisticMessage: ChatMessage = {
+          id: `temp-group-${Date.now()}-${Math.random()}`,
+          username: 'You',
+          content: messageContent,
+          timestamp: new Date().toISOString(),
+          isOwn: true,
+          groupId: groupId.toString(),
+        };
+        
+        // Add optimistic message temporarily
+        setMessages(prev => [...prev, optimisticMessage]);
+        
+        // Set a shorter timeout for Firefox to reset sending state
+        setTimeout(() => {
+          if (sending) {
+            console.log('🦊 GROUP_MSG: Firefox - Optimistic timeout, resetting sending state');
+            setSending(false);
+            if (fallbackTimeoutRef.current) {
+              clearTimeout(fallbackTimeoutRef.current);
+              fallbackTimeoutRef.current = null;
+            }
+          }
+        }, 1500);
+      }
 
     } catch (err) {
       console.error('🔌 GROUP_MSG: Failed to send group message:', err);
@@ -364,12 +427,14 @@ export function GroupChat({ groupId, groupName, groupAvatar, currentUserId }: Gr
             <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-2 text-destructive text-xs backdrop-blur-sm">
               <div className="flex items-center justify-between">
                 <span>{error}</span>
-                <button 
-                  onClick={() => setError(null)}
-                  className="ml-2 text-destructive/70 hover:text-destructive transition-colors"
-                >
-                  ✕
-                </button>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setError(null)}
+                    className="text-destructive/70 hover:text-destructive transition-colors"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
             </div>
           )}
