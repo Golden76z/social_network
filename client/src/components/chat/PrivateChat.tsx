@@ -107,20 +107,21 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
 
         // Check if message already exists to prevent duplicates
       const messageId = lastMessage.message_id ? `pm-${lastMessage.message_id}` : `${lastMessage.timestamp}-${lastMessage.user_id}`;
+        // Create the new message object first
+        const newMessage: ChatMessage = {
+          id: messageId,
+          username: lastMessage.username,
+          content: lastMessage.content || '',
+          timestamp: lastMessage.timestamp,
+          isOwn: lastMessage.user_id === currentUserId,
+        };
+
         setMessages(prev => {
           const exists = prev.some(msg => msg.id === messageId);
           if (exists) {
             console.log('🔍 Message already exists, skipping duplicate');
             return prev;
           }
-
-          const newMessage: ChatMessage = {
-            id: messageId,
-            username: lastMessage.username,
-            content: lastMessage.content || '',
-            timestamp: lastMessage.timestamp,
-            isOwn: lastMessage.user_id === currentUserId,
-          };
           return [...prev, newMessage];
         });
 
