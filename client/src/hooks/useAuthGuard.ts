@@ -20,7 +20,7 @@ interface AuthGuardResult {
  * Provides a clean way to handle auth-dependent rendering
  */
 export const useAuthGuard = (options: AuthGuardOptions = {}): AuthGuardResult => {
-  const { redirectTo = '/login', requireAuth = true } = options;
+  const { requireAuth = true } = options;
   const { isAuthenticated, hasCheckedAuth, isLoading } = useAuth();
 
   const isReady = hasCheckedAuth && !isLoading;

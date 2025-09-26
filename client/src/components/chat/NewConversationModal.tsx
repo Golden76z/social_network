@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useRef } from 'react';
-import { User, UserDisplayInfo } from '@/lib/types/user';
+import { UserDisplayInfo } from '@/lib/types/user';
 import { userApi } from '@/lib/api/user';
 import { useAuth } from '@/context/AuthProvider';
 

@@ -29,7 +29,6 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 }) => {
   const backdropRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  if (!isOpen) return null;
 
   const getVariantStyles = () => {
     switch (variant) {
@@ -78,11 +77,13 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   }, [onClose]);
 
   useEffect(() => {
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      return () => document.removeEventListener('keydown', handleEscape);
-    }
+    if (!isOpen) return;
+    
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, handleEscape]);
+
+  if (!isOpen) return null;
 
   return (
     <div 
