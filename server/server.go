@@ -97,14 +97,14 @@ func startServer(handler http.Handler, cfg *config.Config) {
 		}()
 	}
 
-    // Serve static uploads at /uploads/
-    mux := http.NewServeMux()
-    mux.Handle("/", handler)
-    mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))))
+	// Serve static uploads at /uploads/
+	mux := http.NewServeMux()
+	mux.Handle("/", handler)
+	mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))))
 
-    server := &http.Server{
-        Addr:         ":" + cfg.Port,
-        Handler:      mux,
+	server := &http.Server{
+		Addr:         ":" + cfg.Port,
+		Handler:      mux,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  120 * time.Second,
