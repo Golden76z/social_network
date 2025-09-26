@@ -425,21 +425,6 @@ export function GroupChat({ groupId, groupName, groupAvatar, currentUserId }: Gr
         style={{ maxHeight: 'calc(100vh - 400px)' }}
       >
         <div className="p-3 space-y-2">
-          {error && (
-            <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-2 text-destructive text-xs backdrop-blur-sm">
-              <div className="flex items-center justify-between">
-                <span>{error}</span>
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={() => setError(null)}
-                    className="text-destructive/70 hover:text-destructive transition-colors"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
           
           {/* Load More Button */}
           {hasMoreMessages && !loading && (

@@ -12,6 +12,7 @@ import { postApi } from '@/lib/api/post';
 import { groupApi } from '@/lib/api/group';
 import { Post } from '@/lib/types';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const HomePage: React.FC = () => {
   const { user } = useAuth();
@@ -79,7 +80,11 @@ const HomePage: React.FC = () => {
   };
 
   const handleUserClick = (userId: number) => {
-    router.push(`/profile?userId=${userId}`);
+    if (user) {
+      router.push(`/profile?userId=${userId}`);
+    } else {
+      router.push('/login');
+    }
   };
 
   const handleLike = async (postId: number) => {
@@ -191,22 +196,42 @@ const HomePage: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-6">
-          {posts.map((post) => (
-            <PostCard
-              key={post.id}
-              post={post}
-              onLike={handleLike}
-              onComment={handleComment}
-              onViewDetails={handleViewDetails}
-              onUserClick={handleUserClick}
-              disableLikes={!user}
-              currentUserId={user?.id}
-              onEdit={handleEditPost}
-              onDelete={handleDeletePost}
-              isGroupPost={post.post_type === 'group_post'}
-              isGroupAdmin={false} // TODO: Check if user is group admin
-            />
-          ))}
+          <AnimatePresence mode="popLayout">
+            {posts.map((post, index) => (
+              <motion.div
+                key={post.id}
+                layout
+                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                transition={{ 
+                  duration: 0.4, 
+                  delay: index * 0.1,
+                  ease: "easeOut",
+                  layout: { duration: 0.3, ease: "easeInOut" }
+                }}
+                whileHover={{ 
+                  scale: 1.02,
+                  transition: { duration: 0.2 }
+                }}
+                className="transform-gpu"
+              >
+                <PostCard
+                  post={post}
+                  onLike={handleLike}
+                  onComment={handleComment}
+                  onViewDetails={handleViewDetails}
+                  onUserClick={handleUserClick}
+                  disableLikes={!user}
+                  currentUserId={user?.id}
+                  onEdit={handleEditPost}
+                  onDelete={handleDeletePost}
+                  isGroupPost={post.post_type === 'group_post'}
+                  isGroupAdmin={false} // TODO: Check if user is group admin
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       )}
       </div>
@@ -290,6 +315,7 @@ const HomePage: React.FC = () => {
           groupName={editingPost.group_name}
         />
       )}
+
     </div>
   );
 };

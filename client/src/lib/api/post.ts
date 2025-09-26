@@ -17,9 +17,14 @@ export const postApi = {
     return apiClient.get<Post>(`${postRoutes.base}?id=${postId}`);
   },
 
-  // GET /api/post/user/{userId} - Get posts by specific user
+  // GET /api/post/user/{userId} - Get posts by specific user (authenticated)
   getPostsByUser: (userId: number): Promise<Post[]> => {
     return apiClient.get<Post[]>(`${postRoutes.base}?userId=${userId}`);
+  },
+
+  // GET /api/posts/public/user?userId={userId} - Get public posts by specific user (no authentication required)
+  getPublicPostsByUser: (userId: number): Promise<Post[]> => {
+    return apiClient.get<Post[]>(`/api/posts/public/user?userId=${userId}`);
   },
 
   // GET /api/post/me - Get current user's posts

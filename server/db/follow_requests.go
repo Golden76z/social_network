@@ -187,3 +187,20 @@ func (s *Service) GetMutualFriends(userID int64) ([]models.User, error) {
 	}
 	return users, nil
 }
+
+// AreMutualFriends checks if two users are mutual friends (both following each other)
+func (s *Service) AreMutualFriends(userID1, userID2 int64) (bool, error) {
+	var count int
+	err := s.DB.QueryRow(`
+		SELECT COUNT(*) FROM (
+			SELECT 1 FROM follow_requests 
+			WHERE requester_id = ? AND target_id = ? AND status = 'accepted'
+			UNION
+			SELECT 1 FROM follow_requests 
+			WHERE requester_id = ? AND target_id = ? AND status = 'accepted'
+		)`, userID1, userID2, userID2, userID1).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count == 2, nil
+}

@@ -1,18 +1,18 @@
 "use client"
 
 import { useEffect, useState, useRef } from 'react';
-import { User } from '@/lib/types/user';
+import { User, UserDisplayInfo } from '@/lib/types/user';
 import { userApi } from '@/lib/api/user';
 import { useAuth } from '@/context/AuthProvider';
 
 interface NewConversationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onUserSelect: (user: User) => void;
+  onUserSelect: (user: UserDisplayInfo) => void;
 }
 
 export function NewConversationModal({ isOpen, onClose, onUserSelect }: NewConversationModalProps) {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<UserDisplayInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -75,14 +75,14 @@ export function NewConversationModal({ isOpen, onClose, onUserSelect }: NewConve
     return fullName.includes(search) || nickname.includes(search);
   });
 
-  const getDisplayName = (user: User) => {
+  const getDisplayName = (user: UserDisplayInfo) => {
     if (user.first_name && user.last_name) {
       return `${user.first_name} ${user.last_name}`;
     }
     return user.nickname || 'Unknown User';
   };
 
-  const getInitials = (user: User) => {
+  const getInitials = (user: UserDisplayInfo) => {
     const name = getDisplayName(user);
     return name
       .split(' ')

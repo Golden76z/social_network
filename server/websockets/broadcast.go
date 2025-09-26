@@ -10,22 +10,18 @@ func (h *Hub) BroadcastMessage(message Message) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	log.Printf("🔌 GROUP_BROADCAST: Broadcasting message: type=%s, groupID=%s, content=%s", message.Type, message.GroupID, message.Content)
+	// Removed excessive WebSocket logging for cleaner server output
 
 	if message.GroupID != "" {
 		// Broadcast to specific group
-		log.Printf("🔌 GROUP_BROADCAST: Broadcasting to group %s", message.GroupID)
 		h.broadcastToGroup(message.GroupID, message)
 	} else {
 		// Broadcast to all clients
-		log.Printf("🔌 GROUP_BROADCAST: Broadcasting to all clients (%d clients)", len(h.clients))
 		for _, client := range h.clients {
 			select {
 			case client.Send <- message:
-				log.Printf("🔌 GROUP_BROADCAST: Message sent to client %s (user %d)", client.ID, client.UserID)
 			default:
 				// Client's send channel is full, remove them
-				log.Printf("🔌 GROUP_BROADCAST: Client %s send channel full, removing", client.ID)
 				go func(c *Client) {
 					h.unregister <- c
 				}(client)

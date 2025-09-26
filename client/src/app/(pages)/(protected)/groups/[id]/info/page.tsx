@@ -9,6 +9,7 @@ import { reactionApi } from '@/lib/api/reaction';
 import { userApi } from '@/lib/api/user';
 import { useAuth } from '@/context/AuthProvider';
 import { UserPlus, Settings, Users, UserCheck, Calendar, MessageSquare, Plus, Edit, Trash2, Clock, MapPin, Users2, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { PostCard } from '@/components/posts/PostCard';
 import { PostModal } from '@/components/posts/PostModal';
 import { CreatePostModal } from '@/components/forms/CreatePostModal';
@@ -1223,47 +1224,66 @@ export default function GroupPage() {
                   </div>
                 ) : posts.length > 0 ? (
                   <div className="space-y-4">
-                    {posts.slice(0, 5).map((groupPost) => {
-                      const convertedPost = convertGroupPostToPost(groupPost);
-                      const canEdit = isAdmin || (user && groupPost.user_id === user.id);
-                      const canDelete = isAdmin || (user && groupPost.user_id === user.id);
-                      
-                      return (
-                        <div key={groupPost.id} className="relative">
-                          <PostCard
-                            post={convertedPost}
-                            onLike={handleLikePost}
-                            onComment={handleViewPostDetails}
-                            onViewDetails={handleViewPostDetails}
-                            onUserClick={() => {}} // Group posts don't have user profiles
-                          />
-                          {/* Edit/Delete buttons overlay */}
-                          {(canEdit || canDelete) && (
-                            <div className="absolute top-2 right-2 flex gap-1">
-                              {canEdit && (
-                                <button 
-                                  onClick={() => handleEditPost(groupPost)}
-                                  className="p-1 bg-card/80 backdrop-blur-sm text-muted-foreground hover:text-foreground rounded-full transition-colors"
-                                  title="Edit post"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </button>
-                              )}
-                              {canDelete && (
-                                <button 
-                                  onClick={() => handleDeletePost(groupPost)}
-                                  disabled={deletingPost === groupPost.id}
-                                  className="p-1 bg-card/80 backdrop-blur-sm text-muted-foreground hover:text-red-500 disabled:opacity-50 rounded-full transition-colors"
-                                  title="Delete post"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                    <AnimatePresence mode="popLayout">
+                      {posts.slice(0, 5).map((groupPost, index) => {
+                        const convertedPost = convertGroupPostToPost(groupPost);
+                        const canEdit = isAdmin || (user && groupPost.user_id === user.id);
+                        const canDelete = isAdmin || (user && groupPost.user_id === user.id);
+                        
+                        return (
+                          <motion.div 
+                            key={groupPost.id} 
+                            layout
+                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                            transition={{ 
+                              duration: 0.4, 
+                              delay: index * 0.1,
+                              ease: "easeOut",
+                              layout: { duration: 0.3, ease: "easeInOut" }
+                            }}
+                            whileHover={{ 
+                              scale: 1.02,
+                              transition: { duration: 0.2 }
+                            }}
+                            className="relative transform-gpu"
+                          >
+                            <PostCard
+                              post={convertedPost}
+                              onLike={handleLikePost}
+                              onComment={handleViewPostDetails}
+                              onViewDetails={handleViewPostDetails}
+                              onUserClick={() => {}} // Group posts don't have user profiles
+                            />
+                            {/* Edit/Delete buttons overlay */}
+                            {(canEdit || canDelete) && (
+                              <div className="absolute top-2 right-2 flex gap-1">
+                                {canEdit && (
+                                  <button 
+                                    onClick={() => handleEditPost(groupPost)}
+                                    className="p-1 bg-card/80 backdrop-blur-sm text-muted-foreground hover:text-foreground rounded-full transition-colors"
+                                    title="Edit post"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </button>
+                                )}
+                                {canDelete && (
+                                  <button 
+                                    onClick={() => handleDeletePost(groupPost)}
+                                    disabled={deletingPost === groupPost.id}
+                                    className="p-1 bg-card/80 backdrop-blur-sm text-muted-foreground hover:text-red-500 disabled:opacity-50 rounded-full transition-colors"
+                                    title="Delete post"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </motion.div>
+                        );
+                      })}
+                    </AnimatePresence>
                     {posts.length > 5 && (
                       <div className="text-center pt-4">
                         <button 

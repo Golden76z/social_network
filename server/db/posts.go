@@ -246,23 +246,54 @@ func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostRe
 	return posts, nil
 }
 
-// GetPostsByUser retrieves posts by a specific user
+// GetPostsByUser retrieves posts by a specific user with proper visibility filtering
 func (s *Service) GetPostsByUser(userID int64, currentUserID int64) ([]*models.Post, error) {
-	query := `
-		SELECT 
-			p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
-			u.nickname, u.first_name, u.last_name,
-			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
-			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
-			EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'like') AS user_liked,
-			EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'dislike') AS user_disliked
-		FROM posts p
-		JOIN users u ON p.user_id = u.id
-		WHERE p.user_id = ?
-		ORDER BY p.created_at DESC
-	`
+	var query string
+	var args []interface{}
 
-	rows, err := s.DB.Query(query, currentUserID, currentUserID, userID)
+	if userID == currentUserID {
+		// Own profile: show ALL posts without privacy filtering
+		query = `
+			SELECT 
+				p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
+				u.nickname, u.first_name, u.last_name,
+				(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
+				(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
+				EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'like') AS user_liked,
+				EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'dislike') AS user_disliked
+			FROM posts p
+			JOIN users u ON p.user_id = u.id
+			WHERE p.user_id = ?
+			ORDER BY p.created_at DESC
+		`
+		args = []interface{}{currentUserID, currentUserID, userID}
+	} else {
+		// Other profile: apply privacy filtering
+		query = `
+			SELECT 
+				p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
+				u.nickname, u.first_name, u.last_name,
+				(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
+				(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
+				EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'like') AS user_liked,
+				EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'dislike') AS user_disliked
+			FROM posts p
+			JOIN users u ON p.user_id = u.id
+			WHERE p.user_id = ?
+			AND (
+				p.visibility = 'public'
+				OR (p.visibility = 'private' AND ? > 0 AND (
+					EXISTS(SELECT 1 FROM post_visibility WHERE post_id = p.id AND user_id = ?)
+					OR (NOT EXISTS(SELECT 1 FROM post_visibility WHERE post_id = p.id) 
+						AND EXISTS(SELECT 1 FROM follow_requests WHERE requester_id = ? AND target_id = p.user_id AND status = 'accepted'))
+				))
+			)
+			ORDER BY p.created_at DESC
+		`
+		args = []interface{}{currentUserID, currentUserID, userID, currentUserID, currentUserID, currentUserID}
+	}
+
+	rows, err := s.DB.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -316,8 +347,8 @@ func (s *Service) GetPostsByUser(userID int64, currentUserID int64) ([]*models.P
 	return posts, nil
 }
 
-// GetLikedPosts retrieves posts liked by a specific user
-func (s *Service) GetLikedPosts(userID int64) ([]*models.Post, error) {
+// GetLikedPosts retrieves posts liked by a specific user with proper visibility filtering
+func (s *Service) GetLikedPosts(userID int64, currentUserID int64) ([]*models.Post, error) {
 	query := `
 		SELECT 
 			p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
@@ -330,10 +361,19 @@ func (s *Service) GetLikedPosts(userID int64) ([]*models.Post, error) {
 		JOIN users u ON p.user_id = u.id
 		JOIN likes_dislikes ld ON p.id = ld.post_id
 		WHERE ld.user_id = ? AND ld.type = 'like'
+		AND (
+			p.visibility = 'public'
+			OR p.user_id = ?
+			OR (p.visibility = 'private' AND ? > 0 AND (
+				EXISTS(SELECT 1 FROM post_visibility WHERE post_id = p.id AND user_id = ?)
+				OR (NOT EXISTS(SELECT 1 FROM post_visibility WHERE post_id = p.id) 
+					AND EXISTS(SELECT 1 FROM follow_requests WHERE requester_id = ? AND target_id = p.user_id AND status = 'accepted'))
+			))
+		)
 		ORDER BY p.created_at DESC
 	`
 
-	rows, err := s.DB.Query(query, userID, userID)
+	rows, err := s.DB.Query(query, currentUserID, userID, currentUserID, currentUserID, currentUserID, currentUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -393,8 +433,8 @@ func (s *Service) GetLikedPosts(userID int64) ([]*models.Post, error) {
 	return posts, nil
 }
 
-// GetCommentedPosts retrieves posts commented by a specific user
-func (s *Service) GetCommentedPosts(userID int64) ([]*models.Post, error) {
+// GetCommentedPosts retrieves posts commented by a specific user with proper visibility filtering
+func (s *Service) GetCommentedPosts(userID int64, currentUserID int64) ([]*models.Post, error) {
 	query := `
 		SELECT DISTINCT
 			p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
@@ -407,10 +447,19 @@ func (s *Service) GetCommentedPosts(userID int64) ([]*models.Post, error) {
 		JOIN users u ON p.user_id = u.id
 		JOIN comments c ON p.id = c.post_id
 		WHERE c.user_id = ?
+		AND (
+			p.visibility = 'public'
+			OR p.user_id = ?
+			OR (p.visibility = 'private' AND ? > 0 AND (
+				EXISTS(SELECT 1 FROM post_visibility WHERE post_id = p.id AND user_id = ?)
+				OR (NOT EXISTS(SELECT 1 FROM post_visibility WHERE post_id = p.id) 
+					AND EXISTS(SELECT 1 FROM follow_requests WHERE requester_id = ? AND target_id = p.user_id AND status = 'accepted'))
+			))
+		)
 		ORDER BY p.created_at DESC
 	`
 
-	rows, err := s.DB.Query(query, userID, userID, userID)
+	rows, err := s.DB.Query(query, currentUserID, currentUserID, userID, currentUserID, currentUserID, currentUserID, currentUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -470,24 +519,33 @@ func (s *Service) GetCommentedPosts(userID int64) ([]*models.Post, error) {
 	return posts, nil
 }
 
-// GetLikedPostsByUser retrieves posts liked by a specific user
-func (s *Service) GetLikedPostsByUser(userID int64) ([]*models.Post, error) {
+// GetLikedPostsByUser retrieves posts liked by a specific user with proper visibility filtering
+func (s *Service) GetLikedPostsByUser(userID int64, currentUserID int64) ([]*models.Post, error) {
 	query := `
 		SELECT 
 			p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
 			u.nickname, u.first_name, u.last_name, u.avatar,
 			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
 			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
-			1 AS user_liked,
+			EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'like') AS user_liked,
 			EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'dislike') AS user_disliked
 		FROM posts p
 		JOIN users u ON p.user_id = u.id
 		JOIN likes_dislikes ld ON p.id = ld.post_id
 		WHERE ld.user_id = ? AND ld.type = 'like'
+		AND (
+			p.visibility = 'public'
+			OR p.user_id = ?
+			OR (p.visibility = 'private' AND ? > 0 AND (
+				EXISTS(SELECT 1 FROM post_visibility WHERE post_id = p.id AND user_id = ?)
+				OR (NOT EXISTS(SELECT 1 FROM post_visibility WHERE post_id = p.id) 
+					AND EXISTS(SELECT 1 FROM follow_requests WHERE requester_id = ? AND target_id = p.user_id AND status = 'accepted'))
+			))
+		)
 		ORDER BY p.created_at DESC
 	`
 
-	rows, err := s.DB.Query(query, userID, userID)
+	rows, err := s.DB.Query(query, currentUserID, currentUserID, userID, currentUserID, currentUserID, currentUserID, currentUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -547,8 +605,8 @@ func (s *Service) GetLikedPostsByUser(userID int64) ([]*models.Post, error) {
 	return posts, nil
 }
 
-// GetCommentedPostsByUser retrieves posts commented by a specific user
-func (s *Service) GetCommentedPostsByUser(userID int64) ([]*models.Post, error) {
+// GetCommentedPostsByUser retrieves posts commented by a specific user with proper visibility filtering
+func (s *Service) GetCommentedPostsByUser(userID int64, currentUserID int64) ([]*models.Post, error) {
 	query := `
 		SELECT DISTINCT
 			p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
@@ -561,10 +619,19 @@ func (s *Service) GetCommentedPostsByUser(userID int64) ([]*models.Post, error) 
 		JOIN users u ON p.user_id = u.id
 		JOIN comments c ON p.id = c.post_id
 		WHERE c.user_id = ?
+		AND (
+			p.visibility = 'public'
+			OR p.user_id = ?
+			OR (p.visibility = 'private' AND ? > 0 AND (
+				EXISTS(SELECT 1 FROM post_visibility WHERE post_id = p.id AND user_id = ?)
+				OR (NOT EXISTS(SELECT 1 FROM post_visibility WHERE post_id = p.id) 
+					AND EXISTS(SELECT 1 FROM follow_requests WHERE requester_id = ? AND target_id = p.user_id AND status = 'accepted'))
+			))
+		)
 		ORDER BY p.created_at DESC
 	`
 
-	rows, err := s.DB.Query(query, userID, userID, userID)
+	rows, err := s.DB.Query(query, currentUserID, currentUserID, userID, currentUserID, currentUserID, currentUserID, currentUserID)
 	if err != nil {
 		return nil, err
 	}

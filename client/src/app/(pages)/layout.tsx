@@ -40,6 +40,7 @@ export default function PagesLayout({
     setSelectedPostId(null);
   };
 
+
   // Show loading spinner while initializing or checking authentication
   // Keep loading screen persistent until we're fully ready to show content
   if (isInitializing || !hasCheckedAuth || isLoading) {
@@ -103,6 +104,7 @@ export default function PagesLayout({
         isAuthenticated={!!user}
         currentUserId={user?.id}
       />
+
     </div>
   );
 }

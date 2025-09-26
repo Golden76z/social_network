@@ -1,19 +1,14 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Search, Users, Lock, Plus, Minus, UserPlus } from 'lucide-react';
 import { postApi } from '@/lib/api/post';
 import { userApi } from '@/lib/api/user';
 import { animateModalClose } from '@/lib/utils/modalCloseAnimation';
+import { UserDisplayInfo } from '@/lib/types/user';
 
-interface User {
-  id: number;
-  nickname: string;
-  fullName: string;
-  first_name: string;
-  last_name: string;
-  avatar?: string;
-}
+// Using UserDisplayInfo from the types
 
 interface PostVisibilityModalProps {
   isOpen: boolean;
@@ -29,8 +24,8 @@ export function PostVisibilityModal({
   onSuccess,
 }: PostVisibilityModalProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentUsers, setCurrentUsers] = useState<User[]>([]);
-  const [availableFollowers, setAvailableFollowers] = useState<User[]>([]);
+  const [currentUsers, setCurrentUsers] = useState<UserDisplayInfo[]>([]);
+  const [availableFollowers, setAvailableFollowers] = useState<UserDisplayInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showAddUsers, setShowAddUsers] = useState(false);
@@ -65,12 +60,12 @@ export function PostVisibilityModal({
     }
   };
 
-  const addUser = (user: User) => {
+  const addUser = (user: UserDisplayInfo) => {
     setCurrentUsers(prev => [...prev, user]);
     setAvailableFollowers(prev => prev.filter(u => u.id !== user.id));
   };
 
-  const removeUser = (user: User) => {
+  const removeUser = (user: UserDisplayInfo) => {
     setCurrentUsers(prev => prev.filter(u => u.id !== user.id));
     setAvailableFollowers(prev => [...prev, user]);
   };
@@ -107,9 +102,23 @@ export function PostVisibilityModal({
     user.fullName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Helper function to get proper avatar URL
+  const getAvatarUrl = (avatar?: string) => {
+    if (!avatar) return undefined;
+    if (avatar.startsWith('http')) return avatar;
+    return `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}${avatar}`;
+  };
+
+  // Helper function to get user initials
+  const getUserInitials = (user: UserDisplayInfo) => {
+    if (user.nickname) return user.nickname.charAt(0).toUpperCase();
+    if (user.first_name) return user.first_name.charAt(0).toUpperCase();
+    return 'U';
+  };
+
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <div 
       ref={backdropRef}
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-[120] p-4 animate-in fade-in duration-300"
@@ -121,7 +130,7 @@ export function PostVisibilityModal({
     >
       <div 
         ref={contentRef}
-        className="w-full max-w-3xl max-h-[80vh] rounded-lg shadow-lg overflow-hidden bg-card border border-border animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
+        className="w-full max-w-3xl max-h-[90vh] rounded-lg shadow-lg overflow-hidden bg-card border border-border animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -146,7 +155,7 @@ export function PostVisibilityModal({
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -190,14 +199,20 @@ export function PostVisibilityModal({
                         key={user.id}
                         className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border"
                       >
-                        <img
-                          src={user.avatar || '/default-avatar.png'}
-                          alt={user.nickname}
-                          className="w-10 h-10 rounded-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.src = '/default-avatar.png';
-                          }}
-                        />
+                        {getAvatarUrl(user.avatar) ? (
+                          <img
+                            src={getAvatarUrl(user.avatar)}
+                            alt={user.nickname}
+                            className="w-10 h-10 rounded-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                            }}
+                          />
+                        ) : null}
+                        <div className="w-10 h-10 rounded-full bg-muted text-foreground/80 flex items-center justify-center font-medium text-sm hidden">
+                          {getUserInitials(user)}
+                        </div>
                         
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-foreground truncate">
@@ -238,21 +253,27 @@ export function PostVisibilityModal({
                   </div>
 
                   {showAddUsers && (
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                    <div className="space-y-2 max-h-80 overflow-y-auto">
                       {filteredAvailableFollowers.map((user) => (
                         <div
                           key={user.id}
                           className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent cursor-pointer transition-colors"
                           onClick={() => addUser(user)}
                         >
-                          <img
-                            src={user.avatar || '/default-avatar.png'}
-                            alt={user.nickname}
-                            className="w-10 h-10 rounded-full object-cover"
-                            onError={(e) => {
-                              e.currentTarget.src = '/default-avatar.png';
-                            }}
-                          />
+                          {getAvatarUrl(user.avatar) ? (
+                            <img
+                              src={getAvatarUrl(user.avatar)}
+                              alt={user.nickname}
+                              className="w-10 h-10 rounded-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                              }}
+                            />
+                          ) : null}
+                          <div className="w-10 h-10 rounded-full bg-muted text-foreground/80 flex items-center justify-center font-medium text-sm hidden">
+                            {getUserInitials(user)}
+                          </div>
                           
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-foreground truncate">
@@ -314,4 +335,7 @@ export function PostVisibilityModal({
       </div>
     </div>
   );
+
+  // Render the modal using a portal to ensure it's at the document body level
+  return createPortal(modalContent, document.body);
 }

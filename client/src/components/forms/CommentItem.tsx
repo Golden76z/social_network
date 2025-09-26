@@ -6,6 +6,7 @@ import { UserDisplay } from '../layout/UserDisplay';
 import { UserInfoWithTime } from '../layout/UserInfoWithTime';
 import { ImageModal } from '../media/ImageModal';
 import { formatTimeAgo } from '@/lib/utils/userUtils';
+import { useAuth } from '@/context/AuthProvider';
 
 interface CommentItemProps {
   comment: Comment;
@@ -14,6 +15,7 @@ interface CommentItemProps {
 
 export function CommentItem({ comment, src }: CommentItemProps) {
   const router = useRouter();
+  const { user } = useAuth();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
 
@@ -57,9 +59,16 @@ export function CommentItem({ comment, src }: CommentItemProps) {
     
     if (targetUserId) {
       console.log('Navigating to profile for user_id:', targetUserId);
-      router.push(`/profile?user_id=${targetUserId}`);
+      if (user) {
+        router.push(`/profile?user_id=${targetUserId}`);
+      } else {
+        router.push('/login');
+      }
     } else {
       console.warn('No user_id or author_id found in comment:', comment);
+      if (!user) {
+        router.push('/login');
+      }
     }
   };
 

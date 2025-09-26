@@ -108,17 +108,30 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 	} else if profile.IsPrivate {
 		// Private profile - check if current user can see the profile
 		canSeeProfile := false
+		isMutualFriends := false
+
 		if isFollowing != nil && *isFollowing {
 			canSeeProfile = true
 		}
 
+		// Check if they are mutual friends
+		mutualFriends, err := db.DBService.AreMutualFriends(int64(currentUserID), targetUserID)
+		if err == nil {
+			isMutualFriends = mutualFriends
+			// If they are mutual friends, also can see profile
+			if isMutualFriends {
+				canSeeProfile = true
+			}
+		}
+
 		if canSeeProfile {
-			// User is following, return full profile information
+			// User is following or are mutual friends, return full profile information
 			response = models.UserProfileResponse{
 				ID:           profile.ID,
 				Nickname:     profile.Nickname,
 				FirstName:    profile.FirstName,
 				LastName:     profile.LastName,
+				Email:        profile.Email, // Include email for private profiles as well
 				Avatar:       profile.GetAvatar(),
 				Bio:          profile.GetBio(),
 				IsPrivate:    profile.IsPrivate,
@@ -129,7 +142,7 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 				FollowStatus: followStatus,
 			}
 		} else {
-			// User is not following, return minimal information
+			// User is not following and not mutual friends, return minimal information
 			response = models.UserProfileResponse{
 				ID:           profile.ID,
 				Nickname:     profile.Nickname,
@@ -143,12 +156,13 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else {
-		// Public profile - return profile without sensitive data
+		// Public profile - include all information similar to own profile
 		response = models.UserProfileResponse{
 			ID:          profile.ID,
 			Nickname:    profile.Nickname,
 			FirstName:   profile.FirstName,
 			LastName:    profile.LastName,
+			Email:       profile.Email, // Include email for public profiles like own profile
 			Avatar:      profile.GetAvatar(),
 			Bio:         profile.GetBio(),
 			IsPrivate:   profile.IsPrivate,
