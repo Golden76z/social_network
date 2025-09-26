@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode } from 'react';
+import React from 'react';
 import { UserDisplayInfo } from '@/lib/types/user';
 import { getUserInitials, getUserDisplayName, getUserAvatarUrl } from '@/lib/utils/userUtils';
 import { PrivacyBadge } from '@/components/ui/PrivacyBadge';

@@ -270,8 +270,7 @@ export const ErrorToastContainer: React.FC = () => {
 // Form error display
 export const FormError: React.FC<{ 
   error?: AppError; 
-  field?: string;
-}> = ({ error, field }) => {
+}> = ({ error }) => {
   if (!error) return null;
 
   return (

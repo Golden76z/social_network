@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useRef } from 'react';
-import { X, AlertTriangle } from 'lucide-react';
+import React, { useRef, useEffect, useCallback } from 'react';
+import { X } from 'lucide-react';
 import { animateModalClose } from '@/lib/utils/modalCloseAnimation';
 
 interface ConfirmationModalProps {
@@ -71,18 +71,18 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     }
   };
 
-  const handleEscape = (e: KeyboardEvent) => {
+  const handleEscape = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') {
       animateModalClose(onClose, backdropRef, contentRef);
     }
-  };
+  }, [onClose]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
       return () => document.removeEventListener('keydown', handleEscape);
     }
-  }, [isOpen]);
+  }, [isOpen, handleEscape]);
 
   return (
     <div 

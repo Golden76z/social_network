@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { authRoutes } from '@/constants/routes';
-import { AuthResponse, RegisterRequest, LoginRequest } from '@/lib/types/auth';
+import { RegisterRequest, LoginRequest } from '@/lib/types/auth';
 import { User } from '@/lib/types/user';
 import { apiClient } from '@/lib/api';
 

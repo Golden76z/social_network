@@ -42,6 +42,129 @@ export function SearchBar({ className, placeholder = "Search...", onPostClick }:
 
   // Debounced search
   useEffect(() => {
+    const performSearch = async () => {
+      if (query.length < 2 || !isAuthenticated) return;
+
+      setIsLoading(true);
+      setIsOpen(true);
+
+      try {
+        // Define proper types for search results
+        interface SearchUser {
+          id: number;
+          nickname: string;
+          first_name: string;
+          last_name: string;
+          avatar: string;
+          is_private: boolean;
+          isFollowing?: boolean;
+        }
+
+        interface SearchGroup {
+          id: number;
+          title: string;
+          bio: string;
+          avatar: string;
+          isMember?: boolean;
+        }
+
+        interface SearchPost {
+          id: number;
+          title: string;
+          body: string;
+          author_avatar: string;
+        }
+
+        const searchPromises: Promise<SearchResult[]>[] = [];
+
+        if (filter === 'all' || filter === 'users') {
+          const userSearch: Promise<SearchResult[]> = apiClient.get<SearchUser[]>(`/api/search/users?q=${encodeURIComponent(query)}&limit=5`)
+            .then((data: SearchUser[]) => {
+              if (!data || !Array.isArray(data)) {
+                return [];
+              }
+              return data.map((user: SearchUser) => ({
+                id: user.id,
+                type: 'user' as const,
+                title: user.nickname || (user.is_private ? 'Private User' : `${user.first_name} ${user.last_name}`),
+                subtitle: user.is_private ? undefined : (user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : undefined),
+                avatar: user.avatar,
+                isPrivate: user.is_private,
+                isFollowing: user.isFollowing
+              }));
+            })
+            .catch((error) => {
+              console.error('User search error:', error);
+              return [];
+            });
+          searchPromises.push(userSearch);
+        }
+
+        if (filter === 'all' || filter === 'groups') {
+          const groupSearch: Promise<SearchResult[]> = apiClient.get<SearchGroup[]>(`/api/search/groups?q=${encodeURIComponent(query)}&limit=5`)
+            .then((data: SearchGroup[]) => {
+              if (!data || !Array.isArray(data)) {
+                return [];
+              }
+              return data.map((group: SearchGroup) => ({
+                id: group.id,
+                type: 'group' as const,
+                title: group.title,
+                subtitle: group.bio,
+                avatar: group.avatar,
+                isMember: group.isMember
+              }));
+            })
+            .catch((error: unknown) => {
+              console.error('Group search error:', {
+                message: error instanceof Error ? error.message : 'Unknown error',
+                fullError: error
+              });
+              return [];
+            });
+          searchPromises.push(groupSearch);
+        }
+
+        if (filter === 'all' || filter === 'posts') {
+          const postSearch: Promise<SearchResult[]> = apiClient.get<SearchPost[]>(`/api/search/posts?q=${encodeURIComponent(query)}&limit=5`)
+            .then((data: SearchPost[]) => {
+              if (!data || !Array.isArray(data)) {
+                return [];
+              }
+              return data.map((post: SearchPost) => ({
+                id: post.id,
+                type: 'post' as const,
+                title: post.title,
+                subtitle: post.body?.substring(0, 100) + (post.body?.length > 100 ? '...' : ''),
+                avatar: post.author_avatar
+              }));
+            })
+            .catch((error) => {
+              console.error('Post search error:', error);
+              return [];
+            });
+          searchPromises.push(postSearch);
+        }
+
+        const searchResults = await Promise.all(searchPromises);
+        const allResults = searchResults.flat();
+        
+        // Sort results by type: users first, then groups, then posts
+        allResults.sort((a, b) => {
+          const typeOrder = { user: 0, group: 1, post: 2 };
+          const aOrder = typeOrder[a.type];
+          const bOrder = typeOrder[b.type];
+          return aOrder - bOrder;
+        });
+        
+        setResults(allResults);
+      } catch (error) {
+        console.error('Search error:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     if (query.length < 2) {
       setResults([]);
       setIsOpen(false);
@@ -62,84 +185,101 @@ export function SearchBar({ className, placeholder = "Search...", onPostClick }:
     setIsOpen(true);
 
     try {
-      const searchPromises: Promise<any>[] = [];
-      
+      // Define proper types for search results
+      interface SearchUser {
+        id: number;
+        nickname: string;
+        first_name: string;
+        last_name: string;
+        avatar: string;
+        is_private: boolean;
+        isFollowing?: boolean;
+      }
+
+      interface SearchGroup {
+        id: number;
+        title: string;
+        bio: string;
+        avatar: string;
+        isMember?: boolean;
+      }
+
+      interface SearchPost {
+        id: number;
+        title: string;
+        body: string;
+        author_avatar: string;
+      }
+
+      const searchPromises: Promise<SearchResult[]>[] = [];
+
       if (filter === 'all' || filter === 'users') {
-        searchPromises.push(
-          apiClient.get(`/api/search/users?q=${encodeURIComponent(query)}&limit=5`)
-            .then((data: any) => {
-              // Handle null response
-              if (!data || !Array.isArray(data)) {
-                return [];
-              }
-              return data.map((user: any) => ({
-                id: user.id,
-                type: 'user' as const,
-                title: user.nickname || (user.is_private ? 'Private User' : `${user.first_name} ${user.last_name}`),
-                subtitle: user.is_private ? undefined : (user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : undefined),
-                avatar: user.avatar,
-                isPrivate: user.is_private,
-                isFollowing: user.isFollowing
-              }));
-            })
-            .catch((error) => {
-              console.error('User search error:', error);
+        const userSearch: Promise<SearchResult[]> = apiClient.get<SearchUser[]>(`/api/search/users?q=${encodeURIComponent(query)}&limit=5`)
+          .then((data: SearchUser[]) => {
+            if (!data || !Array.isArray(data)) {
               return [];
-            })
-        );
+            }
+            return data.map((user: SearchUser) => ({
+              id: user.id,
+              type: 'user' as const,
+              title: user.nickname || (user.is_private ? 'Private User' : `${user.first_name} ${user.last_name}`),
+              subtitle: user.is_private ? undefined : (user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : undefined),
+              avatar: user.avatar,
+              isPrivate: user.is_private,
+              isFollowing: user.isFollowing
+            }));
+          })
+          .catch((error) => {
+            console.error('User search error:', error);
+            return [];
+          });
+        searchPromises.push(userSearch);
       }
 
       if (filter === 'all' || filter === 'groups') {
-        searchPromises.push(
-          apiClient.get(`/api/search/groups?q=${encodeURIComponent(query)}&limit=5`)
-            .then((data: any) => {
-              // Handle null response
-              if (!data || !Array.isArray(data)) {
-                return [];
-              }
-              return data.map((group: any) => ({
-                id: group.id,
-                type: 'group' as const,
-                title: group.title,
-                subtitle: group.bio,
-                avatar: group.avatar,
-                isMember: group.isMember
-              }));
-            })
-            .catch((error) => {
-              console.error('Group search error:', {
-                message: error.message,
-                status: error.status,
-                url: error.url,
-                details: error.details || 'No additional details',
-                fullError: error
-              });
+        const groupSearch: Promise<SearchResult[]> = apiClient.get<SearchGroup[]>(`/api/search/groups?q=${encodeURIComponent(query)}&limit=5`)
+          .then((data: SearchGroup[]) => {
+            if (!data || !Array.isArray(data)) {
               return [];
-            })
-        );
+            }
+            return data.map((group: SearchGroup) => ({
+              id: group.id,
+              type: 'group' as const,
+              title: group.title,
+              subtitle: group.bio,
+              avatar: group.avatar,
+              isMember: group.isMember
+            }));
+          })
+          .catch((error: unknown) => {
+            console.error('Group search error:', {
+              message: error instanceof Error ? error.message : 'Unknown error',
+              fullError: error
+            });
+            return [];
+          });
+        searchPromises.push(groupSearch);
       }
 
       if (filter === 'all' || filter === 'posts') {
-        searchPromises.push(
-          apiClient.get(`/api/search/posts?q=${encodeURIComponent(query)}&limit=5`)
-            .then((data: any) => {
-              // Handle null response
-              if (!data || !Array.isArray(data)) {
-                return [];
-              }
-              return data.map((post: any) => ({
-                id: post.id,
-                type: 'post' as const,
-                title: post.title,
-                subtitle: post.body?.substring(0, 100) + (post.body?.length > 100 ? '...' : ''),
-                avatar: post.author_avatar
-              }));
-            })
-            .catch((error) => {
-              console.error('Post search error:', error);
+        const postSearch: Promise<SearchResult[]> = apiClient.get<SearchPost[]>(`/api/search/posts?q=${encodeURIComponent(query)}&limit=5`)
+          .then((data: SearchPost[]) => {
+            if (!data || !Array.isArray(data)) {
               return [];
-            })
-        );
+            }
+            return data.map((post: SearchPost) => ({
+              id: post.id,
+              type: 'post' as const,
+              title: post.title,
+              subtitle: post.body?.substring(0, 100) + (post.body?.length > 100 ? '...' : ''),
+              avatar: post.author_avatar
+            }));
+          })
+          .catch((error) => {
+            console.error('Post search error:', error);
+            return [];
+          });
+        searchPromises.push(postSearch);
       }
 
       const searchResults = await Promise.all(searchPromises);

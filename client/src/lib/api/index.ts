@@ -1,12 +1,12 @@
-import { API_CONFIG, getApiUrl, getErrorMessage, getErrorCode, isRetryableError } from '@/lib/config/api';
+import { API_CONFIG, getApiUrl, getErrorMessage, getErrorCode } from '@/lib/config/api';
 
 const ensureWebSocketConnection = () => {
   if (typeof window === 'undefined') return;
-  const reconnect = (window as any).__wsEnsureConnected;
+  const reconnect = (window as { __wsEnsureConnected?: () => void }).__wsEnsureConnected;
   if (typeof reconnect === 'function') {
     try {
       // Only reconnect if WebSocket is not already connected or connecting
-      const wsContext = (window as any).__wsContext;
+      const wsContext = (window as { __wsContext?: { connectionStatus?: string } }).__wsContext;
       if (wsContext && wsContext.connectionStatus !== 'connected' && wsContext.connectionStatus !== 'connecting') {
         reconnect();
       }
