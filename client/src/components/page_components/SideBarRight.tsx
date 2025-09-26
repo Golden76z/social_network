@@ -7,7 +7,7 @@ import { useWebSocketContext } from '@/context/webSocketProvider';
 import { chatAPI, GroupConversation } from '@/lib/api/chat';
 import { groupApi } from '@/lib/api/group';
 import { userApi } from '@/lib/api/user';
-import { User, UserDisplayInfo } from '@/lib/types/user';
+import { UserDisplayInfo } from '@/lib/types/user';
 import { GroupResponse } from '@/lib/types/group';
 import { ExpandableSection } from '@/components/ui/ExpandableSection';
 import { UserList } from '@/components/ui/UserList';
@@ -26,13 +26,11 @@ export const SideBarRight: React.FC = () => {
   const [groups, setGroups] = useState<GroupResponse[]>([]);
   const [groupConversations, setGroupConversations] = useState<GroupConversation[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(true);
-  const [groupMembersLoading, setGroupMembersLoading] = useState(false);
   const [groupMembersMap, setGroupMembersMap] = useState<Record<number, number[]>>({});
   
   // State for users
   const [mutualFollowers, setMutualFollowers] = useState<UserDisplayInfo[]>([]);
   const [followers, setFollowers] = useState<UserDisplayInfo[]>([]);
-  const [following, setFollowing] = useState<UserDisplayInfo[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
 
   // Load data on component mount
@@ -52,10 +50,7 @@ export const SideBarRight: React.FC = () => {
     };
 
     // Listen for user_joined, user_left, and other relevant events
-    const checkForUpdates = () => {
-      // This will be triggered by WebSocket context updates
-      handleWebSocketUpdate();
-    };
+    // WebSocket context will handle real-time updates properly
 
     // Remove the interval that was causing the 5-second refresh
     // The WebSocket context will handle real-time updates properly
@@ -99,7 +94,7 @@ export const SideBarRight: React.FC = () => {
       try {
         const mutualFriendsData = await userApi.getMutualFriends(user.id);
         setMutualFollowers(mutualFriendsData || []);
-      } catch (mutualError) {
+      } catch {
         // Fallback: try to get followers and following to compute mutual friends
         try {
           const [followersData, followingData] = await Promise.all([
@@ -113,7 +108,7 @@ export const SideBarRight: React.FC = () => {
             followersSet.has(followingUser.id)
           );
           setMutualFollowers(mutual);
-        } catch (fallbackError) {
+        } catch {
           setMutualFollowers([]);
         }
       }
@@ -131,7 +126,6 @@ export const SideBarRight: React.FC = () => {
     }
   };
 
-  const onlineUserIdSet = useMemo(() => new Set(onlineUsers.map(user => user.id)), [onlineUsers]);
 
   const preloadGroupMembers = useCallback(async (groupList: GroupResponse[]) => {
     if (!groupList || groupList.length === 0) {

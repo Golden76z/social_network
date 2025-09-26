@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ImageIcon, X, Plus } from 'lucide-react';
+import { ImageIcon, X } from 'lucide-react';
 import { EmojiPicker } from '../media/EmojiPicker';
 import { ImageModal } from '../media/ImageModal';
 import { compressImageToJpeg } from '@/lib/utils';

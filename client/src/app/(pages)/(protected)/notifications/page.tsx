@@ -454,7 +454,7 @@ function NotificationItem({ notification, onMarkAsRead, onDelete, onAccept, onDe
                   onClick={handleProfileClick}
                 >
                   {data.creator_nickname}
-                </span> created a new event <span className="font-semibold text-primary">"{data.event_title}"</span> in <span 
+                </span> created a new event <span className="font-semibold text-primary">&quot;{data.event_title}&quot;</span> in <span 
                   className="font-semibold text-primary cursor-pointer hover:underline"
                   onClick={handleGroupClick}
                 >
@@ -759,7 +759,7 @@ export default function NotificationsPage() {
           </div>
           <h3 className="text-xl font-semibold text-foreground mb-3">No notifications</h3>
           <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-            You're all caught up! New notifications will appear here.
+            You&apos;re all caught up! New notifications will appear here.
           </p>
         </div>
       )}

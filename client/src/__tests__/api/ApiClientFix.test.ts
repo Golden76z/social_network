@@ -118,7 +118,7 @@ describe('API Client Fix Tests', () => {
         text: () => Promise.resolve('Unauthorized: Missing token'),
         headers: new Map([
           ['content-type', 'text/plain; charset=utf-8'],
-          ['content-length': '28']
+          ['content-length', '28']
         ]),
       } as unknown as Response);
 

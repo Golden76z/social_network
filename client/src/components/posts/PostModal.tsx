@@ -1,15 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 // import Image from 'next/image';
-import { X, Heart, MessageCircle, Send, Edit, Trash2, Lock, Users } from 'lucide-react';
+import { X, Heart, MessageCircle, Edit, Trash2, Lock } from 'lucide-react';
 import { PostVisibilityModal } from '../modals/PostVisibilityModal';
 import { Post, Comment } from '@/lib/types';
 import { commentApi } from '@/lib/api/comment';
 import { groupApi } from '@/lib/api/group';
 import { reactionApi } from '@/lib/api/reaction';
-import { postApi } from '@/lib/api/post';
 import { CommentItem } from '../forms/CommentItem';
-import { ProfileThumbnail } from '../layout/ProfileThumbnail';
 import { UserInfoWithTime } from '../layout/UserInfoWithTime';
 import { CommentForm } from '../forms/CommentForm';
 import { animateModalClose } from '@/lib/utils/modalCloseAnimation';

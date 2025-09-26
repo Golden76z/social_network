@@ -27,13 +27,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { ModernInput } from '@/components/ui/modern-input';
 import { ModernTextarea } from '@/components/ui/modern-textarea';
-import { ModernCheckbox } from '@/components/ui/modern-checkbox';
-import { ModernSection } from '@/components/ui/modern-section';
-import { ModernFileInput } from '@/components/ui/modern-file-input';
-import { AvatarFileInput } from '@/components/ui/avatar-file-input';
 
 interface FollowersModalProps {
   isOpen: boolean;
