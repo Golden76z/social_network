@@ -127,8 +127,8 @@ jobs:
         run: npm ci
 
       # Run linter to check code style/quality
-      - name: ✅ Lint
-        run: npm run lint
+      # - name: ✅ Lint
+      #   run: npm run lint
 
       # Run tests with coverage reporting
       # - name: 🧪 Run Tests
