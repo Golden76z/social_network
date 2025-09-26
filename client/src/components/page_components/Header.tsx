@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import Link from 'next/link';
-import { ProfileThumbnail } from '@/components/ProfileThumbnail';
+import { ProfileThumbnail } from '@/components/layout/ProfileThumbnail';
 import { ButtonAccept } from '@/components/ui/Button/buttonAccept';
 import { 
   User, 
@@ -17,13 +17,14 @@ import {
   Edit3,
   Lock
 } from 'lucide-react';
-import { NotificationDropdown } from '@/components/NotificationDropdown';
+import { SearchBar } from '@/components/ui/SearchBar';
 
 interface HeaderProps {
   onCreatePost: () => void;
+  onPostClick?: (postId: number) => void;
 }
 
-export default function Header({ onCreatePost }: HeaderProps) {
+export default function Header({ onCreatePost, onPostClick }: HeaderProps) {
   const router = useRouter();
   const { logout, isAuthenticated, user } = useAuth();
 
@@ -45,50 +46,47 @@ export default function Header({ onCreatePost }: HeaderProps) {
   }, []);
 
 
+
   return (
     <header className="w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-      <div className="container mx-auto px-4 py-3">
-        <div className="flex items-center justify-between">
-          {/* Left side - empty for centering */}
-          <div className="flex-1"></div>
+      <div className="mx-auto px-4 py-3">
+        <div className="grid grid-cols-5 gap-4 items-center">
+          {/* Left side - 20% (1 column) */}
+          <div className="col-span-1"></div>
 
-          {/* Center - Logo and Search bar */}
-          <div className="flex-1 flex flex-col items-center gap-3">
-            <Link href="/" className="font-bold text-3xl text-primary">
+          {/* Center - 60% (3 columns) - Logo and Search bar */}
+          <div className="col-span-3 flex flex-col items-center gap-3">
+            <Link href="/" className="font-bold text-3xl md:text-4xl text-primary font-poppins tracking-tight hover:text-primary/80 transition-colors duration-200 drop-shadow-sm" style={{ WebkitTextStroke: '1px var(--purple-200)' }}>
               Deustagram
             </Link>
-            <div className="hidden md:block w-full max-w-md relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search..."
-                className="w-full pl-10 pr-4 py-2.5 border border-border/50 rounded-xl bg-background/50 backdrop-blur-sm text-base focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-border transition-all duration-200"
+            <div className="hidden md:block w-full max-w-xl">
+              <SearchBar 
+                placeholder="Search users, groups, posts..."
+                onPostClick={onPostClick}
               />
             </div>
           </div>
 
-          {/* Right side - Menu */}
-          <div className="flex-1 flex justify-end">
+          {/* Right side - 20% (1 column) - Menu */}
+          <div className="col-span-1 flex justify-center">
             {/* Desktop menu */}
-            <div className="hidden md:flex items-center gap-3 relative" ref={dropdownRef}>
+            <div className="hidden md:flex items-center justify-center gap-3 relative" ref={dropdownRef}>
           {isAuthenticated ? (
             <>
               <button 
                 onClick={onCreatePost}
-                className="flex items-center space-x-3 px-5 py-3 rounded-xl border border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/15 backdrop-blur-sm transition-all duration-200 hover:shadow-md group"
+                className="flex items-center space-x-3 px-6 py-3.5 rounded-xl border border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/15 backdrop-blur-sm transition-all duration-200 hover:shadow-md group"
               >
-                <Edit3 className="w-4 h-4 text-primary transition-colors" />
-                <span className="text-sm font-medium text-primary transition-colors">
+                <Edit3 className="w-5 h-5 text-primary transition-colors" />
+                <span className="text-base font-medium text-primary transition-colors">
                   Post
                 </span>
               </button>
 
-              {/* Notifications */}
-              <NotificationDropdown />
 
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="flex items-center space-x-3 px-4 py-2.5 rounded-xl border border-border/50 hover:border-border bg-background/50 hover:bg-accent/50 backdrop-blur-sm transition-all duration-200 hover:shadow-sm group"
+                className="flex items-center space-x-3 px-4 py-2.5 rounded-xl border border-[var(--purple-300)] hover:border-[var(--purple-400)] bg-background/50 hover:bg-accent/50 backdrop-blur-sm transition-all duration-200 hover:shadow-sm group"
               >
                 <ProfileThumbnail
                   src={user?.avatar}
@@ -149,29 +147,25 @@ export default function Header({ onCreatePost }: HeaderProps) {
             </ButtonAccept>
           )}
             </div>
+            
+            {/* Mobile hamburger */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden flex items-center justify-center w-10 h-10 rounded-xl border border-border/50 hover:border-border bg-background/50 hover:bg-accent/50 backdrop-blur-sm transition-all duration-200"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
           </div>
         </div>
-
-        {/* Mobile hamburger */}
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden flex items-center justify-center w-10 h-10 rounded-xl border border-border/50 hover:border-border bg-background/50 hover:bg-accent/50 backdrop-blur-sm transition-all duration-200"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
       </div>
 
       {/* Mobile menu */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-border/50 px-4 py-4 space-y-3 bg-background/50 backdrop-blur-sm">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search..."
-              className="w-full pl-10 pr-4 py-2.5 border border-border/50 rounded-xl bg-background/50 backdrop-blur-sm text-sm focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-border transition-all duration-200"
-            />
-          </div>
+          <SearchBar 
+            placeholder="Search users, groups, posts..."
+            onPostClick={onPostClick}
+          />
 
           {isAuthenticated ? (
             <div className="space-y-2">
@@ -188,10 +182,6 @@ export default function Header({ onCreatePost }: HeaderProps) {
                 </span>
               </button>
               
-              {/* Mobile Notifications */}
-              <div className="flex justify-center">
-                <NotificationDropdown />
-              </div>
               
               <Link
                 href="/profile"
@@ -228,6 +218,7 @@ export default function Header({ onCreatePost }: HeaderProps) {
           )}
         </div>
       )}
+
     </header>
   );
 }

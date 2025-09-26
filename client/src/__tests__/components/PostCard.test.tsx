@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { PostCard } from '@/components/PostCard';
+import { PostCard } from '@/components/posts/PostCard';
 import { Post } from '@/lib/types';
 
 // Mock Next.js Image component

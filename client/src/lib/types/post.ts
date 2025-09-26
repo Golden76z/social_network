@@ -3,7 +3,7 @@ import { User } from './user';
 // Updated to match your Go struct and database schema
 export interface Post {
   id: number; // Changed from string to number (INTEGER in DB)
-  user_id: number; // Changed from authorId to user_id to match DB
+  author_id: number; // Matches backend PostResponse.author_id
   title: string; // Added title field from your DB schema
   body: string; // Changed from content to body to match DB
   visibility: 'public' | 'private'; // Added visibility field
@@ -16,7 +16,7 @@ export interface Post {
   group_name?: string; // Group name if this is a group post
 
   // Author information
-  author_id?: number; // If you add this field to your backend response
+  user_id?: number; // Legacy field, use author_id instead
   author?: User; // User info if populated
   author_nickname?: string;
   author_first_name?: string;
@@ -39,6 +39,7 @@ export interface CreatePostRequest {
   body: string;
   visibility: 'public' | 'private';
   images?: string[]; // Your backend validates images but doesn't use File[]
+  selected_followers?: number[]; // Selected followers for private posts
 }
 
 // Update request (matches your Go struct)

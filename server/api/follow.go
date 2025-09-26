@@ -119,7 +119,6 @@ func CreateFollowHandler(w http.ResponseWriter, r *http.Request) {
 	// Get requester's information for the notification
 	requester, err := db.DBService.GetUserByID(userID)
 	if err != nil {
-		fmt.Printf("[WARNING] Failed to get requester info for notification: %v\n", err)
 		// Continue without notification
 	} else {
 		avatar := ""
@@ -135,9 +134,7 @@ func CreateFollowHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Don't fail the follow request if notification creation fails
-		if err := db.DBService.CreateNotification(notificationReq); err != nil {
-			fmt.Printf("[WARNING] Failed to create follow request notification: %v\n", err)
-		}
+		db.DBService.CreateNotification(notificationReq)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -234,6 +231,43 @@ func GetFollowingHandler(w http.ResponseWriter, r *http.Request) {
 			"last_name":  user.LastName,
 			"avatar":     user.GetAvatar(),
 			"is_private": user.IsPrivate,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(displayInfo)
+}
+
+// GetFollowersForPostCreationHandler returns followers for post creation (private posts)
+func GetFollowersForPostCreationHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET method allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Get current user's followers
+	followers, err := db.DBService.GetFollowers(int64(currentUserID))
+	if err != nil {
+		http.Error(w, "Error fetching followers", http.StatusInternalServerError)
+		return
+	}
+
+	// Transform User objects to simplified format for follower selection
+	var displayInfo []map[string]interface{}
+	for _, user := range followers {
+		displayInfo = append(displayInfo, map[string]interface{}{
+			"id":         user.ID,
+			"nickname":   user.Nickname,
+			"fullName":   fmt.Sprintf("%s %s", user.FirstName, user.LastName),
+			"first_name": user.FirstName,
+			"last_name":  user.LastName,
+			"avatar":     user.GetAvatar(),
 		})
 	}
 
@@ -341,10 +375,7 @@ func DeleteFollowHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Clean up related notifications
-	err = db.DBService.DeleteNotificationsByTypeAndData("follow_request", fmt.Sprintf(`{"requester_id":%d}`, followReq.RequesterID))
-	if err != nil {
-		fmt.Printf("[WARNING] Failed to clean up follow request notifications: %v\n", err)
-	}
+	db.DBService.DeleteNotificationsByTypeAndData("follow_request", fmt.Sprintf(`{"requester_id":%d}`, followReq.RequesterID))
 
 	// If the relationship was accepted, decrement counters
 	if followReq.Status == "accepted" {
@@ -410,9 +441,7 @@ func AcceptFollowRequestHandler(w http.ResponseWriter, r *http.Request) {
 			Type:   "follow_accepted",
 			Data:   notificationData,
 		}
-		if err := db.DBService.CreateNotification(notificationReq); err != nil {
-			fmt.Printf("[WARNING] Failed to create notification for follow acceptance: %v\n", err)
-		}
+		db.DBService.CreateNotification(notificationReq)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -496,10 +525,7 @@ func CancelFollowRequestHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Clean up related notifications
-	err = db.DBService.DeleteNotificationsByTypeAndData("follow_request", fmt.Sprintf(`{"requester_id":%d}`, followReq.RequesterID))
-	if err != nil {
-		fmt.Printf("[WARNING] Failed to clean up follow request notifications: %v\n", err)
-	}
+	db.DBService.DeleteNotificationsByTypeAndData("follow_request", fmt.Sprintf(`{"requester_id":%d}`, followReq.RequesterID))
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

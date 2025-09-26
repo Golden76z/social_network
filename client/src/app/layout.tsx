@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { Providers } from '@/context/Providers';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { ErrorProvider } from '@/lib/error/errorContext';
+import { ErrorToastContainer } from '@/components/ui/UserFriendlyError';
+import { Geist, Geist_Mono, Poppins } from 'next/font/google';
 import './globals.css';
 
 const geistSans = Geist({
@@ -11,6 +13,12 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
+});
+
+const poppins = Poppins({
+  variable: '--font-poppins',
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800', '900'],
 });
 
 export const metadata: Metadata = {
@@ -26,9 +34,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} antialiased`}
       >
-        <Providers>{children}</Providers>
+        <ErrorProvider>
+          <Providers>
+            {children}
+            <ErrorToastContainer />
+          </Providers>
+        </ErrorProvider>
       </body>
     </html>
   );

@@ -2,8 +2,8 @@ import type { NextConfig } from 'next';
 import type { Configuration } from 'webpack';
 
 const nextConfig: NextConfig = {
-  // Disable static export for social network app (needs server-side functionality)
-  // ...(process.env.NODE_ENV === 'production' ? { output: 'export' } : {}),
+  // Enable standalone output for Docker deployment
+  output: 'standalone',
   trailingSlash: true,
   images: {
     unoptimized: true,

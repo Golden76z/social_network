@@ -26,6 +26,8 @@ yarn-error.log*
 server/*.db
 server/social_network.db
 server/app.db
+server/*.db-shm
+server/*.db-wal
 
 # Upload files (from server)
 server/uploads/
@@ -33,12 +35,15 @@ server/uploads/
 # Temporary files
 temp_*
 *.tmp
+cookies.txt
 
 # Build artifacts
 dist/
 build/
 *.exe
 *.exe~
+social_network
+social-network
 
 # Environment files
 .env

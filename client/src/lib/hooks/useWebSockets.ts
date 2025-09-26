@@ -72,13 +72,11 @@ export function useWebSocket({
   const connect = useCallback(() => {
     // Prevent multiple simultaneous connection attempts
     if (socketRef.current?.readyState === WebSocket.CONNECTING) {
-      console.log('🔌 Connection already in progress, skipping');
       return;
     }
 
     // Prevent multiple connections if already connected
     if (socketRef.current?.readyState === WebSocket.OPEN) {
-      console.log('🔌 WebSocket already connected, skipping');
       setConnectionStatus('connected');
       return;
     }
@@ -91,7 +89,6 @@ export function useWebSocket({
     const authToken = resolveToken();
 
     if (!authToken) {
-      console.log('🔌 WebSocket: No token available, will retry');
       setConnectionStatus('disconnected');
       if (shouldReconnect.current && reconnectCount.current < reconnectAttempts) {
         reconnectTimeout.current = setTimeout(() => {
@@ -110,7 +107,6 @@ export function useWebSocket({
 
       // Only reuse if same token AND connection is stable
       if (sameToken && readyState === WebSocket.OPEN) {
-        console.log('🔌 Reusing existing WebSocket connection');
         setConnectionStatus('connected');
         setSocket(existingSocket);
         reconnectCount.current = 0;
@@ -124,25 +120,27 @@ export function useWebSocket({
           existingSocket.close(1000, 'Creating new connection');
         }
       } catch (closeError) {
-        console.error('🔌 Failed to close existing WebSocket', closeError);
+        console.error('[API] Failed to close existing WebSocket:', closeError);
       }
       socketRef.current = null;
       setSocket(null);
       
       // Wait for connection to fully close before reconnecting
+      // Firefox-specific: Longer delay to prevent connection churn
+      const isFirefox = typeof window !== 'undefined' && /Firefox/.test(navigator.userAgent);
+      const reconnectDelay = isFirefox ? 3000 : 1500;
+      
       setTimeout(() => {
         shouldReconnect.current = true;
         connect();
-      }, 1500); // Increased delay to prevent race conditions
+      }, reconnectDelay);
       return;
     }
 
-    console.log('🔌 WebSocket connect called with token: Present');
     setConnectionStatus('connecting');
 
     // Check if there's already a global WebSocket instance
     if (globalWebSocketInstance && globalWebSocketInstance.readyState === WebSocket.OPEN) {
-      console.log('🔌 Reusing global WebSocket instance');
       socketRef.current = globalWebSocketInstance;
       setSocket(globalWebSocketInstance);
       setConnectionStatus('connected');
@@ -153,8 +151,6 @@ export function useWebSocket({
     // Create WebSocket URL with token as query parameter (backend expects this)
     const wsUrl = new URL(url);
     wsUrl.searchParams.append('token', authToken);
-
-    console.log('🔌 Connecting to WebSocket URL:', wsUrl.toString().replace(authToken, 'REDACTED'));
     const ws = new WebSocket(wsUrl.toString());
     socketRef.current = ws;
     globalWebSocketInstance = ws;
@@ -162,7 +158,6 @@ export function useWebSocket({
     shouldReconnect.current = true;
 
     ws.onopen = (): void => {
-      console.log('🔌 WebSocket connected successfully');
       setConnectionStatus('connected');
       setSocket(ws);
       reconnectCount.current = 0;
@@ -171,7 +166,6 @@ export function useWebSocket({
       heartbeatTimer.current = setInterval(() => {
         const heartbeatToken = lastTokenRef.current;
         if (ws.readyState === WebSocket.OPEN && heartbeatToken) {
-          console.log('🔌 Sending heartbeat ping');
           ws.send(JSON.stringify({ 
             type: 'ping', 
             timestamp: new Date().toISOString(),
@@ -184,40 +178,36 @@ export function useWebSocket({
     ws.onmessage = (ev): void => {
       try {
         const msg = JSON.parse(ev.data) as WebSocketMessage;
-        console.log('🔌 WebSocket received message:', msg);
-        setLastMessage(msg);
+        
+        // Firefox-specific: Add small delay to ensure proper message processing
+        const isFirefox = typeof window !== 'undefined' && /Firefox/.test(navigator.userAgent);
+        if (isFirefox) {
+          // Small delay to ensure Firefox processes the message properly
+          setTimeout(() => {
+            setLastMessage(msg);
+          }, 10);
+        } else {
+          setLastMessage(msg);
+        }
 
         if (msg.type === 'user_list' && Array.isArray(msg.data)) {
           setOnlineUsers(msg.data as WebSocketUser[]);
         }
-        
-        // Handle notifications
-        if (msg.type === 'notification') {
-          console.log('🔔 Received notification:', msg);
-          // The NotificationDropdown component will handle this via lastMessage
-        }
       } catch (err) {
-        console.error('🔌 Failed to parse WebSocket message:', err);
+        console.error('[API] Failed to parse WebSocket message:', err);
       }
     };
 
     ws.onclose = (ev): void => {
-      console.log('🔌 WebSocket closed with code:', ev.code, 'reason:', ev.reason);
-      
       // Handle different close codes
       if (ev.code === 1011) {
-        console.log('🔌 Server error, will attempt to reconnect');
       } else if (ev.code === 1000) {
-        console.log('🔌 Normal closure');
         // Don't reconnect on normal closure unless we're still supposed to be connected
         if (!shouldReconnect.current) {
-          console.log('🔌 Normal closure and reconnection disabled');
           return;
         }
       } else if (ev.code === 1006) {
-        console.log('🔌 Abnormal closure (likely page load interruption), will attempt to reconnect');
       } else if (ev.code >= 4000) {
-        console.log('🔌 Custom application error, will attempt to reconnect');
       }
       
       setConnectionStatus('disconnected');
@@ -238,31 +228,25 @@ export function useWebSocket({
           // Add minimum delay for page load interruptions
           const baseDelay = ev.code === 1006 ? 2000 : reconnectIntervalMS;
           const delay = baseDelay * 1.5 ** reconnectCount.current;
-          console.log('🔌 Attempting to reconnect in', delay, 'ms (attempt', reconnectCount.current + 1, ')');
           reconnectTimeout.current = setTimeout(() => {
             if (!shouldReconnect.current) {
-              console.log('🔌 Reconnection disabled during timeout, skipping');
               return;
             }
             reconnectCount.current += 1;
             connect();
           }, delay);
-        } else {
-          console.log('🔌 Max reconnection attempts reached');
         }
-      } else if (!shouldReconnect.current) {
-        console.log('🔌 Reconnection disabled, not attempting to reconnect');
       }
     };
 
     ws.onerror = (event): void => {
-      console.error('🔌 WebSocket error occurred', event);
+      console.error('[API] WebSocket error occurred:', event);
       setConnectionStatus('error');
       if (shouldReconnect.current) {
         try {
           ws.close();
         } catch (closeError) {
-          console.error('🔌 Failed to close errored WebSocket', closeError);
+          console.error('[API] Failed to close errored WebSocket:', closeError);
         }
       }
     };
@@ -272,11 +256,9 @@ export function useWebSocket({
     (message: Partial<WebSocketMessage>) => {
       if (socket?.readyState === WebSocket.OPEN) {
         const msg = { ...message, timestamp: new Date().toISOString() };
-        console.log('🔌 Sending WebSocket message:', msg);
         socket.send(JSON.stringify(msg));
-        console.log('🔌 Message sent successfully');
       } else {
-        console.error('🔌 WebSocket not ready, message not sent. ReadyState:', socket?.readyState, 'Message:', message);
+        console.error('[API] WebSocket not ready, message not sent:', socket?.readyState);
       }
     },
     [socket]
@@ -305,7 +287,6 @@ export function useWebSocket({
       globalConnectionCount--;
       if (globalConnectionCount <= 0) {
         shouldReconnect.current = false;
-        console.log('🔌 Last WebSocket hook unmounting, disabling reconnection');
       }
       
       if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
@@ -313,7 +294,6 @@ export function useWebSocket({
       
       // Only close the global WebSocket if this is the last connection
       if (globalConnectionCount <= 0 && globalWebSocketInstance) {
-        console.log('🔌 Last connection, closing global WebSocket');
         globalWebSocketInstance.close(1000, 'Last connection unmounting');
         globalWebSocketInstance = null;
         globalConnectionCount = 0;

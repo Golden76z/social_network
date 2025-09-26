@@ -29,6 +29,7 @@ func (s *Service) CreatePost(userID int64, req models.CreatePostRequest) (int64,
 		return 0, err
 	}
 
+	// Handle images
 	for _, imageURL := range req.Images {
 		_, err := tx.Exec(`
             INSERT INTO post_images (post_id, image_url)
@@ -37,6 +38,20 @@ func (s *Service) CreatePost(userID int64, req models.CreatePostRequest) (int64,
 		if err != nil {
 			tx.Rollback()
 			return 0, err
+		}
+	}
+
+	// Handle private post visibility for selected followers
+	if req.Visibility == "private" && len(req.SelectedFollowers) > 0 {
+		for _, followerID := range req.SelectedFollowers {
+			_, err := tx.Exec(`
+                INSERT INTO post_visibility (post_id, user_id)
+                VALUES (?, ?)`,
+				postID, followerID)
+			if err != nil {
+				tx.Rollback()
+				return 0, err
+			}
 		}
 	}
 
@@ -115,11 +130,12 @@ func (s *Service) GetPostByID(postID int64, currentUserID int64) (*models.PostRe
 	}
 
 	if visibility == "private" && post.AuthorID != currentUserID {
-		isFollowing, err := s.IsFollowing(currentUserID, post.AuthorID)
+		// Check if user is specifically allowed to see this private post
+		hasAccess, err := s.HasPostVisibilityAccess(postID, currentUserID)
 		if err != nil {
 			return nil, err
 		}
-		if !isFollowing {
+		if !hasAccess {
 			return nil, fmt.Errorf("unauthorized")
 		}
 	}
@@ -128,88 +144,61 @@ func (s *Service) GetPostByID(postID int64, currentUserID int64) (*models.PostRe
 }
 
 func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostResponse, error) {
+	// Simplified query - just user posts for now to test basic functionality
 	query := `
-        SELECT * FROM (
-            SELECT
-                p.id,
-                'user_post' AS post_type,
-                p.user_id AS author_id,
-                u.nickname AS author_nickname,
-                u.avatar AS author_avatar,
-                p.title,
-                p.body,
-                p.created_at,
-                p.updated_at,
-                CASE 
-                    WHEN COUNT(pi.image_url) > 0 
-                    THEN GROUP_CONCAT(pi.image_url) 
-                    ELSE '' 
-                END AS images,
-                (SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
-                (SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
-                EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'like') AS user_liked,
-                EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'dislike') AS user_disliked,
-                NULL AS group_id,
-                NULL AS group_name
-            FROM
-                posts p
-            JOIN
-                users u ON p.user_id = u.id
-            LEFT JOIN
-                post_images pi ON p.id = pi.post_id AND pi.is_group_post = 0
-            WHERE
-                p.visibility = 'public'
-                OR p.user_id = ?
-                OR (p.visibility = 'private' AND EXISTS (
-                    SELECT 1 FROM follow_requests
-                    WHERE requester_id = ? AND target_id = p.user_id AND status = 'accepted'
-                ))
-            GROUP BY p.id
-
-            UNION ALL
-
-            SELECT
-                gp.id,
-                'group_post' AS post_type,
-                gp.user_id AS author_id,
-                u.nickname AS author_nickname,
-                u.avatar AS author_avatar,
-                gp.title,
-                gp.body,
-                gp.created_at,
-                gp.updated_at,
-                CASE 
-                    WHEN COUNT(pi.image_url) > 0 
-                    THEN GROUP_CONCAT(pi.image_url) 
-                    ELSE '' 
-                END AS images,
-                (SELECT COUNT(*) FROM likes_dislikes WHERE group_post_id = gp.id AND type = 'like') AS likes,
-                (SELECT COUNT(*) FROM likes_dislikes WHERE group_post_id = gp.id AND type = 'dislike') AS dislikes,
-                EXISTS(SELECT 1 FROM likes_dislikes WHERE group_post_id = gp.id AND user_id = ? AND type = 'like') AS user_liked,
-                EXISTS(SELECT 1 FROM likes_dislikes WHERE group_post_id = gp.id AND user_id = ? AND type = 'dislike') AS user_disliked,
-                g.id AS group_id,
-                g.title AS group_name
-            FROM
-                group_posts gp
-            JOIN
-                users u ON gp.user_id = u.id
-            JOIN
-                groups g ON gp.group_id = g.id
-            LEFT JOIN
-                post_images pi ON gp.id = pi.post_id AND pi.is_group_post = 1
-            WHERE
+        SELECT
+            p.id,
+            'user_post' AS post_type,
+            p.user_id AS author_id,
+            u.nickname AS author_nickname,
+            u.avatar AS author_avatar,
+            p.title,
+            p.body,
+            p.visibility,
+            p.created_at,
+            p.updated_at,
+            CASE 
+                WHEN COUNT(pi.image_url) > 0 
+                THEN GROUP_CONCAT(pi.image_url) 
+                ELSE '' 
+            END AS images,
+            (SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
+            (SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
+            EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'like') AS user_liked,
+            EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'dislike') AS user_disliked,
+            NULL AS group_id,
+            NULL AS group_name
+        FROM
+            posts p
+        JOIN
+            users u ON p.user_id = u.id
+        LEFT JOIN
+            post_images pi ON p.id = pi.post_id AND pi.is_group_post = 0
+        WHERE
+            p.visibility = 'public'
+            OR p.user_id = ?
+            OR (p.visibility = 'private' AND (
                 EXISTS (
-                    SELECT 1 FROM group_members
-                    WHERE group_id = gp.group_id AND user_id = ?
+                    SELECT 1 FROM post_visibility
+                    WHERE post_id = p.id AND user_id = ?
                 )
-            GROUP BY gp.id, g.id, g.title
-        ) AS feed
-        ORDER BY
-            feed.created_at DESC
+                OR (
+                    NOT EXISTS (
+                        SELECT 1 FROM post_visibility
+                        WHERE post_id = p.id
+                    )
+                    AND EXISTS (
+                        SELECT 1 FROM follow_requests
+                        WHERE requester_id = ? AND target_id = p.user_id AND status = 'accepted'
+                    )
+                )
+            ))
+        GROUP BY p.id
+        ORDER BY p.created_at DESC
         LIMIT ?
         OFFSET ?`
 
-	rows, err := s.DB.Query(query, currentUserID, currentUserID, currentUserID, currentUserID, currentUserID, currentUserID, currentUserID, limit, offset)
+	rows, err := s.DB.Query(query, currentUserID, currentUserID, currentUserID, currentUserID, currentUserID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -229,6 +218,7 @@ func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostRe
 			&post.AuthorAvatar,
 			&post.Title,
 			&post.Body,
+			&post.Visibility,
 			&post.CreatedAt,
 			&post.UpdatedAt,
 			&images,
@@ -256,23 +246,54 @@ func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostRe
 	return posts, nil
 }
 
-// GetPostsByUser retrieves posts by a specific user
+// GetPostsByUser retrieves posts by a specific user with proper visibility filtering
 func (s *Service) GetPostsByUser(userID int64, currentUserID int64) ([]*models.Post, error) {
-	query := `
-		SELECT 
-			p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
-			u.nickname, u.first_name, u.last_name,
-			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
-			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
-			EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'like') AS user_liked,
-			EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'dislike') AS user_disliked
-		FROM posts p
-		JOIN users u ON p.user_id = u.id
-		WHERE p.user_id = ?
-		ORDER BY p.created_at DESC
-	`
+	var query string
+	var args []interface{}
 
-	rows, err := s.DB.Query(query, currentUserID, currentUserID, userID)
+	if userID == currentUserID {
+		// Own profile: show ALL posts without privacy filtering
+		query = `
+			SELECT 
+				p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
+				u.nickname, u.first_name, u.last_name,
+				(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
+				(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
+				EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'like') AS user_liked,
+				EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'dislike') AS user_disliked
+			FROM posts p
+			JOIN users u ON p.user_id = u.id
+			WHERE p.user_id = ?
+			ORDER BY p.created_at DESC
+		`
+		args = []interface{}{currentUserID, currentUserID, userID}
+	} else {
+		// Other profile: apply privacy filtering
+		query = `
+			SELECT 
+				p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
+				u.nickname, u.first_name, u.last_name,
+				(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
+				(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
+				EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'like') AS user_liked,
+				EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'dislike') AS user_disliked
+			FROM posts p
+			JOIN users u ON p.user_id = u.id
+			WHERE p.user_id = ?
+			AND (
+				p.visibility = 'public'
+				OR (p.visibility = 'private' AND ? > 0 AND (
+					EXISTS(SELECT 1 FROM post_visibility WHERE post_id = p.id AND user_id = ?)
+					OR (NOT EXISTS(SELECT 1 FROM post_visibility WHERE post_id = p.id) 
+						AND EXISTS(SELECT 1 FROM follow_requests WHERE requester_id = ? AND target_id = p.user_id AND status = 'accepted'))
+				))
+			)
+			ORDER BY p.created_at DESC
+		`
+		args = []interface{}{currentUserID, currentUserID, userID, currentUserID, currentUserID, currentUserID}
+	}
+
+	rows, err := s.DB.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -326,8 +347,8 @@ func (s *Service) GetPostsByUser(userID int64, currentUserID int64) ([]*models.P
 	return posts, nil
 }
 
-// GetLikedPosts retrieves posts liked by a specific user
-func (s *Service) GetLikedPosts(userID int64) ([]*models.Post, error) {
+// GetLikedPosts retrieves posts liked by a specific user with proper visibility filtering
+func (s *Service) GetLikedPosts(userID int64, currentUserID int64) ([]*models.Post, error) {
 	query := `
 		SELECT 
 			p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
@@ -340,10 +361,19 @@ func (s *Service) GetLikedPosts(userID int64) ([]*models.Post, error) {
 		JOIN users u ON p.user_id = u.id
 		JOIN likes_dislikes ld ON p.id = ld.post_id
 		WHERE ld.user_id = ? AND ld.type = 'like'
+		AND (
+			p.visibility = 'public'
+			OR p.user_id = ?
+			OR (p.visibility = 'private' AND ? > 0 AND (
+				EXISTS(SELECT 1 FROM post_visibility WHERE post_id = p.id AND user_id = ?)
+				OR (NOT EXISTS(SELECT 1 FROM post_visibility WHERE post_id = p.id) 
+					AND EXISTS(SELECT 1 FROM follow_requests WHERE requester_id = ? AND target_id = p.user_id AND status = 'accepted'))
+			))
+		)
 		ORDER BY p.created_at DESC
 	`
 
-	rows, err := s.DB.Query(query, userID, userID)
+	rows, err := s.DB.Query(query, currentUserID, userID, currentUserID, currentUserID, currentUserID, currentUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -403,8 +433,8 @@ func (s *Service) GetLikedPosts(userID int64) ([]*models.Post, error) {
 	return posts, nil
 }
 
-// GetCommentedPosts retrieves posts commented by a specific user
-func (s *Service) GetCommentedPosts(userID int64) ([]*models.Post, error) {
+// GetCommentedPosts retrieves posts commented by a specific user with proper visibility filtering
+func (s *Service) GetCommentedPosts(userID int64, currentUserID int64) ([]*models.Post, error) {
 	query := `
 		SELECT DISTINCT
 			p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
@@ -417,10 +447,19 @@ func (s *Service) GetCommentedPosts(userID int64) ([]*models.Post, error) {
 		JOIN users u ON p.user_id = u.id
 		JOIN comments c ON p.id = c.post_id
 		WHERE c.user_id = ?
+		AND (
+			p.visibility = 'public'
+			OR p.user_id = ?
+			OR (p.visibility = 'private' AND ? > 0 AND (
+				EXISTS(SELECT 1 FROM post_visibility WHERE post_id = p.id AND user_id = ?)
+				OR (NOT EXISTS(SELECT 1 FROM post_visibility WHERE post_id = p.id) 
+					AND EXISTS(SELECT 1 FROM follow_requests WHERE requester_id = ? AND target_id = p.user_id AND status = 'accepted'))
+			))
+		)
 		ORDER BY p.created_at DESC
 	`
 
-	rows, err := s.DB.Query(query, userID, userID, userID)
+	rows, err := s.DB.Query(query, currentUserID, currentUserID, userID, currentUserID, currentUserID, currentUserID, currentUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -480,24 +519,33 @@ func (s *Service) GetCommentedPosts(userID int64) ([]*models.Post, error) {
 	return posts, nil
 }
 
-// GetLikedPostsByUser retrieves posts liked by a specific user
-func (s *Service) GetLikedPostsByUser(userID int64) ([]*models.Post, error) {
+// GetLikedPostsByUser retrieves posts liked by a specific user with proper visibility filtering
+func (s *Service) GetLikedPostsByUser(userID int64, currentUserID int64) ([]*models.Post, error) {
 	query := `
 		SELECT 
 			p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
 			u.nickname, u.first_name, u.last_name, u.avatar,
 			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
 			(SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
-			1 AS user_liked,
+			EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'like') AS user_liked,
 			EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'dislike') AS user_disliked
 		FROM posts p
 		JOIN users u ON p.user_id = u.id
 		JOIN likes_dislikes ld ON p.id = ld.post_id
 		WHERE ld.user_id = ? AND ld.type = 'like'
+		AND (
+			p.visibility = 'public'
+			OR p.user_id = ?
+			OR (p.visibility = 'private' AND ? > 0 AND (
+				EXISTS(SELECT 1 FROM post_visibility WHERE post_id = p.id AND user_id = ?)
+				OR (NOT EXISTS(SELECT 1 FROM post_visibility WHERE post_id = p.id) 
+					AND EXISTS(SELECT 1 FROM follow_requests WHERE requester_id = ? AND target_id = p.user_id AND status = 'accepted'))
+			))
+		)
 		ORDER BY p.created_at DESC
 	`
 
-	rows, err := s.DB.Query(query, userID, userID)
+	rows, err := s.DB.Query(query, currentUserID, currentUserID, userID, currentUserID, currentUserID, currentUserID, currentUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -557,8 +605,8 @@ func (s *Service) GetLikedPostsByUser(userID int64) ([]*models.Post, error) {
 	return posts, nil
 }
 
-// GetCommentedPostsByUser retrieves posts commented by a specific user
-func (s *Service) GetCommentedPostsByUser(userID int64) ([]*models.Post, error) {
+// GetCommentedPostsByUser retrieves posts commented by a specific user with proper visibility filtering
+func (s *Service) GetCommentedPostsByUser(userID int64, currentUserID int64) ([]*models.Post, error) {
 	query := `
 		SELECT DISTINCT
 			p.id, p.user_id, p.title, p.body, p.visibility, p.created_at, p.updated_at,
@@ -571,10 +619,19 @@ func (s *Service) GetCommentedPostsByUser(userID int64) ([]*models.Post, error) 
 		JOIN users u ON p.user_id = u.id
 		JOIN comments c ON p.id = c.post_id
 		WHERE c.user_id = ?
+		AND (
+			p.visibility = 'public'
+			OR p.user_id = ?
+			OR (p.visibility = 'private' AND ? > 0 AND (
+				EXISTS(SELECT 1 FROM post_visibility WHERE post_id = p.id AND user_id = ?)
+				OR (NOT EXISTS(SELECT 1 FROM post_visibility WHERE post_id = p.id) 
+					AND EXISTS(SELECT 1 FROM follow_requests WHERE requester_id = ? AND target_id = p.user_id AND status = 'accepted'))
+			))
+		)
 		ORDER BY p.created_at DESC
 	`
 
-	rows, err := s.DB.Query(query, userID, userID, userID)
+	rows, err := s.DB.Query(query, currentUserID, currentUserID, userID, currentUserID, currentUserID, currentUserID, currentUserID)
 	if err != nil {
 		return nil, err
 	}

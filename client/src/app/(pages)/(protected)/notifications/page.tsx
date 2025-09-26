@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Notification, NotificationData, NotificationType } from '@/lib/types';
 import { notificationApi } from '@/lib/api/notifications';
-import { Avatar } from '@/components/Avatar';
+import { Avatar } from '@/components/layout/Avatar';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 
 interface NotificationItemProps {
@@ -621,10 +621,49 @@ export default function NotificationsPage() {
 
   const unreadCount = notifications?.filter(n => !n.is_read).length || 0;
 
+  const handleMarkAllAsRead = async () => {
+    if (!notifications || unreadCount === 0) return;
+    
+    try {
+      setActionLoading(true);
+      const unreadNotifications = notifications.filter(n => !n.is_read);
+      const promises = unreadNotifications.map(notif => notificationApi.markAsRead(notif.id));
+      await Promise.all(promises);
+      
+      // Update local state
+      setNotifications(prev => 
+        (prev || []).map(notif => ({ ...notif, is_read: true }))
+      );
+    } catch (err) {
+      console.error('Failed to mark all notifications as read:', err);
+      setError('Failed to mark all notifications as read');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    if (!notifications || notifications.length === 0) return;
+    
+    try {
+      setActionLoading(true);
+      const promises = notifications.map(notif => notificationApi.deleteNotification(notif.id));
+      await Promise.all(promises);
+      
+      // Clear local state
+      setNotifications([]);
+    } catch (err) {
+      console.error('Failed to delete all notifications:', err);
+      setError('Failed to delete all notifications');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   return (
     <div>
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-8 pt-4">
         <div className="flex space-x-1 bg-muted p-1 rounded-lg">
           <button
             onClick={() => setFilter('all')}
@@ -657,6 +696,38 @@ export default function NotificationsPage() {
             )}
           </button>
         </div>
+
+        {/* Bulk Actions */}
+        {!loading && !error && notifications && notifications.length > 0 && (
+          <div className="mt-4 flex gap-2 justify-center">
+            {unreadCount > 0 && (
+              <button
+                onClick={handleMarkAllAsRead}
+                disabled={actionLoading}
+                className="flex items-center gap-2 px-3 py-2 text-sm bg-primary/10 hover:bg-primary/20 text-primary rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {actionLoading ? (
+                  <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                ) : (
+                  <span>✓</span>
+                )}
+                Mark All Read
+              </button>
+            )}
+            <button
+              onClick={handleDeleteAll}
+              disabled={actionLoading}
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {actionLoading ? (
+                <div className="w-4 h-4 border-2 border-destructive/30 border-t-destructive rounded-full animate-spin"></div>
+              ) : (
+                <span>🗑️</span>
+              )}
+              Delete All
+            </button>
+          </div>
+        )}
       </div>
 
       {loading && (

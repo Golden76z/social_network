@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation';
 import { GroupResponse } from '@/lib/types/group';
 import { groupApi } from '@/lib/api/group';
 import { useAuth } from '@/context/AuthProvider';
-import { GroupCard } from '@/components/GroupCard';
-import { CreateGroupModal } from '@/components/CreateGroupModal';
+import { GroupCard } from '@/components/groups/GroupCard';
+import { CreateGroupModal } from '@/components/groups/CreateGroupModal';
 import { UserCheck } from 'lucide-react';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 export default function GroupsPage() {
   const router = useRouter();
@@ -194,10 +195,7 @@ export default function GroupsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading groups...</p>
-        </div>
+        <LoadingSpinner size="lg" text="Loading groups..." />
       </div>
     );
   }
@@ -220,18 +218,7 @@ export default function GroupsPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Groups</h1>
-          <p className="text-muted-foreground">Discover and join communities that interest you</p>
-        </div>
-        <button 
-          onClick={handleCreateGroup}
-          className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2"
-        >
-          <span className="text-lg">+</span>
-          Create Group
-        </button>
+      <div className="mb-8">
       </div>
 
       {/* Toggle Buttons */}
@@ -261,12 +248,16 @@ export default function GroupsPage() {
       {/* Groups Section */}
       <div className="bg-card rounded-xl border border-border/50 p-8 shadow-sm">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold">
+          <h2 className="text-xl font-medium">
             {activeTab === 'my-groups' ? 'My Groups' : 'All Groups'}
           </h2>
-          <span className="text-sm text-muted-foreground">
-            {activeTab === 'my-groups' ? myGroups.length : allGroups.length} groups
-          </span>
+          <button 
+            onClick={handleCreateGroup}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2 font-bold"
+          >
+            <span className="text-lg">+</span>
+            New group
+          </button>
         </div>
         
         {(() => {
@@ -331,7 +322,7 @@ export default function GroupsPage() {
       {/* Join Success Modal */}
       {showJoinSuccessModal && joinedGroup && (
         <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-300"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowJoinSuccessModal(false);

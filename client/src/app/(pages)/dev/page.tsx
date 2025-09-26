@@ -2,10 +2,26 @@
 import Link from 'next/link';
 
 const DevPage = () => {
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8 text-gray-900">Development Debug Panels</h1>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Development Debug Panels</h1>
+          <div className="flex items-center space-x-2">
+            <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+              isDevelopment 
+                ? 'bg-green-100 text-green-800' 
+                : 'bg-red-100 text-red-800'
+            }`}>
+              {isDevelopment ? '✅ Development' : '❌ Production'}
+            </div>
+            <div className="text-sm text-gray-500">
+              ENV: {process.env.NODE_ENV || 'unknown'}
+            </div>
+          </div>
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Groups Panel */}
@@ -122,25 +138,6 @@ const DevPage = () => {
                 <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded">Auth</span>
                 <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">API</span>
                 <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded">Debug</span>
-              </div>
-            </div>
-          </Link>
-
-          {/* Playground Panel */}
-          <Link href="/dev/playground" className="block">
-            <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-              <div className="flex items-center mb-4">
-                <div className="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mr-4">
-                  <span className="text-2xl">🧪</span>
-                </div>
-                <h2 className="text-xl font-semibold text-gray-900">Playground</h2>
-              </div>
-              <p className="text-gray-600 text-sm mb-4">
-                Component testing and positioning playground.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <span className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded">Components</span>
-                <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded">Testing</span>
               </div>
             </div>
           </Link>

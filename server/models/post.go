@@ -31,6 +31,8 @@ type CreatePostRequest struct {
 	Body       string   `json:"body"`
 	Images     []string `json:"images,omitempty"`
 	Visibility string   `json:"visibility"`
+	// Selected followers for private posts (only used when visibility is "private")
+	SelectedFollowers []int64 `json:"selected_followers,omitempty"`
 }
 
 func (c *CreatePostRequest) UnmarshalJSON(data []byte) error {
@@ -85,6 +87,7 @@ type PostResponse struct {
 	AuthorAvatar   sql.NullString `json:"author_avatar"`
 	Title          string         `json:"title"`
 	Body           string         `json:"body"`
+	Visibility     string         `json:"visibility"`
 	CreatedAt      string         `json:"created_at"`
 	UpdatedAt      sql.NullString `json:"updated_at"`
 	Images         []string       `json:"images"`

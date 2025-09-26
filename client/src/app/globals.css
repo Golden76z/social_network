@@ -52,6 +52,11 @@
   --sidebar-border: oklch(0.9 0.05 300);
   --sidebar-ring: oklch(0.6 0.15 300);
   
+  /* Softer purple tones for text */
+  --text-soft-primary: oklch(0.5 0.12 300);
+  --text-soft-secondary: oklch(0.45 0.1 300);
+  --text-soft-muted: oklch(0.4 0.08 300);
+  
   /* Lighter purple tones */
   --purple-50: oklch(0.98 0.02 300);
   --purple-100: oklch(0.95 0.05 300);
@@ -63,6 +68,9 @@
   --purple-700: oklch(0.4 0.2 300);
   --purple-800: oklch(0.3 0.22 300);
   --purple-900: oklch(0.2 0.25 300);
+  
+  /* Soft light purple separator */
+  --separator-purple: oklch(0.92 0.06 300);
 }
 
 [data-theme='dark'] {
@@ -115,6 +123,11 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   
+  /* Softer purple tones for text */
+  --color-text-soft-primary: var(--text-soft-primary);
+  --color-text-soft-secondary: var(--text-soft-secondary);
+  --color-text-soft-muted: var(--text-soft-muted);
+  
   /* Lighter purple tones */
   --color-purple-50: var(--purple-50);
   --color-purple-100: var(--purple-100);
@@ -126,6 +139,9 @@
   --color-purple-700: var(--purple-700);
   --color-purple-800: var(--purple-800);
   --color-purple-900: var(--purple-900);
+  
+  /* Soft light purple separator */
+  --color-separator-purple: var(--separator-purple);
 }
 
 .dark {
@@ -162,6 +178,9 @@
   --sidebar-accent-foreground: oklch(0.95 0.05 300);
   --sidebar-border: oklch(0.3 0.1 300);
   --sidebar-ring: oklch(0.6 0.2 300);
+  
+  /* Soft light purple separator for dark mode */
+  --separator-purple: oklch(0.25 0.08 300);
 }
 
 @layer base {
@@ -170,6 +189,11 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  
+  /* Poppins font family */
+  .font-poppins {
+    font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
   }
 }
 
@@ -194,5 +218,57 @@
     cursor: not-allowed;
     transform: none;
     box-shadow: none;
+  }
+  
+  /* Modal closing animations */
+  .modal-closing {
+    animation: modalClose 300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+  
+  .modal-backdrop-closing {
+    animation: modalBackdropClose 300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+  
+  @keyframes modalClose {
+    0% {
+      transform: scale(1) translateY(0);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(0.95) translateY(16px);
+      opacity: 0;
+    }
+  }
+  
+  @keyframes modalBackdropClose {
+    0% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+  
+  /* Firefox-specific fixes */
+  @-moz-document url-prefix() {
+    .messages-container {
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    
+    /* Fix for Firefox text rendering issues */
+    .font-poppins {
+      -moz-osx-font-smoothing: grayscale;
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    /* Fix for Firefox backdrop-filter issues */
+    .backdrop-blur-sm {
+      background-color: rgba(255, 255, 255, 0.8);
+    }
+    
+    .dark .backdrop-blur-sm {
+      background-color: rgba(0, 0, 0, 0.8);
+    }
   }
 }

@@ -20,7 +20,6 @@ func GenerateSeed() {
 
 	// Check if seed has already been run
 	if _, err := os.Stat(lockFilePath); err == nil {
-		log.Println("🔒 Seed already generated. Skipping seeding process.")
 		return
 	}
 

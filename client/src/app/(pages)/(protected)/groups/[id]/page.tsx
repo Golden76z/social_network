@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { GroupResponse } from '@/lib/types/group';
 import { groupApi } from '@/lib/api/group';
 import { useAuth } from '@/context/AuthProvider';
-import { GroupCard } from '@/components/GroupCard';
+import { GroupCard } from '@/components/groups/GroupCard';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 
 export default function GroupDetailPage() {

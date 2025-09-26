@@ -147,14 +147,24 @@ func CookieSession(username string, w http.ResponseWriter) error {
 	return nil
 }
 
-// GetUserFromJWT extracts user information from JWT token in request cookie
+// GetUserFromJWT extracts user information from JWT token in request cookie or Authorization header
 func GetUserFromJWT(r *http.Request) (*JWTClaims, error) {
-	cookie, err := r.Cookie("jwt_token")
-	if err != nil {
-		return nil, fmt.Errorf("missing JWT token in cookie")
+	var tokenString string
+
+	// First try to get token from Authorization header
+	authHeader := r.Header.Get("Authorization")
+	if authHeader != "" && len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+		tokenString = authHeader[7:]
+	} else {
+		// Fallback to cookie
+		cookie, err := r.Cookie("jwt_token")
+		if err != nil {
+			return nil, fmt.Errorf("missing JWT token in cookie or Authorization header")
+		}
+		tokenString = cookie.Value
 	}
 
-	claims, err := ValidateToken(cookie.Value)
+	claims, err := ValidateToken(tokenString)
 	if err != nil {
 		return nil, fmt.Errorf("invalid JWT token: %v", err)
 	}

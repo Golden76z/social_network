@@ -14,10 +14,10 @@ import {
 } from '@/lib/types';
 import { uploadAvatar } from '@/lib/api/upload';
 import { Lock, Unlock, UserMinus, UserPlus, Users, UserCheck, X } from 'lucide-react';
-import { PostCard } from '@/components/PostCard';
-import { PostModal } from '@/components/PostModal';
-import { Avatar } from '@/components/Avatar';
-import { ProfileThumbnail } from '@/components/ProfileThumbnail';
+import { PostCard } from '@/components/posts/PostCard';
+import { PostModal } from '@/components/posts/PostModal';
+import { Avatar } from '@/components/layout/Avatar';
+import { ProfileThumbnail } from '@/components/layout/ProfileThumbnail';
 import Button from '@/components/ui/button';
 import {
   Dialog,
@@ -90,10 +90,10 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
       <div
         ref={modalRef}
-        className="bg-card rounded-lg max-w-md w-full border border-border"
+        className="bg-card rounded-lg max-w-md w-full border border-border animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
       >
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-lg font-semibold text-card-foreground">{title}</h2>
@@ -172,7 +172,7 @@ const FollowersModal: React.FC<FollowersModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-300"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
@@ -181,7 +181,7 @@ const FollowersModal: React.FC<FollowersModalProps> = ({
     >
       <div
         ref={modalRef}
-        className="bg-card border border-border rounded-lg p-6 max-w-lg w-full mx-4 max-h-[85vh] overflow-y-auto"
+        className="bg-card border border-border rounded-lg p-6 max-w-lg w-full mx-4 max-h-[85vh] overflow-y-auto animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
@@ -344,6 +344,8 @@ function ProfilePageContent() {
         console.log('📋 Profile data loaded:', {
           id: profileData.id,
           nickname: profileData.nickname,
+          email: profileData.email,
+          date_of_birth: profileData.date_of_birth,
           isFollowing: profileData.isFollowing,
           followers: profileData.followers,
           isOwnProfile: isOwnProfile()
@@ -487,6 +489,11 @@ function ProfilePageContent() {
         }
       } catch (error) {
         console.error('Error loading posts:', error);
+        if (error instanceof Error) {
+          console.error('Error details:', error.message, error.stack);
+        } else if (error && typeof error === 'object') {
+          console.error('Error details:', JSON.stringify(error));
+        }
         setUserPosts([]);
         setLikedPosts([]);
         setCommentedPosts([]);
@@ -895,89 +902,139 @@ function ProfilePageContent() {
             {/* Profile Content */}
             <div className="flex-1 space-y-4">
               {isEditing ? (
-                <div className="space-y-4">
-                  {/* Avatar change controls */}
-                  <ModernSection>
+                <div className="space-y-6">
+                  {/* Edit Mode Header with Privacy Switch */}
+                  <div className="flex items-center justify-between pb-4 border-b border-purple-200/50 dark:border-purple-800/30">
                     <div className="flex items-center gap-4">
-                      <div className="flex gap-2">
-                        <AvatarFileInput
-                          onChange={(file) => {
-                            if (avatarPreview) URL.revokeObjectURL(avatarPreview);
-                            if (file) {
-                              setAvatarPreview(URL.createObjectURL(file));
-                              setAvatarFile(file);
-                            }
-                          }}
-                          onError={(title, message) => {
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-foreground">Edit Profile</h3>
+            </div>
+            
+            {/* Separator */}
+            <div className="h-6 w-px bg-purple-200 dark:bg-purple-800"></div>
+            
+            {/* Privacy Switch */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                {formState.is_private ? 'Private' : 'Public'}
+              </span>
+              <button
+                type="button"
+                onClick={() => handleChange('is_private', !formState.is_private)}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                  formState.is_private 
+                    ? 'bg-purple-600' 
+                    : 'bg-gray-200 dark:bg-gray-700'
+                }`}
+              >
+                <span
+                  className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                    formState.is_private ? 'translate-x-5' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+                    </div>
+                    
+                    {/* Photo Upload Button */}
+                    <div className="relative">
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/gif"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          
+                          if (!file) return;
+                          
+                          // Validate file type
+                          if (!/^image\/(jpeg|jpg|png|gif)$/i.test(file.type)) {
                             setErrorModal({
                               isOpen: true,
-                              title,
-                              message
+                              title: 'Format non supporté',
+                              message: 'Veuillez sélectionner un fichier image (JPEG, PNG ou GIF).'
                             });
-                          }}
+                            return;
+                          }
+                          
+                          // Validate file size
+                          if (file.size > 5 * 1024 * 1024) {
+                            setErrorModal({
+                              isOpen: true,
+                              title: 'Fichier trop volumineux',
+                              message: 'Le fichier doit faire moins de 5 Mo.'
+                            });
+                            return;
+                          }
+                          
+                          // If validation passes, update avatar
+                          if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+                          setAvatarPreview(URL.createObjectURL(file));
+                          setAvatarFile(file);
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                        id="avatar-file-input"
+                      />
+                      <button
+                        type="button"
+                        className="px-6 py-2 text-sm font-medium border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 border rounded-lg transition-colors"
+                      >
+                        Choose Photo
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Personal Information and Bio - Full Width */}
+                  <div className="bg-gradient-to-br from-purple-50/50 to-purple-100/30 dark:from-purple-900/10 dark:to-purple-800/5 rounded-xl p-6 border border-purple-200/40 dark:border-purple-800/20">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                      <h4 className="text-sm font-medium text-foreground">Personal Information</h4>
+                    </div>
+                    <div className="space-y-4">
+                      {/* Name Fields */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <ModernInput
+                          type="text"
+                          value={formState.first_name}
+                          onChange={(e) => handleChange('first_name', e.target.value)}
+                          placeholder="First Name"
+                        />
+                        <ModernInput
+                          type="text"
+                          value={formState.last_name}
+                          onChange={(e) => handleChange('last_name', e.target.value)}
+                          placeholder="Last Name"
+                        />
+                      </div>
+                      
+                      {/* Nickname */}
+                      <ModernInput
+                        type="text"
+                        value={formState.nickname}
+                        onChange={(e) => handleChange('nickname', e.target.value)}
+                        placeholder="Nickname"
+                      />
+                      
+                      {/* Bio */}
+                      <div>
+                        <label className="text-sm font-medium text-foreground mb-2 block">Bio</label>
+                        <ModernTextarea
+                          rows={4}
+                          value={formState.bio}
+                          onChange={(e) => handleChange('bio', e.target.value)}
+                          placeholder="Tell us about yourself..."
                         />
                       </div>
                     </div>
-                  </ModernSection>
-
-                  {/* Personal Information */}
-                  <ModernSection title="Personal Information">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <ModernInput
-                        type="text"
-                        value={formState.first_name}
-                        onChange={(e) => handleChange('first_name', e.target.value)}
-                        placeholder="First Name"
-                      />
-                      <ModernInput
-                        type="text"
-                        value={formState.last_name}
-                        onChange={(e) => handleChange('last_name', e.target.value)}
-                        placeholder="Last Name"
-                      />
-                    </div>
-                    <ModernInput
-                      type="text"
-                      value={formState.nickname}
-                      onChange={(e) => handleChange('nickname', e.target.value)}
-                      placeholder="Nickname"
-                    />
-                  </ModernSection>
-
-                  {/* Bio */}
-                  <ModernSection title="Bio">
-                    <ModernTextarea
-                      rows={3}
-                      value={formState.bio}
-                      onChange={(e) => handleChange('bio', e.target.value)}
-                      placeholder="Tell us about yourself..."
-                    />
-                  </ModernSection>
-
-                  {/* Privacy Settings */}
-                  <ModernSection title="Privacy Settings">
-                    <ModernCheckbox
-                      checked={formState.is_private}
-                      onChange={(e) => handleChange('is_private', e.target.checked)}
-                      label="Private Profile"
-                      icon={
-                        formState.is_private ? (
-                          <Lock className="w-4 h-4 text-orange-500" />
-                        ) : (
-                          <Unlock className="w-4 h-4 text-green-500" />
-                        )
-                      }
-                    />
-                  </ModernSection>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {/* Name and Username */}
                   <div className="space-y-1">
-                    <h2 className="text-2xl font-bold text-card-foreground">
-                      {profileUser.first_name} {profileUser.last_name}
-                    </h2>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <h2 className="text-2xl font-bold text-card-foreground">
+                        {profileUser.first_name} {profileUser.last_name}
+                      </h2>
                       <p className="text-lg text-muted-foreground">@{profileUser.nickname}</p>
                       {profileUser.is_private ? (
                         <div className="flex items-center gap-1 px-2 py-1 bg-orange-100 rounded-full">
@@ -991,6 +1048,12 @@ function ProfilePageContent() {
                         </div>
                       )}
                     </div>
+                    {/* Email - Only show if available (own profile or following private user) */}
+                    {profileUser.email && (
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <p className="text-lg text-muted-foreground">{profileUser.email}</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Bio Section */}
@@ -1004,21 +1067,73 @@ function ProfilePageContent() {
                   </div>
 
 
-                  {/* Additional Info */}
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-card-foreground">Member Since</h3>
-                    <div className="p-3 bg-muted/30 rounded-lg border border-border">
-                      <p className="text-sm text-card-foreground">
-                        {profileUser.created_at && !isNaN(new Date(profileUser.created_at).getTime()) 
-                          ? new Date(profileUser.created_at).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric'
-                            })
-                          : 'Unknown'
-                        }
-                      </p>
+
+                  {/* Profile Information Section */}
+                  <div className="space-y-4">
+                    {/* Section Separator */}
+                    <div className="h-px bg-gradient-to-r from-transparent via-separator-purple to-transparent"></div>
+                    
+                    {/* Date of Birth and Member Since Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Date of Birth - Privacy Controlled */}
+                      {(isOwnProfile() || (!profileUser.is_private) || (profileUser.is_private && isFollowing)) && (
+                        <div className="space-y-2">
+                          <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
+                            Date of Birth
+                          </h3>
+                          <div className="p-4 bg-purple-50/50 dark:bg-purple-900/10 rounded-xl border border-purple-200/50 dark:border-purple-800/30 backdrop-blur-sm">
+                            <p className="text-sm text-foreground font-medium">
+                              {profileUser.date_of_birth && !isNaN(new Date(profileUser.date_of_birth).getTime()) 
+                                ? new Date(profileUser.date_of_birth).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                  })
+                                : 'Not specified'
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Member Since */}
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
+                          Member Since
+                        </h3>
+                        <div className="p-4 bg-purple-50/50 dark:bg-purple-900/10 rounded-xl border border-purple-200/50 dark:border-purple-800/30 backdrop-blur-sm">
+                          <p className="text-sm text-foreground font-medium">
+                            {profileUser.created_at && !isNaN(new Date(profileUser.created_at).getTime()) 
+                              ? new Date(profileUser.created_at).toLocaleDateString('en-US', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric'
+                                })
+                              : 'Unknown'
+                            }
+                          </p>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Privacy Notice for Private Profiles */}
+                    {profileUser.is_private && !isOwnProfile() && !isFollowing && user && (
+                      <div className="p-4 bg-gradient-to-br from-purple-50/80 to-purple-100/60 dark:from-purple-900/20 dark:to-purple-800/10 border border-purple-200/60 dark:border-purple-700/40 rounded-xl backdrop-blur-sm">
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center">
+                            <Lock className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm text-purple-800 dark:text-purple-200 font-medium">Private Profile</p>
+                            <p className="text-xs text-purple-700 dark:text-purple-300 mt-1 leading-relaxed">
+                              Contact information is only visible to mutual friends. Follow this user to see their email and date of birth.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1027,19 +1142,26 @@ function ProfilePageContent() {
             {isOwnProfile() && (
               <div className="flex justify-end">
                 {isEditing ? (
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 w-32">
                     <Button
                       onClick={handleSave}
                       disabled={saving}
-                      variant="outline"
-                      size="default"
+                      className="w-full px-6 py-2 text-sm font-medium bg-gradient-to-r from-purple-400 to-purple-500 hover:from-purple-500 hover:to-purple-600 text-white shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {saving ? 'Saving...' : 'Save Changes'}
+                      {saving ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          Saving...
+                        </div>
+                      ) : (
+                        'Save Changes'
+                      )}
                     </Button>
                     <Button
                       onClick={handleCancel}
                       variant="outline"
                       size="default"
+                      className="w-full px-6 py-2 text-sm font-medium border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20"
                     >
                       Cancel
                     </Button>
@@ -1047,8 +1169,7 @@ function ProfilePageContent() {
                 ) : (
                   <Button
                     onClick={() => setIsEditing(true)}
-                    variant="outline"
-                    size="default"
+                    className="px-6 py-2 text-sm font-medium bg-gradient-to-r from-purple-400 to-purple-500 hover:from-purple-500 hover:to-purple-600 text-white shadow-lg hover:shadow-xl transition-all duration-200"
                   >
                     Edit Profile
                   </Button>

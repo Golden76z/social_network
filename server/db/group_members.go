@@ -81,12 +81,10 @@ func (s *Service) GetGroupMemberByID(memberID int64) (*models.GroupMember, error
 func (s *Service) GetGroupMembers(groupID int64, offset int, userID int64) ([]*models.GroupMemberWithUser, error) {
 	tx, err := s.DB.Begin()
 	if err != nil {
-		fmt.Println("Error: ", err)
 		return nil, err
 	}
 	defer func() {
 		if err != nil {
-			fmt.Println("Error: ", err)
 			_ = tx.Rollback()
 		} else {
 			_ = tx.Commit()
@@ -94,18 +92,14 @@ func (s *Service) GetGroupMembers(groupID int64, offset int, userID int64) ([]*m
 	}()
 
 	members := make([]*models.GroupMemberWithUser, 0)
-	fmt.Println("UserID: ", userID)
-	fmt.Println("GroupID: ", groupID)
 
 	// First check if group exists
 	var groupExists bool
 	err = tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM groups WHERE id = ?)`, groupID).Scan(&groupExists)
 	if err != nil {
-		fmt.Println("Error: ", err)
 		return nil, err
 	}
 	if !groupExists {
-		fmt.Println("Error: group does not exist")
 		return nil, errors.New("group does not exist")
 	}
 
@@ -132,7 +126,6 @@ func (s *Service) GetGroupMembers(groupID int64, offset int, userID int64) ([]*m
 		if scanErr := rows.Scan(&gm.ID, &gm.GroupID, &gm.UserID, &gm.Role, &gm.InvitedBy, &gm.CreatedAt,
 			&nickname, &firstName, &lastName, &avatar); scanErr != nil {
 			err = scanErr // triggers rollback via defer
-			fmt.Println("Error: ", err)
 			return nil, err
 		}
 
@@ -154,7 +147,6 @@ func (s *Service) GetGroupMembers(groupID int64, offset int, userID int64) ([]*m
 	}
 
 	if err = rows.Err(); err != nil {
-		fmt.Println("Error: ", err)
 		return nil, err
 	}
 
@@ -342,4 +334,19 @@ func (s *Service) DeleteGroupMember(request models.LeaveGroupRequest, userID int
 	}
 
 	return nil
+}
+
+// IsGroupMember checks if a user is a member of a group
+func (s *Service) IsGroupMember(userID, groupID int64) (bool, error) {
+	var exists bool
+	err := s.DB.QueryRow(`
+		SELECT EXISTS(
+			SELECT 1 FROM group_members 
+			WHERE group_id = ? AND user_id = ?
+		)
+	`, groupID, userID).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
 }

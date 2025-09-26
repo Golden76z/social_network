@@ -224,7 +224,7 @@ func GetGroupMessagesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	messages, err := db.DBService.GetGroupMessages(int(groupID), limit, offset)
+	messages, err := db.DBService.GetGroupMessagesWithUser(int(groupID), limit, offset)
 	if err != nil {
 		http.Error(w, "Failed to get group messages", http.StatusInternalServerError)
 		return

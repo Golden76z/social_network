@@ -12,6 +12,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   hasCheckedAuth: boolean;
+  isInitializing: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (userData: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
@@ -43,15 +44,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userFromToken = apiClient.getUserFromToken();
       const isExpired = apiClient.isTokenExpired();
       const hasValidToken = !!(userFromToken && userFromToken.userid && !isExpired);
-      console.log('🔍 Initial auth state check:', {
-        hasUserFromToken: !!userFromToken,
-        userid: userFromToken?.userid,
-        isExpired,
-        hasValidToken
-      });
       return hasValidToken;
     } catch (error) {
-      console.error('❌ Error in getInitialAuthState:', error);
+      console.error('❌ [API] Error in getInitialAuthState:', error);
       return false;
     }
   };
@@ -60,37 +55,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false); // Always start as false, let checkAuth() determine the real state
   const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true); // New state to track initial setup
 
   // Check if user is authenticated (no backend dependency for initial check)
   const checkAuth = async () => {
     try {
-      setIsLoading(true);
-      console.log('🔍 Starting auth check...');
-      
       // Wait a bit to ensure cookies are available (especially after page reload)
       if (typeof window !== 'undefined') {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 150));
       }
   
       // Check if we have a JWT token in cookies first
       const userFromToken = apiClient.getUserFromToken();
-      console.log('🔍 User from token:', userFromToken);
       
       if (!userFromToken || !userFromToken.userid) {
-        console.log('🔐 No JWT token found in cookies');
         setUser(null);
         setIsAuthenticated(false);
         setHasCheckedAuth(true);
         setIsLoading(false);
+        setIsInitializing(false);
         return;
       }
 
       // Check if token is expired
       const isExpired = apiClient.isTokenExpired();
-      console.log('🔍 Token expired check:', isExpired);
       
       if (isExpired) {
-        console.log('🔐 JWT token has expired');
         // Clear expired token
         if (typeof window !== 'undefined') {
           localStorage.removeItem('jwt_token');
@@ -99,10 +89,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsAuthenticated(false);
         setHasCheckedAuth(true);
         setIsLoading(false);
+        setIsInitializing(false);
         return;
       }
-  
-      console.log('🔐 Valid JWT token found, userid:', userFromToken.userid);
       
       // Create a basic user object from the token
       const basicUser: User = {
@@ -125,24 +114,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticated(true);
       setHasCheckedAuth(true);
       setIsLoading(false);
-      console.log('✅ User set from token:', basicUser);
+      setIsInitializing(false);
 
       // Try to fetch full profile in background (non-critical)
       refreshUserProfile();
       
     } catch (error) {
-      console.error('❌ Auth check failed:', error);
+      console.error('[API] Auth check failed:', error);
       setUser(null);
       setIsAuthenticated(false);
       setHasCheckedAuth(true);
       setIsLoading(false);
+      setIsInitializing(false);
     }
   };
 
   // Separate method to refresh user profile from backend
   const refreshUserProfile = async () => {
     try {
-      console.log('🔄 Refreshing user profile from backend...');
       const userData = await apiClient.get<{ user: User } | User>('/api/user/profile');
       
       if (userData) {
@@ -150,11 +139,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (userInfo && userInfo.id) {
           setUser(userInfo);
-          console.log('✅ User profile updated from backend:', userInfo);
         }
       }
     } catch (error) {
-      console.log('⚠️ Background profile refresh failed (non-critical):', error);
       // Don't clear auth state - token-based auth is still valid
     }
   };
@@ -163,19 +150,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      console.log('🔐 Attempting login...');
       
       const loginData: LoginRequest = { email, password };
       const loginResponse = await apiClient.post(authRoutes.login, loginData);
-      
-      console.log('✅ Login successful:', loginResponse);
       
       // Store token in localStorage if provided
       if (loginResponse && typeof loginResponse === 'object' && 'token' in loginResponse) {
         const token = (loginResponse as any).token;
         if (token && typeof window !== 'undefined') {
           localStorage.setItem('jwt_token', token);
-          console.log('🔑 JWT token stored in localStorage');
         }
       }
       
@@ -187,7 +170,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (userInfo && userInfo.id) {
             setUser(userInfo);
             setIsAuthenticated(true);
-            console.log('✅ User set from profile response:', userInfo);
           } else {
             throw new Error('Invalid user data received from profile');
           }
@@ -225,6 +207,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw error;
     } finally {
       setIsLoading(false);
+      setIsInitializing(false);
     }
   };
 
@@ -284,34 +267,104 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw error;
     } finally {
       setIsLoading(false);
+      setIsInitializing(false);
     }
   };
 
   // Logout function
   const logout = async () => {
     try {
-      console.log('🚪 Logging out...');
+      console.log('🚪 LOGOUT FUNCTION CALLED - Starting logout process...');
       
-      // Call logout endpoint
-      await apiClient.post(authRoutes.logout, {});
-    } catch (error) {
-      console.error('⚠️ Logout endpoint failed:', error);
-    } finally {
-      // Always clear local state
+      // Clear local state immediately for instant UI feedback
       setUser(null);
       setIsAuthenticated(false);
       setIsLoading(false);
+      setIsInitializing(false);
       
-      // Clear any stored tokens
+      // Clear any stored tokens immediately
       if (typeof window !== 'undefined') {
         localStorage.removeItem('jwt_token');
       }
       
+      // Call logout endpoint in background (don't wait for it)
+      apiClient.post(authRoutes.logout, {}).catch(error => {
+        console.error('⚠️ Logout endpoint failed:', error);
+      });
+      
       console.log('✅ Logout completed');
       
-      // Redirect to home page after logout
+      // Redirect logic: redirect from protected/auth routes, but not from root homepage
+      console.log('🚪 About to check redirect logic...');
       if (typeof window !== 'undefined') {
-        window.location.href = '/';
+        const currentPath = window.location.pathname;
+        console.log('🚪 Logout: Current path:', currentPath);
+        
+        // Normalize path by removing trailing slash for comparison
+        const normalizedPath = currentPath.endsWith('/') && currentPath !== '/' ? currentPath.slice(0, -1) : currentPath;
+        console.log('🚪 Logout: Normalized path:', normalizedPath);
+        
+        // Check if we're on the root homepage - if so, don't redirect
+        if (normalizedPath === '/' || normalizedPath === '') {
+          console.log('🚪 Logout: Already on root homepage, no redirect needed');
+          return;
+        }
+        
+        // Define routes that should redirect to homepage after logout
+        const protectedRoutes = ['/home', '/profile', '/groups', '/messages', '/notifications', '/settings'];
+        const authRoutes = ['/login', '/register'];
+        
+        console.log('🚪 Logout: Checking against routes:', { protectedRoutes, authRoutes });
+        
+        // Check if current path is a protected or auth route
+        const isProtectedRoute = protectedRoutes.some(route => {
+          const matches = normalizedPath === route || normalizedPath.startsWith(route + '/');
+          console.log(`🚪 Logout: Checking protected route "${route}" against "${normalizedPath}":`, matches);
+          return matches;
+        });
+        
+        const isAuthRoute = authRoutes.some(route => {
+          const matches = normalizedPath === route || normalizedPath.startsWith(route + '/');
+          console.log(`🚪 Logout: Checking auth route "${route}" against "${normalizedPath}":`, matches);
+          return matches;
+        });
+        
+        console.log('🚪 Logout: Final route analysis:', { isProtectedRoute, isAuthRoute, normalizedPath });
+        
+        if (isProtectedRoute || isAuthRoute) {
+          console.log('🚪 Logout: REDIRECTING TO HOMEPAGE from:', currentPath);
+          console.log('🚪 Logout: Setting window.location.href to "/"');
+          window.location.href = '/';
+          console.log('🚪 Logout: Redirect command executed');
+        } else {
+          console.log('🚪 Logout: On public page, no redirect needed');
+        }
+      }
+    } catch (error) {
+      console.error('⚠️ Logout error:', error);
+      // Even if there's an error, still redirect if needed
+      if (typeof window !== 'undefined') {
+        const currentPath = window.location.pathname;
+        const normalizedPath = currentPath.endsWith('/') && currentPath !== '/' ? currentPath.slice(0, -1) : currentPath;
+        
+        // Don't redirect if already on root homepage
+        if (normalizedPath === '/' || normalizedPath === '') {
+          return;
+        }
+        
+        const protectedRoutes = ['/home', '/profile', '/groups', '/messages', '/notifications', '/settings'];
+        const authRoutes = ['/login', '/register'];
+        
+        const isProtectedRoute = protectedRoutes.some(route => 
+          normalizedPath === route || normalizedPath.startsWith(route + '/')
+        );
+        const isAuthRoute = authRoutes.some(route => 
+          normalizedPath === route || normalizedPath.startsWith(route + '/')
+        );
+        
+        if (isProtectedRoute || isAuthRoute) {
+          window.location.href = '/';
+        }
       }
     }
   };
@@ -326,6 +379,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading,
     isAuthenticated,
     hasCheckedAuth,
+    isInitializing,
     login,
     register,
     logout,

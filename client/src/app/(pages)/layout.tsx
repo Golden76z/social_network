@@ -6,15 +6,19 @@ import Header from '@/components/page_components/Header';
 import { SideBarLeft } from '@/components/page_components/SideBarLeft';
 import { SideBarRight } from '@/components/page_components/SideBarRight';
 import Footer from '@/components/page_components/Footer';
-import { CreatePostModal } from '@/components/CreatePostModal';
+import { CreatePostModal } from '@/components/forms/CreatePostModal';
+import { PostModalWrapper } from '@/components/posts/PostModalWrapper';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 export default function PagesLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { isLoading, hasCheckedAuth } = useAuth();
+  const { isLoading, hasCheckedAuth, isInitializing, user } = useAuth();
   const [showCreatePostModal, setShowCreatePostModal] = useState(false);
+  const [postModalOpen, setPostModalOpen] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
 
   const handleCreatePostSuccess = () => {
     setShowCreatePostModal(false);
@@ -26,14 +30,27 @@ export default function PagesLayout({
     setShowCreatePostModal(false);
   };
 
-  // Show loading spinner while checking authentication
-  if (!hasCheckedAuth || isLoading) {
+  const handlePostClick = (postId: number) => {
+    setSelectedPostId(postId);
+    setPostModalOpen(true);
+  };
+
+  const handleClosePostModal = () => {
+    setPostModalOpen(false);
+    setSelectedPostId(null);
+  };
+
+
+  // Show loading spinner while initializing or checking authentication
+  // Keep loading screen persistent until we're fully ready to show content
+  if (isInitializing || !hasCheckedAuth || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--background)' }}>
+        <LoadingSpinner 
+          size="xl" 
+          text="Loading..." 
+          className="min-h-screen"
+        />
       </div>
     );
   }
@@ -42,11 +59,14 @@ export default function PagesLayout({
     <div className="min-h-screen bg-background pb-20">
       <Header 
         onCreatePost={() => setShowCreatePostModal(true)}
+        onPostClick={handlePostClick}
       />
       <div className="flex flex-col md:flex-row max-w-full mx-auto">
-        {/* Left Sidebar - desktop only */}
-        <div className="hidden md:block w-[20%] min-h-screen bg-card border-r border-border p-4">
-          <SideBarLeft variant="sidebar" />
+        {/* Left Sidebar - responsive design with better breakpoints */}
+        <div className="hidden md:block w-[26%] lg:w-[20%] xl:w-[18%] min-h-screen bg-card border-r border-border transition-all duration-300 ease-in-out">
+          <div className="p-2 md:p-3 lg:p-4">
+            <SideBarLeft variant="sidebar" />
+          </div>
         </div>
 
         {/* Main Content */}
@@ -55,7 +75,7 @@ export default function PagesLayout({
         </main>
 
         {/* Right Sidebar - desktop only */}
-        <div className="hidden md:block w-[20%] min-h-screen bg-card border-l border-border p-4">
+        <div className="hidden lg:block lg:w-[20%] xl:w-[18%] min-h-screen bg-card border-l border-border p-4">
           <SideBarRight />
         </div>
       </div>
@@ -74,6 +94,16 @@ export default function PagesLayout({
         onClose={handleCreatePostClose}
         onSuccess={handleCreatePostSuccess}
       />
+
+      {/* Post Modal - rendered at layout level */}
+      <PostModalWrapper
+        postId={selectedPostId}
+        isOpen={postModalOpen}
+        onClose={handleClosePostModal}
+        isAuthenticated={!!user}
+        currentUserId={user?.id}
+      />
+
     </div>
   );
 }

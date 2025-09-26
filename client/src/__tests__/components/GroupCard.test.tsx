@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { GroupCard } from '@/components/GroupCard';
+import { GroupCard } from '@/components/groups/GroupCard';
 import { GroupResponse } from '@/lib/types/group';
 import { useAuth } from '@/context/AuthProvider';
 

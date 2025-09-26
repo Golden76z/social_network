@@ -1,7 +1,6 @@
 package websockets
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -55,48 +54,33 @@ func WebSocketHandler(hub *Hub, cfg *config.Config) http.HandlerFunc {
 		// Try to get JWT from query parameter first (for WebSocket connections)
 		if token := r.URL.Query().Get("token"); token != "" {
 			tokenString = token
-			log.Printf("WebSocket: Using token from query parameter")
 		} else {
 			// Fallback to cookie
 			cookie, err := r.Cookie("jwt_token")
 			if err != nil {
-				log.Printf("WebSocket: Missing token in both query parameter and cookie")
 				http.Error(w, "Missing token", http.StatusUnauthorized)
 				return
 			}
 			tokenString = cookie.Value
-			log.Printf("WebSocket: Using token from cookie")
 			usingCookieToken = true
 		}
 
 		// Decoding the token and getting the User's informations
-		tokenPreview := tokenString
-		if len(tokenString) > 20 {
-			tokenPreview = tokenString[:20]
-		}
-		log.Printf("WebSocket: Validating token: %s...", tokenPreview)
 		claims, errTokenValidate := utils.ValidateToken(tokenString)
 		if errTokenValidate != nil {
-			log.Printf("WebSocket: Token validation failed: %v", errTokenValidate)
 			http.Error(w, "Error decoding JWT", http.StatusUnauthorized)
 			return
 		}
 		if claims.TokenType != "" && claims.TokenType != "websocket" {
-			if usingCookieToken && claims.TokenType == "session" {
-				log.Printf("WebSocket: Using session token from cookie for user %s", claims.Username)
-			} else {
-				log.Printf("WebSocket: Token type %s not permitted", claims.TokenType)
+			if !(usingCookieToken && claims.TokenType == "session") {
 				http.Error(w, "Invalid token type", http.StatusUnauthorized)
 				return
 			}
 		}
-		log.Printf("WebSocket: Token validated successfully for user: %s", claims.Username)
 
 		// Extracting userID and username from claims struct
 		userID := claims.UserID
 		username := claims.Username
-
-		fmt.Println("[handler/userID]", userID, " [handler/username]", username)
 
 		// Upgrading the connection to WS
 		conn, err := upgrader.Upgrade(w, r, nil)
@@ -106,7 +90,6 @@ func WebSocketHandler(hub *Hub, cfg *config.Config) http.HandlerFunc {
 		}
 
 		conn.SetCloseHandler(func(code int, text string) error {
-			log.Printf("WebSocket close frame for user %d: code=%d reason=%s", userID, code, text)
 			return nil
 		})
 
@@ -132,20 +115,15 @@ func WebSocketHandler(hub *Hub, cfg *config.Config) http.HandlerFunc {
 		client.mu.Unlock()
 
 		// Register client first
-		log.Printf("🔌 Registering client %s for user %d (%s)", client.ID, client.UserID, client.Username)
 		hub.register <- client
 
 		// Join user to their groups
 		for _, groupID := range userGroups {
-			if err := hub.JoinGroup(client, groupID); err != nil {
-				log.Printf("Error joining group %s: %v", groupID, err)
-			}
+			hub.JoinGroup(client, groupID)
 		}
 
-		log.Printf("🔌 Starting WritePump and ReadPump for client %s (user %d)", client.ID, client.UserID)
 		go client.WritePump()
 		go client.ReadPump()
-		log.Printf("🔌 WritePump and ReadPump started for client %s (user %d)", client.ID, client.UserID)
 	}
 }
 
