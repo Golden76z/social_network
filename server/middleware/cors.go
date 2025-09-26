@@ -22,7 +22,7 @@ func SetupCORS() func(http.Handler) http.Handler {
 	env := strings.ToLower(os.Getenv("ENV"))
 
 	if env == "production" {
-		// In production, use the CORS_ALLOWED_ORIGINS environment variable
+		// Read allowed origins from env var
 		originsEnv := os.Getenv("CORS_ALLOWED_ORIGINS")
 		origins := []string{}
 		if originsEnv != "" {
@@ -41,7 +41,7 @@ func SetupCORS() func(http.Handler) http.Handler {
 		})
 	}
 
-	// Default: development settings
+	// Default to development settings
 	return CORS(CORSConfig{
 		AllowedOrigins: []string{
 			"http://localhost:3000",
@@ -55,7 +55,7 @@ func SetupCORS() func(http.Handler) http.Handler {
 	})
 }
 
-// CORS middleware
+// CORS middleware applies the headers and handles OPTIONS preflight
 func CORS(config CORSConfig) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -91,7 +91,7 @@ func CORS(config CORSConfig) func(http.Handler) http.Handler {
 				w.Header().Set("Access-Control-Max-Age", strconv.Itoa(config.MaxAge))
 			}
 
-			// Preflight request
+			// Handle preflight requests
 			if r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusOK)
 				return
@@ -100,4 +100,25 @@ func CORS(config CORSConfig) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// GetClientIP extracts the client IP address from the request
+func getClientIP(r *http.Request) string {
+	// Check X-Forwarded-For header
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		ips := strings.Split(xff, ",")
+		return strings.TrimSpace(ips[0])
+	}
+
+	// Check X-Real-IP header
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		return xri
+	}
+
+	// Fallback to RemoteAddr
+	ip := r.RemoteAddr
+	if colon := strings.LastIndex(ip, ":"); colon != -1 {
+		ip = ip[:colon]
+	}
+	return ip
 }
