@@ -1,103 +1,207 @@
-package middleware
+package config
 
 import (
-	"net/http"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
+
+	"github.com/Golden76z/social-network/utils"
+	"github.com/joho/godotenv"
 )
 
-// CORSConfig holds CORS configuration
-type CORSConfig struct {
-	AllowedOrigins   []string
-	AllowedMethods   []string
-	AllowedHeaders   []string
-	ExposedHeaders   []string
-	AllowCredentials bool
-	MaxAge           int
+type Config struct {
+	// Server
+	Port        string
+	Environment string
+
+	// Database
+	DBPath        string
+	MigrationsDir string
+
+	// JWT
+	JWTKey        string
+	JwtPrivateKey *ecdsa.PrivateKey
+	JwtPublicKey  *ecdsa.PublicKey
+	JwtExpiration time.Duration
+
+	// Application Settings
+	PostMaxLength          int
+	PostTitleMaxLength     int
+	PostContentMaxLength   int
+	MaxImagesPerPost       int
+	FeedPostLimit          int
+	MaxFileSizeMB          int
+	SessionCleanupInterval time.Duration
+
+	// Security
+	BcryptCost             int
+	RateLimitRequests      int
+	RateLimitWindowMinutes int
+
+	// Features
+	EnableRegistration bool
+	EnableFileUpload   bool
+	EnableChat         bool
+
+	// CORS
+	CORSAllowedOrigins []string
+	CORSAllowedMethods []string
+	CORSAllowedHeaders []string
+
+	// Logging
+	LogLevel string
+	LogFile  string
 }
 
-// SetupCORS returns a CORS middleware based on ENV
-func SetupCORS() func(http.Handler) http.Handler {
-	env := strings.ToLower(os.Getenv("ENV"))
+var (
+	configInstance *Config
+	once           sync.Once
+)
 
-	if env == "production" {
-		// In production, use the CORS_ALLOWED_ORIGINS environment variable
-		originsEnv := os.Getenv("CORS_ALLOWED_ORIGINS")
-		origins := []string{}
-		if originsEnv != "" {
-			for _, o := range strings.Split(originsEnv, ",") {
-				origins = append(origins, strings.TrimSpace(o))
-			}
+// Load initializes the global config once.
+func Load() error {
+	var err error
+
+	once.Do(func() {
+		// Try loading .env for local development.
+		// If it fails, continue (Render/production will use actual env vars).
+		if loadErr := godotenv.Load(); loadErr != nil {
+			fmt.Println("[INFO] .env file not found, falling back to system environment variables")
 		}
 
-		return CORS(CORSConfig{
-			AllowedOrigins:   origins,
-			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-			AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Requested-With"},
-			ExposedHeaders:   []string{"Link"},
-			AllowCredentials: true,
-			MaxAge:           300,
-		})
-	}
+		// Generate ECDSA key pair for JWT signing
+		privateKey, keyErr := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if keyErr != nil {
+			err = keyErr
+			return
+		}
 
-	// Default: development settings
-	return CORS(CORSConfig{
-		AllowedOrigins: []string{
-			"http://localhost:3000",
-			"http://127.0.0.1:3000",
-		},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Requested-With"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
-		MaxAge:           300,
+		// Generate a secure key for legacy utils (backward compatibility)
+		key, keyErr := utils.GenerateSecureKey()
+		if keyErr != nil {
+			err = keyErr
+			return
+		}
+
+		// Parse JWT expiration
+		jwtHours := getEnvAsInt("JWT_EXPIRATION_HOURS", 4)
+		jwtExpiration := time.Duration(jwtHours) * time.Hour
+
+		// Parse environment
+		environment := getEnv("ENV", "development")
+
+		// Override JWT expiration for production if not explicitly set
+		if environment == "production" && !isEnvSet("JWT_EXPIRATION_HOURS") {
+			jwtExpiration = 2 * time.Hour
+		}
+
+		// Update utils.Settings for backward compatibility
+		utils.Settings = &utils.ServerSettings{
+			JwtKey: key,
+			Port:   getEnv("PORT", "8080"),
+		}
+
+		configInstance = &Config{
+			// Server
+			Port:        getEnv("PORT", "8080"),
+			Environment: environment,
+
+			// Database
+			DBPath:        getEnv("DB_PATH", "social_network.db"),
+			MigrationsDir: getEnv("MIGRATIONS_DIR", "db/migrations"),
+
+			// JWT
+			JWTKey:        key,
+			JwtPrivateKey: privateKey,
+			JwtPublicKey:  &privateKey.PublicKey,
+			JwtExpiration: jwtExpiration,
+
+			// Application Settings
+			PostMaxLength:          getEnvAsInt("POST_MAX_LENGTH", 280),
+			PostTitleMaxLength:     getEnvAsInt("POST_TITLE_MAX_LENGTH", 125),
+			PostContentMaxLength:   getEnvAsInt("POST_CONTENT_MAX_LENGTH", 2200),
+			MaxImagesPerPost:       getEnvAsInt("MAX_IMAGES_PER_POST", 4),
+			FeedPostLimit:          getEnvAsInt("FEED_POST_LIMIT", 20),
+			MaxFileSizeMB:          getEnvAsInt("MAX_FILE_SIZE_MB", 10),
+			SessionCleanupInterval: time.Duration(getEnvAsInt("SESSION_CLEANUP_INTERVAL_HOURS", 1)) * time.Hour,
+
+			// Security
+			BcryptCost:             getEnvAsInt("BCRYPT_COST", 12),
+			RateLimitRequests:      getEnvAsInt("RATE_LIMIT_REQUESTS", 100),
+			RateLimitWindowMinutes: getEnvAsInt("RATE_LIMIT_WINDOW_MINUTES", 15),
+
+			// Features
+			EnableRegistration: getEnvAsBool("ENABLE_REGISTRATION", true),
+			EnableFileUpload:   getEnvAsBool("ENABLE_FILE_UPLOAD", true),
+			EnableChat:         getEnvAsBool("ENABLE_CHAT", true),
+
+			// CORS
+			CORSAllowedOrigins: getEnvAsSlice("CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000"}),
+			CORSAllowedMethods: getEnvAsSlice("CORS_ALLOWED_METHODS", []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}),
+			CORSAllowedHeaders: getEnvAsSlice("CORS_ALLOWED_HEADERS", []string{"Content-Type", "Authorization", "X-CSRF-Token"}),
+
+			// Logging
+			LogLevel: getEnv("LOG_LEVEL", "info"),
+			LogFile:  getEnv("LOG_FILE", "app.log"),
+		}
 	})
+
+	return err
 }
 
-// CORS middleware
-func CORS(config CORSConfig) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			origin := r.Header.Get("Origin")
-
-			// Check if origin is allowed
-			if len(config.AllowedOrigins) > 0 {
-				for _, allowedOrigin := range config.AllowedOrigins {
-					if allowedOrigin == "*" || allowedOrigin == origin {
-						w.Header().Set("Access-Control-Allow-Origin", origin)
-						break
-					}
-				}
-			}
-
-			if len(config.AllowedMethods) > 0 {
-				w.Header().Set("Access-Control-Allow-Methods", strings.Join(config.AllowedMethods, ", "))
-			}
-
-			if len(config.AllowedHeaders) > 0 {
-				w.Header().Set("Access-Control-Allow-Headers", strings.Join(config.AllowedHeaders, ", "))
-			}
-
-			if len(config.ExposedHeaders) > 0 {
-				w.Header().Set("Access-Control-Expose-Headers", strings.Join(config.ExposedHeaders, ", "))
-			}
-
-			if config.AllowCredentials {
-				w.Header().Set("Access-Control-Allow-Credentials", "true")
-			}
-
-			if config.MaxAge > 0 {
-				w.Header().Set("Access-Control-Max-Age", strconv.Itoa(config.MaxAge))
-			}
-
-			// Preflight request
-			if r.Method == http.MethodOptions {
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-
-			next.ServeHTTP(w, r)
-		})
+// Get returns the globally loaded config instance.
+func GetConfig() *Config {
+	if configInstance == nil {
+		log.Fatal("Config not loaded. Call config.Load() first.")
 	}
+	return configInstance
+}
+
+// Helper functions for environment variable parsing
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+func getEnvAsInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intVal, err := strconv.Atoi(value); err == nil {
+			return intVal
+		}
+	}
+	return defaultValue
+}
+
+func getEnvAsBool(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		if boolVal, err := strconv.ParseBool(value); err == nil {
+			return boolVal
+		}
+	}
+	return defaultValue
+}
+
+func getEnvAsSlice(key string, defaultValue []string) []string {
+	if value := os.Getenv(key); value != "" {
+		parts := strings.Split(value, ",")
+		for i := range parts {
+			parts[i] = strings.TrimSpace(parts[i])
+		}
+		return parts
+	}
+	return defaultValue
+}
+
+func isEnvSet(key string) bool {
+	_, exists := os.LookupEnv(key)
+	return exists
 }
