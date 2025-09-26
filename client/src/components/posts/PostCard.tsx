@@ -1,14 +1,11 @@
 import React, { useState } from 'react';
 // We use <img src="/uploads/..."/> per project choice; disable next/image here.
-import { Heart, MessageCircle, MoreHorizontal, Edit, Trash2, Users, Lock } from 'lucide-react';
+import { Heart, MessageCircle, Edit, Trash2, Users, Lock } from 'lucide-react';
 import { PostVisibilityModal } from '../modals/PostVisibilityModal';
 import { useRouter } from 'next/navigation';
 import { Post } from '@/lib/types';
 import { reactionApi } from '@/lib/api/reaction';
-import { ProfileThumbnail } from '../layout/ProfileThumbnail';
-import { UserDisplay } from '../layout/UserDisplay';
 import { UserInfoWithTime } from '../layout/UserInfoWithTime';
-import { getUserDisplayName, getUserInitials } from '@/lib/utils/userUtils';
 
 interface PostCardProps {
   post: Post;
