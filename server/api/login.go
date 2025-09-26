@@ -29,7 +29,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Double checking if the client side returned empty fields
 	if req.Username == "" || req.Password == "" {
-		http.Error(w, "Username and password are required", http.StatusBadRequest)
+		http.Error(w, "Please enter both your email/nickname and password", http.StatusBadRequest)
 		return
 	}
 
@@ -38,13 +38,13 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Validate username format - it can be either email or nickname
 	if !isValidUsername(req.Username) {
-		http.Error(w, "Invalid username format. Please use a valid email or nickname (3-20 characters, letters, numbers, underscores, hyphens)", http.StatusBadRequest)
+		http.Error(w, "Please enter a valid email or nickname (3-20 characters, letters, numbers, underscores, hyphens only)", http.StatusBadRequest)
 		return
 	}
 
 	// Basic password validation (just check it's not empty after potential sanitization issues)
 	if strings.TrimSpace(req.Password) == "" {
-		http.Error(w, "Password cannot be empty", http.StatusBadRequest)
+		http.Error(w, "Password is required", http.StatusBadRequest)
 		return
 	}
 

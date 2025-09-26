@@ -27,7 +27,7 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	// Basic empty field check
 	if req.Nickname == "" || req.FirstName == "" || req.LastName == "" ||
 		req.Email == "" || req.Password == "" || req.DateOfBirth == "" {
-		http.Error(w, "All fields are required", http.StatusBadRequest)
+		http.Error(w, "Please fill in all required fields", http.StatusBadRequest)
 		return
 	}
 
@@ -41,31 +41,31 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Validate email format
 	if !utils.ValidateEmail(req.Email) {
-		http.Error(w, "Invalid email format", http.StatusBadRequest)
+		http.Error(w, "Please enter a valid email address", http.StatusBadRequest)
 		return
 	}
 
 	// Validate nickname
 	if !utils.ValidateNickname(req.Nickname) {
-		http.Error(w, "Nickname must be 3-20 characters long and contain only letters, numbers, underscores, and hyphens", http.StatusBadRequest)
+		http.Error(w, "Nickname must be 3-20 characters long and can only contain letters, numbers, underscores, and hyphens", http.StatusBadRequest)
 		return
 	}
 
 	// Validate first name
 	if !utils.ValidateName(req.FirstName) {
-		http.Error(w, "First name must be 1-50 characters long and contain only letters, spaces, hyphens, and apostrophes", http.StatusBadRequest)
+		http.Error(w, "First name must be 1-50 characters long and can only contain letters, spaces, hyphens, and apostrophes", http.StatusBadRequest)
 		return
 	}
 
 	// Validate last name
 	if !utils.ValidateName(req.LastName) {
-		http.Error(w, "Last name must be 1-50 characters long and contain only letters, spaces, hyphens, and apostrophes", http.StatusBadRequest)
+		http.Error(w, "Last name must be 1-50 characters long and can only contain letters, spaces, hyphens, and apostrophes", http.StatusBadRequest)
 		return
 	}
 
 	// Validate date of birth
 	if !utils.ValidateDateOfBirth(req.DateOfBirth) {
-		http.Error(w, "Invalid date of birth format (YYYY-MM-DD) or unrealistic date", http.StatusBadRequest)
+		http.Error(w, "Please enter a valid date of birth in YYYY-MM-DD format", http.StatusBadRequest)
 		return
 	}
 
@@ -96,7 +96,7 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	
+
 	// Creating a session for the user
 	errSession := utils.CookieSession(req.Nickname, w)
 	if errSession != nil {
