@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import { useWebSocketContext } from '@/context/webSocketProvider';
@@ -43,11 +43,6 @@ export const SideBarRight: React.FC = () => {
   // Listen for WebSocket updates to refresh data in real-time
   useEffect(() => {
     if (!isConnected) return;
-
-    const handleWebSocketUpdate = () => {
-      loadGroups();
-      loadUsers();
-    };
 
     // Listen for user_joined, user_left, and other relevant events
     // WebSocket context will handle real-time updates properly
@@ -134,7 +129,6 @@ export const SideBarRight: React.FC = () => {
     }
 
     try {
-      setGroupMembersLoading(true);
       const groupsToProcess = groupList.slice(0, 8); // Limit to 8 groups
 
       const memberEntries = await Promise.all(
@@ -160,7 +154,7 @@ export const SideBarRight: React.FC = () => {
         return next;
       });
     } finally {
-      setGroupMembersLoading(false);
+      // Cleanup
     }
   }, []);
 

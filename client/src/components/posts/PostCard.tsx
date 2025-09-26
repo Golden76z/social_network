@@ -20,6 +20,7 @@ interface PostCardProps {
   onDelete?: (post: Post) => void;
   isDeleting?: boolean;
   // Group-specific props
+  isGroupPost?: boolean;
   isGroupAdmin?: boolean;
 }
 
@@ -34,6 +35,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   onEdit,
   onDelete,
   isDeleting = false,
+  isGroupPost = false,
   isGroupAdmin = false,
 }) => {
   const router = useRouter();
