@@ -2,7 +2,7 @@
  * Simple utility for modal closing animations
  */
 
-export const animateModalClose = (onClose: () => void, backdropRef?: React.RefObject<HTMLElement>, contentRef?: React.RefObject<HTMLElement>) => {
+export const animateModalClose = (onClose: () => void, backdropRef?: React.RefObject<HTMLElement | null>, contentRef?: React.RefObject<HTMLElement | null>) => {
   if (backdropRef?.current && contentRef?.current) {
     // Add closing animation classes
     contentRef.current.classList.add('modal-closing');

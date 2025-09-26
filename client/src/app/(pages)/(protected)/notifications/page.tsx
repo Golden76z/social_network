@@ -699,7 +699,7 @@ export default function NotificationsPage() {
 
         {/* Bulk Actions */}
         {!loading && !error && notifications && notifications.length > 0 && (
-          <div className="mt-4 flex gap-2">
+          <div className="mt-4 flex gap-2 justify-center">
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllAsRead}

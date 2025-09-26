@@ -489,6 +489,11 @@ function ProfilePageContent() {
         }
       } catch (error) {
         console.error('Error loading posts:', error);
+        if (error instanceof Error) {
+          console.error('Error details:', error.message, error.stack);
+        } else if (error && typeof error === 'object') {
+          console.error('Error details:', JSON.stringify(error));
+        }
         setUserPosts([]);
         setLikedPosts([]);
         setCommentedPosts([]);
@@ -1141,7 +1146,7 @@ function ProfilePageContent() {
                     <Button
                       onClick={handleSave}
                       disabled={saving}
-                      className="w-full px-6 py-2 text-sm font-medium bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full px-6 py-2 text-sm font-medium bg-gradient-to-r from-purple-400 to-purple-500 hover:from-purple-500 hover:to-purple-600 text-white shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {saving ? (
                         <div className="flex items-center justify-center gap-2">
@@ -1164,7 +1169,7 @@ function ProfilePageContent() {
                 ) : (
                   <Button
                     onClick={() => setIsEditing(true)}
-                    className="px-6 py-2 text-sm font-medium bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                    className="px-6 py-2 text-sm font-medium bg-gradient-to-r from-purple-400 to-purple-500 hover:from-purple-500 hover:to-purple-600 text-white shadow-lg hover:shadow-xl transition-all duration-200"
                   >
                     Edit Profile
                   </Button>

@@ -10,7 +10,7 @@ import { PrivateChat } from '@/components/chat/PrivateChat';
 import { GroupChat } from '@/components/chat/GroupChat';
 import Button from "@/components/ui/button";
 import { NewConversationModal } from "@/components/chat/NewConversationModal";
-import { User } from "@/lib/types/user";
+import { User, UserDisplayInfo } from "@/lib/types/user";
 import { motion, AnimatePresence } from 'framer-motion';
 
 type ConversationType = 'private' | 'group';
@@ -322,7 +322,7 @@ export default function MessagesPage() {
     return conversation.data.last_message_time;
   };
 
-  const handleStartNewConversation = async (selectedUser: User) => {
+  const handleStartNewConversation = async (selectedUser: UserDisplayInfo) => {
     console.log('🔍 handleStartNewConversation called with user:', selectedUser);
     console.log('🔍 User object type:', typeof selectedUser);
     console.log('🔍 User.id:', selectedUser.id, 'type:', typeof selectedUser.id);
@@ -339,11 +339,11 @@ export default function MessagesPage() {
       // Create new conversation object (this will be created when first message is sent)
       const newConversation: Conversation = {
         other_user_id: selectedUser.id,
-        other_user_nickname: selectedUser.nickname,
-        other_user_first_name: selectedUser.first_name,
-        other_user_last_name: selectedUser.last_name,
+        other_user_nickname: selectedUser.nickname || '',
+        other_user_first_name: selectedUser.first_name || '',
+        other_user_last_name: selectedUser.last_name || '',
         other_user_avatar: selectedUser.avatar || '',
-        other_user_is_private: selectedUser.is_private,
+        other_user_is_private: selectedUser.is_private || false,
         last_message: '',
         last_message_time: new Date().toISOString(),
       };
@@ -399,7 +399,7 @@ export default function MessagesPage() {
         </div>
       )}
 
-      <div className="grid lg:grid-cols-4 gap-4 flex-1 min-h-0 h-full">
+      <div className="grid lg:grid-cols-3 gap-4 flex-1 min-h-0 h-full">
         {/* Conversations List */}
         <div className="lg:col-span-1">
           <div className="h-full border border-border rounded-lg bg-card flex flex-col">
@@ -503,7 +503,7 @@ export default function MessagesPage() {
         </div>
 
         {/* Chat Area */}
-        <div className="lg:col-span-3 h-full">
+        <div className="lg:col-span-2 h-full">
           <div className="h-full border border-border rounded-lg bg-card">
             {selectedConversation ? (
               selectedConversation.type === 'private' ? (

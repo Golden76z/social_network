@@ -84,10 +84,11 @@ func GetPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	currentUserID, ok := r.Context().Value(middleware.UserIDKey).(int)
-	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
+	// Try to get current user ID from context (may be nil for anonymous users)
+	currentUserID, _ := r.Context().Value(middleware.UserIDKey).(int)
+	var currentUserIDInt64 int64 = 0
+	if currentUserID > 0 {
+		currentUserIDInt64 = int64(currentUserID)
 	}
 
 	idParam := r.URL.Query().Get("id")
@@ -99,7 +100,7 @@ func GetPostHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		post, err := db.DBService.GetPostByID(postID, int64(currentUserID))
+		post, err := db.DBService.GetPostByID(postID, currentUserIDInt64)
 		if err != nil {
 			if err.Error() == "unauthorized" {
 				http.Error(w, "You are not authorized to view this post", http.StatusForbidden)
@@ -134,25 +135,41 @@ func GetPostHandler(w http.ResponseWriter, r *http.Request) {
 
 		if likedParam == "true" {
 			// Get posts liked by specific user
-			posts, err = db.DBService.GetLikedPostsByUser(targetUserID)
+			posts, err = db.DBService.GetLikedPostsByUser(targetUserID, currentUserIDInt64)
 		} else if commentedParam == "true" {
 			// Get posts commented by specific user
-			posts, err = db.DBService.GetCommentedPostsByUser(targetUserID)
+			posts, err = db.DBService.GetCommentedPostsByUser(targetUserID, currentUserIDInt64)
 		} else {
 			// Get posts by specific user
-			posts, err = db.DBService.GetPostsByUser(targetUserID, int64(currentUserID))
+			posts, err = db.DBService.GetPostsByUser(targetUserID, currentUserIDInt64)
 		}
 	} else if meParam == "true" {
-		// Get current user's posts
-		posts, err = db.DBService.GetPostsByUser(int64(currentUserID), int64(currentUserID))
+		// Get current user's posts (requires authentication)
+		if currentUserID == 0 {
+			http.Error(w, "Authentication required", http.StatusUnauthorized)
+			return
+		}
+		posts, err = db.DBService.GetPostsByUser(currentUserIDInt64, currentUserIDInt64)
 	} else if likedParam == "true" {
-		// Get posts liked by current user
-		posts, err = db.DBService.GetLikedPosts(int64(currentUserID))
+		// Get posts liked by current user (requires authentication)
+		if currentUserID == 0 {
+			http.Error(w, "Authentication required", http.StatusUnauthorized)
+			return
+		}
+		posts, err = db.DBService.GetLikedPosts(currentUserIDInt64, currentUserIDInt64)
 	} else if commentedParam == "true" {
-		// Get posts commented by current user
-		posts, err = db.DBService.GetCommentedPosts(int64(currentUserID))
+		// Get posts commented by current user (requires authentication)
+		if currentUserID == 0 {
+			http.Error(w, "Authentication required", http.StatusUnauthorized)
+			return
+		}
+		posts, err = db.DBService.GetCommentedPosts(currentUserIDInt64, currentUserIDInt64)
 	} else {
-		// Default: get user feed
+		// Default: get user feed (requires authentication)
+		if currentUserID == 0 {
+			http.Error(w, "Authentication required", http.StatusUnauthorized)
+			return
+		}
 		limitParam := r.URL.Query().Get("limit")
 		limit, err := strconv.Atoi(limitParam)
 		cfg := config.GetConfig()
@@ -400,6 +417,39 @@ func GetPublicPostsHandler(w http.ResponseWriter, r *http.Request) {
 	posts, err := db.DBService.GetPublicPosts()
 	if err != nil {
 		http.Error(w, "Error retrieving posts", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(posts)
+}
+
+// GetPublicPostsByUserHandler handles getting posts by a specific user for public access (no authentication required)
+func GetPublicPostsByUserHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET method allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get user ID from query parameter
+	userIdParam := r.URL.Query().Get("userId")
+	if userIdParam == "" {
+		http.Error(w, "User ID is required", http.StatusBadRequest)
+		return
+	}
+
+	targetUserID, err := strconv.ParseInt(userIdParam, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid user ID format", http.StatusBadRequest)
+		return
+	}
+
+	// Get posts by specific user (currentUserID = 0 for anonymous access)
+	posts, err := db.DBService.GetPostsByUser(targetUserID, 0)
+	if err != nil {
+		fmt.Printf("[ERROR] Get public posts by user failed: %v\n", err)
+		http.Error(w, "Failed to get posts", http.StatusInternalServerError)
 		return
 	}
 

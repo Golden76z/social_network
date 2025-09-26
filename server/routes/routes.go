@@ -26,6 +26,9 @@ func setupPublicRoutes(r *Router, wsHub *websockets.Hub, cfg *config.Config) {
 		// Public posts route (no authentication required)
 		r.GET("/api/posts/public", api.GetPublicPostsHandler)
 
+		// Public posts by user route (no authentication required)
+		r.GET("/api/posts/public/user", api.GetPublicPostsByUserHandler)
+
 		// Public profile route (no authentication required)
 		r.GET("/api/public/user/profile", api.GetPublicUserProfileHandler)
 

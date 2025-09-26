@@ -205,7 +205,7 @@ export function CreatePostModal({
     animateModalClose(() => {
       resetForm();
       onClose();
-    }, backdropRef, contentRef);
+    }, backdropRef as React.RefObject<HTMLElement | null>, contentRef as React.RefObject<HTMLElement | null>);
   };
 
   if (!isOpen) return null;

@@ -147,8 +147,8 @@ export function SearchBar({ className, placeholder = "Search...", onPostClick }:
       
       // Sort results by type: users first, then groups, then posts
       const sortedResults = allResults.sort((a, b) => {
-        const typeOrder = { user: 0, group: 1, post: 2 };
-        return typeOrder[a.type] - typeOrder[b.type];
+        const typeOrder: { [key: string]: number } = { user: 0, group: 1, post: 2 };
+        return (typeOrder[a.type] || 999) - (typeOrder[b.type] || 999);
       });
       
       setResults(sortedResults);
@@ -198,10 +198,18 @@ export function SearchBar({ className, placeholder = "Search...", onPostClick }:
 
     switch (result.type) {
       case 'user':
-        router.push(`/profile?userId=${result.id}`);
+        if (isAuthenticated) {
+          router.push(`/profile?userId=${result.id}`);
+        } else {
+          router.push('/login');
+        }
         break;
       case 'group':
-        router.push(`/groups/${result.id}/info`);
+        if (isAuthenticated) {
+          router.push(`/groups/${result.id}/info`);
+        } else {
+          router.push('/login');
+        }
         break;
       case 'post':
         if (onPostClick) {
@@ -429,6 +437,7 @@ export function SearchBar({ className, placeholder = "Search...", onPostClick }:
           )}
         </div>
       )}
+
     </div>
   );
 }
