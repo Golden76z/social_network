@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # Go Backend Server - Development
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: social-network-backend-dev
+    ports:
+      - "8080:8080"
+    volumes:
+      - server_dev_uploads:/app/uploads
+      - server_dev_db:/app
+    environment:
+      - ENV=development
+      - PORT=8080
+      - DB_PATH=/app/social_network.db
+      - JWT_EXPIRATION_HOURS=4
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+      - LOG_LEVEL=debug
+      - ENABLE_REGISTRATION=true
+      - ENABLE_FILE_UPLOAD=true
+      - ENABLE_CHAT=true
+    networks:
+      - social-network-dev
+    restart: unless-stopped
+
+  # Next.js Frontend - Development
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.dev
+    container_name: social-network-frontend-dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
+      - NEXT_PUBLIC_WS_URL=ws://localhost:8080/ws
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+    depends_on:
+      - server
+    networks:
+      - social-network-dev
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    command: npm run dev
+
+volumes:
+  server_dev_uploads:
+    driver: local
+  server_dev_db:
+    driver: local
+
+networks:
+  social-network-dev:
+    driver: bridge
