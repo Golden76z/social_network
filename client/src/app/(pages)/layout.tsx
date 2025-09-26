@@ -44,7 +44,6 @@ export default function PagesLayout({
   // Show loading spinner while initializing or checking authentication
   // Keep loading screen persistent until we're fully ready to show content
   if (isInitializing || !hasCheckedAuth || isLoading) {
-    console.log('🔄 PagesLayout: Showing loading screen', { isInitializing, hasCheckedAuth, isLoading });
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--background)' }}>
         <LoadingSpinner 
@@ -56,8 +55,6 @@ export default function PagesLayout({
     );
   }
 
-  console.log('✅ PagesLayout: Rendering content', { isInitializing, hasCheckedAuth, isLoading, user: user?.nickname });
-
   return (
     <div className="min-h-screen bg-background pb-20">
       <Header 
@@ -65,9 +62,11 @@ export default function PagesLayout({
         onPostClick={handlePostClick}
       />
       <div className="flex flex-col md:flex-row max-w-full mx-auto">
-        {/* Left Sidebar - desktop only */}
-        <div className="hidden md:block w-[20%] min-h-screen bg-card border-r border-border p-4">
-          <SideBarLeft variant="sidebar" />
+        {/* Left Sidebar - responsive design with better breakpoints */}
+        <div className="hidden md:block w-[26%] lg:w-[20%] xl:w-[18%] min-h-screen bg-card border-r border-border transition-all duration-300 ease-in-out">
+          <div className="p-2 md:p-3 lg:p-4">
+            <SideBarLeft variant="sidebar" />
+          </div>
         </div>
 
         {/* Main Content */}
@@ -76,7 +75,7 @@ export default function PagesLayout({
         </main>
 
         {/* Right Sidebar - desktop only */}
-        <div className="hidden md:block w-[20%] min-h-screen bg-card border-l border-border p-4">
+        <div className="hidden lg:block lg:w-[20%] xl:w-[18%] min-h-screen bg-card border-l border-border p-4">
           <SideBarRight />
         </div>
       </div>

@@ -44,15 +44,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userFromToken = apiClient.getUserFromToken();
       const isExpired = apiClient.isTokenExpired();
       const hasValidToken = !!(userFromToken && userFromToken.userid && !isExpired);
-      console.log('🔍 Initial auth state check:', {
-        hasUserFromToken: !!userFromToken,
-        userid: userFromToken?.userid,
-        isExpired,
-        hasValidToken
-      });
       return hasValidToken;
     } catch (error) {
-      console.error('❌ Error in getInitialAuthState:', error);
+      console.error('❌ [API] Error in getInitialAuthState:', error);
       return false;
     }
   };
@@ -66,8 +60,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Check if user is authenticated (no backend dependency for initial check)
   const checkAuth = async () => {
     try {
-      console.log('🔍 Starting auth check...', { hasCheckedAuth, isInitializing });
-      
       // Wait a bit to ensure cookies are available (especially after page reload)
       if (typeof window !== 'undefined') {
         await new Promise(resolve => setTimeout(resolve, 150));
@@ -75,10 +67,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
       // Check if we have a JWT token in cookies first
       const userFromToken = apiClient.getUserFromToken();
-      console.log('🔍 User from token:', userFromToken);
       
       if (!userFromToken || !userFromToken.userid) {
-        console.log('🔐 No JWT token found in cookies');
         setUser(null);
         setIsAuthenticated(false);
         setHasCheckedAuth(true);
@@ -89,10 +79,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Check if token is expired
       const isExpired = apiClient.isTokenExpired();
-      console.log('🔍 Token expired check:', isExpired);
       
       if (isExpired) {
-        console.log('🔐 JWT token has expired');
         // Clear expired token
         if (typeof window !== 'undefined') {
           localStorage.removeItem('jwt_token');
@@ -104,8 +92,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsInitializing(false);
         return;
       }
-  
-      console.log('🔐 Valid JWT token found, userid:', userFromToken.userid);
       
       // Create a basic user object from the token
       const basicUser: User = {
@@ -129,13 +115,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setHasCheckedAuth(true);
       setIsLoading(false);
       setIsInitializing(false);
-      console.log('✅ User set from token:', basicUser);
 
       // Try to fetch full profile in background (non-critical)
       refreshUserProfile();
       
     } catch (error) {
-      console.error('❌ Auth check failed:', error);
+      console.error('[API] Auth check failed:', error);
       setUser(null);
       setIsAuthenticated(false);
       setHasCheckedAuth(true);
@@ -147,7 +132,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Separate method to refresh user profile from backend
   const refreshUserProfile = async () => {
     try {
-      console.log('🔄 Refreshing user profile from backend...');
       const userData = await apiClient.get<{ user: User } | User>('/api/user/profile');
       
       if (userData) {
@@ -155,11 +139,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (userInfo && userInfo.id) {
           setUser(userInfo);
-          console.log('✅ User profile updated from backend:', userInfo);
         }
       }
     } catch (error) {
-      console.log('⚠️ Background profile refresh failed (non-critical):', error);
       // Don't clear auth state - token-based auth is still valid
     }
   };
@@ -168,19 +150,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      console.log('🔐 Attempting login...');
       
       const loginData: LoginRequest = { email, password };
       const loginResponse = await apiClient.post(authRoutes.login, loginData);
-      
-      console.log('✅ Login successful:', loginResponse);
       
       // Store token in localStorage if provided
       if (loginResponse && typeof loginResponse === 'object' && 'token' in loginResponse) {
         const token = (loginResponse as any).token;
         if (token && typeof window !== 'undefined') {
           localStorage.setItem('jwt_token', token);
-          console.log('🔑 JWT token stored in localStorage');
         }
       }
       
@@ -192,7 +170,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (userInfo && userInfo.id) {
             setUser(userInfo);
             setIsAuthenticated(true);
-            console.log('✅ User set from profile response:', userInfo);
           } else {
             throw new Error('Invalid user data received from profile');
           }

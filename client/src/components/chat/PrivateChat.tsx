@@ -93,17 +93,13 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
     }
 
     if (lastMessage.type === 'private_message') {
-      console.log('🔍 PrivateChat received WebSocket message:', lastMessage);
       const messageData = lastMessage.data as any;
       const senderId = messageData?.sender_id || lastMessage.user_id;
       const receiverId = messageData?.receiver_id;
 
-      console.log('🔍 Message data:', { senderId, receiverId, currentUserId, otherUserId: conversation.other_user_id });
-
       // Check if this message is for the current conversation
       if ((senderId === conversation.other_user_id && receiverId === currentUserId) ||
           (senderId === currentUserId && receiverId === conversation.other_user_id)) {
-        console.log('🔍 Message is for this conversation, adding to messages');
 
         // Check if message already exists to prevent duplicates
       const messageId = lastMessage.message_id ? `pm-${lastMessage.message_id}` : `${lastMessage.timestamp}-${lastMessage.user_id}`;
@@ -119,7 +115,6 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
         setMessages(prev => {
           const exists = prev.some(msg => msg.id === messageId);
           if (exists) {
-            console.log('🔍 Message already exists, skipping duplicate');
             return prev;
           }
           return [...prev, newMessage];
@@ -127,7 +122,6 @@ export function PrivateChat({ conversation, currentUserId }: PrivateChatProps) {
 
         // If this is our own message (confirmation), reset sending state
         if (lastMessage.user_id === currentUserId) {
-          console.log('🔍 Received confirmation of our own message, resetting sending state');
           
           // Firefox-specific: Remove any optimistic messages and replace with real one
           if (isFirefox) {

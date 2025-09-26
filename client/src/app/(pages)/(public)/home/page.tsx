@@ -35,21 +35,12 @@ const HomePage: React.FC = () => {
         setLoadingPosts(true);
         setError(null);
 
-        console.log(
-          'User status:',
-          user ? 'authenticated' : 'not authenticated',
-        );
-
         let postsData;
         if (user) {
-          console.log('Fetching user feed...');
           postsData = await postApi.getUserFeed();
         } else {
-          console.log('Fetching public posts...');
           postsData = await postApi.getPublicPosts();
         }
-
-        console.log('Posts received:', postsData?.length || 0);
         setPosts(postsData || []);
       } catch (error) {
         console.error('Error fetching posts:', error);

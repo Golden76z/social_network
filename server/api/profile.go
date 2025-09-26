@@ -57,7 +57,7 @@ func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 	// Fetch user profile from database
 	profile, err := getUserProfileFromDB(targetUserID)
 	if err != nil {
-		fmt.Printf("[ERROR] Database error: %v\n", err)
+		fmt.Printf("[DB] Database error: %v\n", err)
 		if err == sql.ErrNoRows {
 			http.Error(w, "User not found", http.StatusNotFound)
 			return
@@ -214,7 +214,7 @@ func getUserProfileFromDB(userID int64) (*models.User, error) {
 	`
 	err = db.DBService.DB.QueryRow(followerCountQuery, userID).Scan(&user.Followers)
 	if err != nil {
-		fmt.Printf("[WARNING] Error calculating follower count for user %d: %v\n", userID, err)
+		// Silently handle error for counts
 		user.Followers = 0
 	}
 
@@ -226,7 +226,7 @@ func getUserProfileFromDB(userID int64) (*models.User, error) {
 	`
 	err = db.DBService.DB.QueryRow(followingCountQuery, userID).Scan(&user.Followed)
 	if err != nil {
-		fmt.Printf("[WARNING] Error calculating following count for user %d: %v\n", userID, err)
+		// Silently handle error for counts
 		user.Followed = 0
 	}
 
@@ -295,7 +295,7 @@ func UpdateUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 
 	_, err = tx.Exec(query, values...)
 	if err != nil {
-		fmt.Printf("[ERROR] Update failed: %v\n", err)
+		fmt.Printf("[API] Update profile failed: %v\n", err)
 		http.Error(w, "Failed to update profile", http.StatusInternalServerError)
 		return
 	}
@@ -308,7 +308,7 @@ func UpdateUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 		var currentIsPrivate bool
 		err = tx.QueryRow("SELECT is_private FROM users WHERE id = ?", currentUserID).Scan(&currentIsPrivate)
 		if err != nil {
-			fmt.Printf("[ERROR] Failed to get current privacy status: %v\n", err)
+			fmt.Printf("[API] Failed to get current privacy status: %v\n", err)
 			http.Error(w, "Failed to get current privacy status", http.StatusInternalServerError)
 			return
 		}
@@ -328,8 +328,7 @@ func UpdateUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 	if privacyChanged {
 		err = autoAcceptPendingFollowRequests(int64(currentUserID))
 		if err != nil {
-			fmt.Printf("[WARNING] Failed to auto-accept pending requests: %v\n", err)
-			// Don't fail the profile update, just log the warning
+			// Silently handle error for auto-acceptance
 		}
 	}
 
@@ -558,36 +557,23 @@ func GetPublicUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 
 // autoAcceptPendingFollowRequests automatically accepts all pending follow requests when a user changes from private to public
 func autoAcceptPendingFollowRequests(userID int64) error {
-	fmt.Printf("[INFO] Auto-accepting pending follow requests for user %d\n", userID)
-
 	// Get all pending follow requests for this user
 	pendingRequests, err := db.DBService.GetPendingFollowRequests(userID)
 	if err != nil {
 		return fmt.Errorf("failed to get pending follow requests: %w", err)
 	}
 
-	fmt.Printf("[INFO] Found %d pending follow requests\n", len(pendingRequests))
-
 	// Process each pending request
 	for _, request := range pendingRequests {
-		fmt.Printf("[INFO] Auto-accepting request from user %d\n", request.RequesterID)
-
 		// Update request status to accepted
 		err = db.DBService.UpdateFollowRequestStatus(request.ID, "accepted")
 		if err != nil {
-			fmt.Printf("[ERROR] Failed to accept request %d: %v\n", request.ID, err)
 			continue
 		}
 
 		// Increment counters
-		err1 := db.DBService.IncrementFollowingCount(request.RequesterID)
-		err2 := db.DBService.IncrementFollowersCount(userID)
-		if err1 != nil {
-			fmt.Printf("[WARNING] Failed to increment following count for user %d: %v\n", request.RequesterID, err1)
-		}
-		if err2 != nil {
-			fmt.Printf("[WARNING] Failed to increment followers count for user %d: %v\n", userID, err2)
-		}
+		db.DBService.IncrementFollowingCount(request.RequesterID)
+		db.DBService.IncrementFollowersCount(userID)
 
 		// Create notification for the requester
 		targetUser, err := db.DBService.GetUserByID(userID)
@@ -603,14 +589,9 @@ func autoAcceptPendingFollowRequests(userID int64) error {
 				Type:   "follow_accepted",
 				Data:   notificationData,
 			}
-			if err := db.DBService.CreateNotification(notificationReq); err != nil {
-				fmt.Printf("[WARNING] Failed to create notification for auto-acceptance: %v\n", err)
-			}
+			db.DBService.CreateNotification(notificationReq)
 		}
-
-		fmt.Printf("[INFO] Successfully auto-accepted request from user %d\n", request.RequesterID)
 	}
 
-	fmt.Printf("[INFO] Completed auto-acceptance of %d pending follow requests\n", len(pendingRequests))
 	return nil
 }

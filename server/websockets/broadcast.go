@@ -1,7 +1,6 @@
 package websockets
 
 import (
-	"log"
 	"time"
 )
 
@@ -32,31 +31,24 @@ func (h *Hub) BroadcastMessage(message Message) {
 
 // broadcastToGroup sends a message to all members of a specific group
 func (h *Hub) broadcastToGroup(groupID string, message Message) {
-	log.Printf("🔌 GROUP_BROADCAST: Attempting to broadcast to group %s", groupID)
-
 	group, exists := h.groups[groupID]
 	if !exists {
-		log.Printf("🔌 GROUP_BROADCAST: Group %s does not exist in hub", groupID)
 		return
 	}
 
 	group.mu.RLock()
 	defer group.mu.RUnlock()
 
-	log.Printf("🔌 GROUP_BROADCAST: Broadcasting to group %s with %d members", groupID, len(group.Members))
 	for _, client := range group.Members {
 		select {
 		case client.Send <- message:
-			log.Printf("🔌 GROUP_BROADCAST: Message sent to group member %s (user %d)", client.ID, client.UserID)
 		default:
 			// Client's send channel is full, remove them
-			log.Printf("🔌 GROUP_BROADCAST: Group member %s send channel full, removing", client.ID)
 			go func(c *Client) {
 				h.unregister <- c
 			}(client)
 		}
 	}
-	log.Printf("🔌 GROUP_BROADCAST: Completed broadcasting to group %s", groupID)
 }
 
 // broadcastToUser sends a message to all connections of a specific user
@@ -64,14 +56,11 @@ func (h *Hub) BroadcastToUser(userID int, message Message) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	log.Printf("Broadcasting to user %d: type=%s, content=%s", userID, message.Type, message.Content)
 	for _, client := range h.clients {
 		if client.UserID == userID {
 			select {
 			case client.Send <- message:
-				log.Printf("Message sent to user %d client %s", userID, client.ID)
 			default:
-				log.Printf("User %d client %s send channel full, removing", userID, client.ID)
 				go func(c *Client) {
 					h.unregister <- c
 				}(client)
@@ -99,7 +88,6 @@ func (h *Hub) BroadcastUserList() {
 		Timestamp: time.Now(),
 	}
 
-	log.Printf("Broadcasting user list to %d clients with %d users", len(h.clients), len(users))
 	h.broadcast <- message
 }
 
@@ -150,15 +138,11 @@ func (h *Hub) BroadcastNotification(userID int, notificationType, content string
 		},
 	}
 
-	log.Printf("Broadcasting notification to user %d: type=%s, content=%s", userID, notificationType, content)
-
 	for _, client := range h.clients {
 		if client.UserID == userID {
 			select {
 			case client.Send <- message:
-				log.Printf("Notification sent to user %d client %s", userID, client.ID)
 			default:
-				log.Printf("User %d client %s send channel full, removing", userID, client.ID)
 				go func(c *Client) {
 					h.unregister <- c
 				}(client)

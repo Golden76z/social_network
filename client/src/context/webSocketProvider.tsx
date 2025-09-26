@@ -43,11 +43,9 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
     const now = Date.now();
     const refreshIn = Math.max(30_000, expiry - now - 60_000); // Refresh 1 minute before expiry, minimum 30 seconds
 
-    console.log(`🔌 Scheduling WebSocket token refresh in ${refreshIn}ms`);
     refreshTimerRef.current = setTimeout(() => {
       const { isAuthenticated: auth, userId: id } = authStateRef.current;
       if (!auth || !id) return;
-      console.log('🔌 Refreshing WebSocket token');
       requestTokenRef.current?.();
     }, refreshIn);
   }, [clearRefreshTimer]);
@@ -66,17 +64,15 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
     fetchInFlightRef.current = true;
     try {
       const response = await apiClient.get<{ token: string; expires_at?: string }>('/api/ws/token');
-      console.log('🔌 Received websocket token');
       setWsToken(response.token);
       scheduleRefresh(response.expires_at);
     } catch (error) {
-      console.error('🔌 Failed to fetch websocket token:', error);
+      console.error('[API] Failed to fetch websocket token:', error);
       setWsToken(undefined);
       clearRefreshTimer();
 
       const { isAuthenticated: auth, userId: id } = authStateRef.current;
       if (auth && id) {
-        console.log('🔌 Token request failed, retrying in 10 seconds');
         refreshTimerRef.current = setTimeout(() => {
           const { isAuthenticated: stillAuth, userId: stillId } = authStateRef.current;
           if (!stillAuth || !stillId) return;
@@ -127,7 +123,6 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children, 
       const browserWindow = window as WindowWithWs;
       browserWindow.__wsEnsureConnected = () => {
         if (webSocket.connectionStatus !== 'connected') {
-          console.log('🔌 Ensuring websocket connection');
           webSocket.reconnect();
         }
       };

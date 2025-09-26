@@ -2,7 +2,6 @@ package websockets
 
 import (
 	"database/sql"
-	"log"
 	"sync"
 	"time"
 
@@ -16,15 +15,10 @@ var (
 
 // InitHub initializes the global singleton hub
 func InitHub(db *sql.DB) {
-	log.Printf("🔌 Initializing WebSocket Hub")
 	hubOnce.Do(func() {
-		log.Printf("🔌 Creating new Hub instance")
 		hubInstance = NewHub(db)
-		log.Printf("🔌 Starting Hub Run() method")
 		go hubInstance.Run()
-		log.Printf("🔌 Starting Hub monitorHeartbeats() method")
 		go hubInstance.monitorHeartbeats()
-		log.Printf("🔌 Hub initialization completed")
 	})
 }
 
@@ -88,15 +82,11 @@ func (h *Hub) RegisterClient(client *Client) {
 	client.mu.Lock()
 	client.lastHeartbeat = time.Now()
 	client.mu.Unlock()
-	log.Printf("✅ Client %s (User: %s) registered successfully. Total clients: %d",
-		client.ID, client.Username, len(h.clients))
 
 	h.mu.Unlock() // Release lock before calling RemoveClientFromGroup
 
 	// Handle existing connection cleanup outside of main mutex lock
 	if existingClient != nil {
-		log.Printf("Closing existing connection %s for user %d, replacing with %s",
-			existingID, client.UserID, client.ID)
 
 		// Close existing connection gracefully
 		existingClient.mu.Lock()
@@ -163,14 +153,12 @@ func (h *Hub) monitorHeartbeats() {
 			client.mu.RUnlock()
 
 			if time.Since(last) > 60*time.Second {
-				log.Printf("Heartbeat timeout for client %s (user %d)", client.ID, client.UserID)
 				h.unregister <- client
 			}
 		}
 
 		// Broadcast user list every 30 seconds to keep clients updated
 		if len(clients) > 0 {
-			log.Printf("Periodic user list broadcast - %d clients connected", len(clients))
 			go h.BroadcastUserList()
 		}
 
@@ -188,8 +176,6 @@ func (h *Hub) cleanupStaleConnections(clients []*Client) {
 
 		// If no heartbeat for more than 2 minutes, consider connection stale
 		if time.Since(last) > 2*time.Minute {
-			log.Printf("Cleaning up stale connection %s (user %d) - last heartbeat: %v",
-				client.ID, client.UserID, last)
 			go func(c *Client) {
 				h.unregister <- c
 			}(client)
@@ -222,9 +208,6 @@ func (h *Hub) UnregisterClient(client *Client) {
 	delete(h.clients, client.ID)
 	close(client.Send)
 
-	log.Printf("Client %s (User: %s) disconnected. Total clients: %d",
-		client.ID, client.Username, len(h.clients))
-
 	// Broadcast user list update
 	go h.BroadcastUserList()
 }
@@ -233,14 +216,11 @@ func (h *Hub) UnregisterClient(client *Client) {
 func (h *Hub) autoJoinUserGroups(client *Client) {
 	userGroups, err := db.DBService.GetUserGroups(client.UserID)
 	if err != nil {
-		log.Printf("Error fetching user groups for user %d: %v", client.UserID, err)
 		return
 	}
 
 	for _, groupID := range userGroups {
-		if err := h.JoinGroup(client, groupID); err != nil {
-			log.Printf("Error joining group %s for user %d: %v", groupID, client.UserID, err)
-		}
+		h.JoinGroup(client, groupID)
 	}
 }
 

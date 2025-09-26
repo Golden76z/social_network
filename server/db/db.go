@@ -6,7 +6,6 @@ import (
 	"time"
 
 	_ "github.com/joho/godotenv/autoload"
-	_ "github.com/lib/pq"
 )
 
 // Global instance

@@ -1,7 +1,6 @@
 package websockets
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -83,8 +82,6 @@ func WebSocketHandler(hub *Hub, cfg *config.Config) http.HandlerFunc {
 		userID := claims.UserID
 		username := claims.Username
 
-		fmt.Println("[handler/userID]", userID, " [handler/username]", username)
-
 		// Upgrading the connection to WS
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
@@ -93,7 +90,6 @@ func WebSocketHandler(hub *Hub, cfg *config.Config) http.HandlerFunc {
 		}
 
 		conn.SetCloseHandler(func(code int, text string) error {
-			log.Printf("WebSocket close frame for user %d: code=%d reason=%s", userID, code, text)
 			return nil
 		})
 
@@ -119,20 +115,15 @@ func WebSocketHandler(hub *Hub, cfg *config.Config) http.HandlerFunc {
 		client.mu.Unlock()
 
 		// Register client first
-		log.Printf("🔌 Registering client %s for user %d (%s)", client.ID, client.UserID, client.Username)
 		hub.register <- client
 
 		// Join user to their groups
 		for _, groupID := range userGroups {
-			if err := hub.JoinGroup(client, groupID); err != nil {
-				log.Printf("Error joining group %s: %v", groupID, err)
-			}
+			hub.JoinGroup(client, groupID)
 		}
 
-		log.Printf("🔌 Starting WritePump and ReadPump for client %s (user %d)", client.ID, client.UserID)
 		go client.WritePump()
 		go client.ReadPump()
-		log.Printf("🔌 WritePump and ReadPump started for client %s (user %d)", client.ID, client.UserID)
 	}
 }
 

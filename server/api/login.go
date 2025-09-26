@@ -55,12 +55,11 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Creating a session for the user
-	fmt.Printf("Creating session for user: %s\n", req.Username)
 
 	// Generate JWT token
 	token, err := utils.JWTGeneration(req.Username, w)
 	if err != nil {
-		fmt.Printf("Error generating JWT: %v\n", err)
+		fmt.Printf("[API] Error generating JWT: %v\n", err)
 		http.Error(w, "Error generating JWT token", http.StatusInternalServerError)
 		return
 	}
@@ -68,7 +67,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	// Get user_id for session creation
 	userID, err := db.DBService.GetUserIDByUsername(req.Username)
 	if err != nil {
-		fmt.Printf("Error getting user ID: %v\n", err)
+		fmt.Printf("[API] Error getting user ID: %v\n", err)
 		http.Error(w, "Error getting user ID", http.StatusInternalServerError)
 		return
 	}
@@ -77,7 +76,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	// We need to access config through the utils package
 	err = db.DBService.CreateSession(int(userID), token, time.Hour*4) // Use default 4 hours for now
 	if err != nil {
-		fmt.Printf("Error creating session in DB: %v\n", err)
+		fmt.Printf("[API] Error creating session in DB: %v\n", err)
 		http.Error(w, "Error creating session in database", http.StatusInternalServerError)
 		return
 	}
@@ -98,7 +97,6 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.SetCookie(w, cookie)
-	fmt.Printf("Session created successfully for user: %s\n", req.Username)
 
 	// Send back a response with the token for localStorage
 	response := map[string]interface{}{
