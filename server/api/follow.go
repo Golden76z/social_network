@@ -119,7 +119,6 @@ func CreateFollowHandler(w http.ResponseWriter, r *http.Request) {
 	// Get requester's information for the notification
 	requester, err := db.DBService.GetUserByID(userID)
 	if err != nil {
-		fmt.Printf("[WARNING] Failed to get requester info for notification: %v\n", err)
 		// Continue without notification
 	} else {
 		avatar := ""
@@ -135,9 +134,7 @@ func CreateFollowHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Don't fail the follow request if notification creation fails
-		if err := db.DBService.CreateNotification(notificationReq); err != nil {
-			fmt.Printf("[WARNING] Failed to create follow request notification: %v\n", err)
-		}
+		db.DBService.CreateNotification(notificationReq)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -378,10 +375,7 @@ func DeleteFollowHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Clean up related notifications
-	err = db.DBService.DeleteNotificationsByTypeAndData("follow_request", fmt.Sprintf(`{"requester_id":%d}`, followReq.RequesterID))
-	if err != nil {
-		fmt.Printf("[WARNING] Failed to clean up follow request notifications: %v\n", err)
-	}
+	db.DBService.DeleteNotificationsByTypeAndData("follow_request", fmt.Sprintf(`{"requester_id":%d}`, followReq.RequesterID))
 
 	// If the relationship was accepted, decrement counters
 	if followReq.Status == "accepted" {
@@ -447,9 +441,7 @@ func AcceptFollowRequestHandler(w http.ResponseWriter, r *http.Request) {
 			Type:   "follow_accepted",
 			Data:   notificationData,
 		}
-		if err := db.DBService.CreateNotification(notificationReq); err != nil {
-			fmt.Printf("[WARNING] Failed to create notification for follow acceptance: %v\n", err)
-		}
+		db.DBService.CreateNotification(notificationReq)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -533,10 +525,7 @@ func CancelFollowRequestHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Clean up related notifications
-	err = db.DBService.DeleteNotificationsByTypeAndData("follow_request", fmt.Sprintf(`{"requester_id":%d}`, followReq.RequesterID))
-	if err != nil {
-		fmt.Printf("[WARNING] Failed to clean up follow request notifications: %v\n", err)
-	}
+	db.DBService.DeleteNotificationsByTypeAndData("follow_request", fmt.Sprintf(`{"requester_id":%d}`, followReq.RequesterID))
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

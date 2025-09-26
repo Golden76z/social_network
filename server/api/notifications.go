@@ -218,12 +218,8 @@ func AcceptNotificationHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Mark notification as read and delete it
-	if err := db.DBService.UpdateNotification(req.NotificationID, models.UpdateNotificationRequest{IsRead: true}); err != nil {
-		fmt.Printf("[WARNING] Failed to mark notification as read: %v\n", err)
-	}
-	if err := db.DBService.DeleteNotification(req.NotificationID); err != nil {
-		fmt.Printf("[WARNING] Failed to delete notification: %v\n", err)
-	}
+	db.DBService.UpdateNotification(req.NotificationID, models.UpdateNotificationRequest{IsRead: true})
+	db.DBService.DeleteNotification(req.NotificationID)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"response": "Request accepted"}`))
@@ -289,12 +285,8 @@ func DeclineNotificationHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Mark notification as read and delete it
-	if err := db.DBService.UpdateNotification(req.NotificationID, models.UpdateNotificationRequest{IsRead: true}); err != nil {
-		fmt.Printf("[WARNING] Failed to mark notification as read: %v\n", err)
-	}
-	if err := db.DBService.DeleteNotification(req.NotificationID); err != nil {
-		fmt.Printf("[WARNING] Failed to delete notification: %v\n", err)
-	}
+	db.DBService.UpdateNotification(req.NotificationID, models.UpdateNotificationRequest{IsRead: true})
+	db.DBService.DeleteNotification(req.NotificationID)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"response": "Request declined"}`))
@@ -340,9 +332,7 @@ func handleFollowRequestAccept(data map[string]interface{}, userID int64) error 
 			Type:   "follow_accepted",
 			Data:   notificationData,
 		}
-		if err := db.DBService.CreateNotification(notificationReq); err != nil {
-			fmt.Printf("[WARNING] Failed to create follow accepted notification: %v\n", err)
-		}
+		db.DBService.CreateNotification(notificationReq)
 	}
 
 	return nil

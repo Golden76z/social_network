@@ -32,7 +32,6 @@ class ChatAPI {
     }
 
     const data = await response.json();
-    console.log('🔍 Raw API response:', data);
     return data;
   }
 
@@ -55,22 +54,16 @@ class ChatAPI {
       offset: offset.toString(),
     });
 
-    console.log('🔍 ChatAPI.getMessages called with:', { userId, limit, offset });
-    console.log('🔍 Request URL:', `/api/chat/messages?${params}`);
-
     try {
       const result = await this.request<PrivateMessage[]>(`/api/chat/messages?${params}`);
-      console.log('🔍 ChatAPI.getMessages result:', result);
 
       // Handle null response from backend (backend returns null when no messages)
       if (result === null || result === undefined) {
-        console.log('🔍 Backend returned null, converting to empty array');
         return [];
       }
 
       // Ensure we return an array
       if (!Array.isArray(result)) {
-        console.log('🔍 Backend returned non-array, converting to empty array');
         return [];
       }
 

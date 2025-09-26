@@ -82,9 +82,7 @@ func CreateGroupInvitationHandler(w http.ResponseWriter, r *http.Request) {
 			Type:   "group_invite",
 			Data:   notificationData,
 		}
-		if err := db.DBService.CreateNotification(notificationReq); err != nil {
-			fmt.Printf("[WARNING] Failed to create notification for group invitation: %v\n", err)
-		}
+		db.DBService.CreateNotification(notificationReq)
 	}
 
 	w.WriteHeader(http.StatusCreated)

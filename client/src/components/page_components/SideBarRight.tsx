@@ -47,7 +47,6 @@ export const SideBarRight: React.FC = () => {
     if (!isConnected) return;
 
     const handleWebSocketUpdate = () => {
-      console.log('🔌 WebSocket update received, refreshing sidebar data');
       loadGroups();
       loadUsers();
     };
@@ -65,22 +64,17 @@ export const SideBarRight: React.FC = () => {
     };
   }, [isConnected, user]);
 
-  console.log('🔌 Sidebar rendering - Status:', connectionStatus, 'Connected:', isConnected, 'User:', user?.id, 'Groups:', groups?.length, 'MutualFriends:', mutualFollowers?.length, 'Followers:', followers?.length);
 
   const loadGroups = async () => {
     if (!user) return;
     
     try {
       setGroupsLoading(true);
-      console.log('🔍 Loading groups for user ID:', user.id);
       
       const [userGroups, conversations] = await Promise.all([
         groupApi.getUserGroups(),
         chatAPI.getGroupConversations()
       ]);
-      
-      console.log('👥 User groups data:', userGroups);
-      console.log('💬 Group conversations data:', conversations);
       
       setGroups(userGroups);
       setGroupConversations(conversations);
@@ -101,15 +95,11 @@ export const SideBarRight: React.FC = () => {
     try {
       setUsersLoading(true);
       
-      console.log('🔍 Loading users for user ID:', user.id);
-      
       // Get mutual friends using the new API endpoint
       try {
         const mutualFriendsData = await userApi.getMutualFriends(user.id);
-        console.log('👥 Mutual friends data:', mutualFriendsData);
         setMutualFollowers(mutualFriendsData || []);
       } catch (mutualError) {
-        console.warn('⚠️ Mutual friends API failed, trying fallback:', mutualError);
         // Fallback: try to get followers and following to compute mutual friends
         try {
           const [followersData, followingData] = await Promise.all([
@@ -122,17 +112,14 @@ export const SideBarRight: React.FC = () => {
           const mutual = followingData.filter(followingUser => 
             followersSet.has(followingUser.id)
           );
-          console.log('👥 Mutual friends (fallback):', mutual);
           setMutualFollowers(mutual);
         } catch (fallbackError) {
-          console.error('❌ Fallback also failed:', fallbackError);
           setMutualFollowers([]);
         }
       }
       
       // Keep followers for separate display
       const followersData = await userApi.getFollowers(user.id);
-      console.log('👤 Followers data:', followersData);
       setFollowers(followersData || []);
       
     } catch (error) {

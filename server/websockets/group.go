@@ -2,13 +2,10 @@ package websockets
 
 import (
 	"fmt"
-	"log"
 	"time"
 )
 
 func (h *Hub) JoinGroup(client *Client, groupID string) error {
-	log.Printf("🔌 GROUP_JOIN: Processing join request for user %d to group %s", client.UserID, groupID)
-
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -23,10 +20,7 @@ func (h *Hub) JoinGroup(client *Client, groupID string) error {
 			CreatedAt: time.Now(),
 		}
 		h.groups[groupID] = group
-		log.Printf("🔌 GROUP_JOIN: Created new group %s in websocket hub", groupID)
 	}
-
-	log.Printf("🔌 GROUP_JOIN: Group %s exists with %d members", groupID, len(group.Members))
 
 	// Check if user has permission to join
 	// if !h.canJoinGroup(client.UserID, groupID) {
@@ -41,8 +35,6 @@ func (h *Hub) JoinGroup(client *Client, groupID string) error {
 	client.Groups[groupID] = group
 	client.mu.Unlock()
 
-	log.Printf("🔌 GROUP_JOIN: User %d joined group %s. Group now has %d members", client.UserID, groupID, len(group.Members))
-
 	// Notify other group members
 	h.broadcastToGroup(groupID, Message{
 		Type:      "user_joined", // Use string literal to match client expectations
@@ -52,7 +44,6 @@ func (h *Hub) JoinGroup(client *Client, groupID string) error {
 		Timestamp: time.Now(),
 	})
 
-	log.Printf("🔌 GROUP_JOIN: Successfully joined user %d to group %s", client.UserID, groupID)
 	return nil
 }
 
@@ -113,8 +104,5 @@ func (h *Hub) RemoveClientFromGroup(client *Client, groupID string) {
 	// Clean up empty groups
 	if groupEmpty {
 		delete(h.groups, groupID)
-		log.Printf("Group %s removed (empty)", groupID)
 	}
-
-	log.Printf("Client %s left group %s", client.ID, groupID)
 }

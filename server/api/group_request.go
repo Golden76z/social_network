@@ -13,10 +13,8 @@ import (
 
 // CreateGroupRequestHandler creates a new group join request
 func CreateGroupRequestHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("🔍 CreateGroupRequestHandler called")
 	userID, ok := r.Context().Value(middleware.UserIDKey).(int)
 	if !ok {
-		fmt.Println("❌ UserID not found in context")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -26,14 +24,11 @@ func CreateGroupRequestHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		fmt.Printf("❌ Error decoding request body: %v\n", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	fmt.Printf("✅ Request decoded: GroupID=%d\n", req.GroupID)
 
 	if req.GroupID <= 0 {
-		fmt.Println("❌ Invalid group_id")
 		http.Error(w, "Invalid group_id", http.StatusBadRequest)
 		return
 	}
@@ -74,11 +69,9 @@ func CreateGroupRequestHandler(w http.ResponseWriter, r *http.Request) {
 	// Create the group request
 	err = db.DBService.CreateGroupRequest(req.GroupID, int64(userID), "pending")
 	if err != nil {
-		fmt.Printf("❌ Error creating group request: %v\n", err)
 		http.Error(w, "Error creating group request", http.StatusInternalServerError)
 		return
 	}
-	fmt.Println("✅ Group request created successfully")
 
 	// Create notification for the group owner
 	group, err := db.DBService.GetGroupByID(req.GroupID)
@@ -96,9 +89,7 @@ func CreateGroupRequestHandler(w http.ResponseWriter, r *http.Request) {
 				Type:   "group_request",
 				Data:   notificationData,
 			}
-			if err := db.DBService.CreateNotification(notificationReq); err != nil {
-				fmt.Printf("[WARNING] Failed to create notification for group request: %v\n", err)
-			}
+			db.DBService.CreateNotification(notificationReq)
 		}
 	}
 
@@ -110,9 +101,7 @@ func CreateGroupRequestHandler(w http.ResponseWriter, r *http.Request) {
 		"user_id":  userID,
 		"status":   "pending",
 	}
-	fmt.Printf("📤 Sending response: %+v\n", response)
 	json.NewEncoder(w).Encode(response)
-	fmt.Println("✅ Response sent successfully")
 }
 
 // GetUserPendingRequestsHandler gets all pending requests for the current user
@@ -265,7 +254,6 @@ func UpdateGroupRequestHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := db.DBService.CreateGroupMember(member); err != nil {
 			// Rollback request status if member creation fails
-			fmt.Printf("Error creating group member: %v\n", err)
 			db.DBService.UpdateGroupRequestStatus(req.ID, "pending")
 			http.Error(w, "Error adding user to group: "+err.Error(), http.StatusInternalServerError)
 			return

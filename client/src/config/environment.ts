@@ -52,7 +52,6 @@ export const validateConfig = (): void => {
   }
 
   if (config.ENABLE_DEBUG_LOGS) {
-    console.log('✅ Configuration chargée:', config);
   }
 };
 

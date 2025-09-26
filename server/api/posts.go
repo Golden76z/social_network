@@ -63,7 +63,7 @@ func CreatePostHandler(w http.ResponseWriter, r *http.Request) {
 
 	postID, err := db.DBService.CreatePost(int64(currentUserID), createRequest)
 	if err != nil {
-		fmt.Printf("[ERROR] Create post failed: %v\n", err)
+		fmt.Printf("[API] Create post failed: %v\n", err)
 		http.Error(w, "Failed to create post", http.StatusInternalServerError)
 		return
 	}
@@ -187,7 +187,7 @@ func GetPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		fmt.Printf("[ERROR] Get posts failed: %v\n", err)
+		fmt.Printf("[API] Get posts failed: %v\n", err)
 		http.Error(w, "Failed to get posts", http.StatusInternalServerError)
 		return
 	}
@@ -234,7 +234,7 @@ func UpdatePostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := db.DBService.UpdatePost(postID, req); err != nil {
-		fmt.Printf("[ERROR] Update post failed: %v\n", err)
+		fmt.Printf("[API] Update post failed: %v\n", err)
 		http.Error(w, "Failed to update post", http.StatusInternalServerError)
 		return
 	}
@@ -281,7 +281,7 @@ func DeletePostHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Delete the post and all associated data
 	if err := db.DBService.DeletePost(postID); err != nil {
-		fmt.Printf("[ERROR] Delete post failed: %v\n", err)
+		fmt.Printf("[API] Delete post failed: %v\n", err)
 		http.Error(w, "Failed to delete post", http.StatusInternalServerError)
 		return
 	}
@@ -448,7 +448,7 @@ func GetPublicPostsByUserHandler(w http.ResponseWriter, r *http.Request) {
 	// Get posts by specific user (currentUserID = 0 for anonymous access)
 	posts, err := db.DBService.GetPostsByUser(targetUserID, 0)
 	if err != nil {
-		fmt.Printf("[ERROR] Get public posts by user failed: %v\n", err)
+		fmt.Printf("[API] Get public posts by user failed: %v\n", err)
 		http.Error(w, "Failed to get posts", http.StatusInternalServerError)
 		return
 	}
