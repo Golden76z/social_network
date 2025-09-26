@@ -70,7 +70,7 @@ export const ExampleForm: React.FC = () => {
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             required
           />
-          <FormError error={formError} field="username" />
+          <FormError error={formError} />
         </div>
 
         <div>
@@ -86,7 +86,7 @@ export const ExampleForm: React.FC = () => {
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             required
           />
-          <FormError error={formError} field="email" />
+          <FormError error={formError} />
         </div>
 
         <div>
@@ -102,7 +102,7 @@ export const ExampleForm: React.FC = () => {
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             required
           />
-          <FormError error={formError} field="password" />
+          <FormError error={formError} />
         </div>
 
         <button

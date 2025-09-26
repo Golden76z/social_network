@@ -120,8 +120,8 @@ class ChatAPI {
   }
 
   // Get users that can be messaged (followers + following + public users)
-  async getMessageableUsers(): Promise<any[]> {
-    return this.request<any[]>('/api/chat/messageable-users');
+  async getMessageableUsers(): Promise<unknown[]> {
+    return this.request<unknown[]>('/api/chat/messageable-users');
   }
 }
 
