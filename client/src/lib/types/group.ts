@@ -1,0 +1,170 @@
+// (No imports required)
+
+// ===== GROUP =====
+export interface CreateGroupRequest {
+  title: string;
+  avatar?: string;
+  bio?: string;
+}
+
+export interface UpdateGroupRequest {
+  id?: number;
+  title?: string;
+  avatar?: string;
+  bio?: string;
+}
+
+export interface DeleteGroupRequest {
+  id: number;
+}
+
+export interface GroupResponse {
+  id: number;
+  title: string;
+  avatar?: string;
+  bio?: string;
+  creator_id: number;
+  created_at: string;
+  updated_at?: string;
+}
+
+// ===== GROUP POST =====
+export interface CreateGroupPostRequest {
+  group_id: number;
+  title: string;
+  body: string;
+  images?: string[];
+}
+
+export interface GroupPost {
+  id: number;
+  user_id: number;
+  title: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+  visibility: string;
+  images: string[] | null;
+  likes: number;
+  dislikes: number;
+  user_liked: boolean;
+  user_disliked: boolean;
+  author_nickname?: string;
+  author_first_name?: string;
+  author_last_name?: string;
+  author_avatar?: string;
+}
+
+export interface UpdateGroupPostRequest {
+  id?: number;
+  title?: string;
+  body?: string;
+}
+
+export interface DeleteGroupPostRequest {
+  id: number;
+}
+
+// ===== GROUP COMMENT =====
+export interface CreateGroupCommentRequest {
+  group_post_id: number;
+  body: string;
+  images?: string[];
+}
+
+export interface UpdateGroupCommentRequest {
+  id?: number;
+  body?: string;
+}
+
+export interface DeleteGroupCommentRequest {
+  id: number;
+}
+
+// ===== GROUP EVENT =====
+export interface CreateGroupEventRequest {
+  group_id: number;
+  title: string;
+  description: string;
+  event_date_time: string;
+}
+
+export interface UpdateGroupEventRequest {
+  id?: number;
+  title?: string;
+  description?: string;
+  event_date_time?: string;
+}
+
+export interface DeleteGroupEventRequest {
+  id: number;
+}
+
+export interface GroupEvent {
+  id: number;
+  group_id: number;
+  creator_id: number;
+  title: string;
+  description: string;
+  event_datetime: string;
+  created_at: string;
+  creator_nickname?: string;
+  creator_first_name?: string;
+  creator_last_name?: string;
+  creator_avatar?: string;
+}
+
+// ===== GROUP MEMBER / INVITATION =====
+export interface InviteToGroupRequest {
+  group_id: number;
+  user_id: number;
+}
+
+export interface LeaveGroupRequest {
+  group_id: number;
+  user_id: number;
+}
+
+export interface UpdateGroupMemberRequest {
+  groupID: number;
+  memberID: number;
+  role: string;
+}
+
+export interface GroupMemberWithUser {
+  id: number;
+  group_id: number;
+  user_id: number;
+  role: string;
+  invited_by?: number;
+  created_at: string;
+  nickname?: string;
+  first_name?: string;
+  last_name?: string;
+  avatar?: string;
+}
+
+export interface GroupRequestWithUser {
+  id: number;
+  group_id: number;
+  user_id: number;
+  status: string;
+  created_at: string;
+  nickname?: string;
+  first_name?: string;
+  last_name?: string;
+  avatar?: string;
+}
+
+// ===== RSVP =====
+export interface RSVPToEventRequest {
+  event_id: number;
+  user_id: number;
+  status: string; // "come", "interested", "not_come"
+}
+
+export interface CancelRSVPRequest {
+  event_id: number;
+  user_id: number;
+  status: string;
+}

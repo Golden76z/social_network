@@ -1,27 +1,49 @@
 # Build stage
-FROM golang:1.24.3 AS builder
+FROM golang:1.23-alpine AS builder
+
+# Install build dependencies for SQLite support
+RUN apk add --no-cache sqlite-dev build-base git
 
 WORKDIR /app
+
+# Copy Go module files
 COPY go.mod go.sum ./
 RUN go mod download
 
+# Copy source code
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /template
 
-# Final stage
-FROM gcr.io/distroless/base-debian11:nonroot
+# Build the application with CGO enabled for SQLite
+RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-w -s" -o /social-network ./server.go
 
-# Copy binaries and configs
-COPY --from=builder --chown=nonroot:nonroot /template /app/
-COPY --chown=nonroot:nonroot configs/ /app/configs/
+# Final stage - lightweight Alpine with SQLite runtime
+FROM alpine:3.19
 
-# Security hardening
-USER nonroot:nonroot
+# Install runtime dependencies
+RUN apk add --no-cache sqlite ca-certificates tzdata wget curl
+
+# Create app user for security
+RUN adduser -D -s /bin/sh appuser
+
 WORKDIR /app
 
-# Health check endpoint should be added to your Go code
-HEALTHCHECK --interval=30s --timeout=3s \
-  CMD ["/wget", "-qO-", "http://localhost:8080/health"]
+# Copy binary from builder
+COPY --from=builder /social-network /app/
+
+# Copy configuration and migrations
+COPY --from=builder /app/config/ /app/config/
+COPY --from=builder /app/db/migrations/ /app/migrations/
+
+# Copy important server files
+COPY --from=builder /app/demo/ /app/demo/
+
+# Set permissions
+RUN chown -R appuser:appuser /app
+USER appuser
+
+# Create directories for uploaded files
+RUN mkdir -p /app/uploads/avatars /app/uploads/posts
+
 
 EXPOSE 8080
-ENTRYPOINT ["/app/template"]
+CMD ["./social-network"]

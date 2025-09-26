@@ -1,42 +1,74 @@
 package middleware
 
 import (
-	"database/sql"
+	"context"
 	"net/http"
 	"time"
+
+	"github.com/Golden76z/social-network/config"
+	"github.com/Golden76z/social-network/db"
+	"github.com/Golden76z/social-network/utils"
 )
 
-// AuthMiddleware checks for valid session
-func AuthMiddleware(db *sql.DB) func(http.Handler) http.Handler {
+// Define custom types for context keys to avoid collisions.
+type contextKey string
+
+const (
+	UserIDKey   contextKey = "user_id"
+	UsernameKey contextKey = "username"
+)
+
+// AuthMiddleware validates the session and attaches userID + username to the context.
+func AuthMiddleware() func(http.Handler) http.Handler {
+	//fmt.Println("[AuthMiddleware]")
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			cookie, err := r.Cookie("session_token")
+			// 1. Extract user ID and username from JWT token (from cookie or Authorization header)
+			claims, err := utils.GetUserFromJWT(r)
 			if err != nil {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				http.Error(w, "Invalid token", http.StatusUnauthorized)
 				return
 			}
 
-			// Verify session in database
-			var userID int
-			var expiresAt time.Time
-			err = db.QueryRow(`
-				SELECT user_id, expires_at 
-				FROM sessions 
-				WHERE token = ? AND expires_at > ?`,
-				cookie.Value, time.Now()).Scan(&userID, &expiresAt)
+			userID := claims.UserID
+			username := claims.Username
 
-			if err != nil {
-				if err == sql.ErrNoRows {
-					http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				} else {
-					http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			if userID == 0 {
+				http.Error(w, "Invalid token", http.StatusUnauthorized)
+				return
+			}
+
+			// 4. Optionally verify session exists (but don't fail if it doesn't)
+			// Get token string for session verification
+			var tokenString string
+			authHeader := r.Header.Get("Authorization")
+			if authHeader != "" && len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+				tokenString = authHeader[7:]
+			} else {
+				if cookie, err := r.Cookie("jwt_token"); err == nil {
+					tokenString = cookie.Value
 				}
-				return
 			}
 
-			// Add user ID to request context
+			if tokenString != "" {
+				var sessionExists bool
+				err = db.DBService.DB.QueryRow(`
+	                SELECT EXISTS(SELECT 1 FROM sessions 
+	                WHERE token = ? AND expires_at > ?)`,
+					tokenString,
+					time.Now(),
+				).Scan(&sessionExists)
+
+				// If session doesn't exist, create one (but don't fail if this fails)
+				if err == nil && !sessionExists {
+					_ = db.DBService.CreateSession(userID, tokenString, config.GetConfig().JwtExpiration)
+				}
+			}
+
+			// 5. Attach user data to context using custom keys
 			ctx := r.Context()
-			ctx = setUserID(ctx, userID)
+			ctx = context.WithValue(ctx, UserIDKey, userID)
+			ctx = context.WithValue(ctx, UsernameKey, username)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

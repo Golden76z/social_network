@@ -23,3 +23,12 @@ go.work.sum
 
 # env file
 .env
+
+# Database files
+*.db
+social_network.db
+app.db
+
+/tmp
+.air*
+.gitignore

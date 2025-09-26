@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -15,6 +16,52 @@ type CORSConfig struct {
 	ExposedHeaders   []string
 	AllowCredentials bool
 	MaxAge           int
+}
+
+func SetupCORS() func(http.Handler) http.Handler {
+	if os.Getenv("ENV") == "PRODUCTION" {
+		// Production configuration - specify exact origins
+		return CORS(CORSConfig{
+			AllowedOrigins: []string{
+				"https://yourdomain.com",     // Your production domain
+				"https://www.yourdomain.com", // www version
+				// Add other production domains as needed
+			},
+			AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+			AllowedHeaders: []string{
+				"Accept",
+				"Authorization",
+				"Content-Type",
+				"X-CSRF-Token",
+				"X-Requested-With", // This was missing and your frontend uses it
+			},
+			ExposedHeaders:   []string{"Link"},
+			AllowCredentials: true,
+			MaxAge:           300,
+		})
+	}
+
+	// Development configuration
+	return CORS(CORSConfig{
+		AllowedOrigins: []string{
+			"http://localhost:3000",
+			"http://127.0.0.1:3000",
+			"http://localhost:3001", // In case you use different ports
+			"http://localhost:3002",
+			"http://localhost:3003",
+		},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{
+			"Accept",
+			"Authorization",
+			"Content-Type",
+			"X-CSRF-Token",
+			"X-Requested-With", // Critical for your auth flow
+		},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true, // This was missing in development
+		MaxAge:           300,
+	})
 }
 
 // CORS middleware handles Cross-Origin Resource Sharing
@@ -34,6 +81,12 @@ func CORS(config CORSConfig) func(http.Handler) http.Handler {
 				}
 				if allowed {
 					w.Header().Set("Access-Control-Allow-Origin", origin)
+				} else {
+					// Log rejected origins for debugging
+					if origin != "" {
+						// You might want to add logging here
+						// log.Printf("CORS: Rejected origin: %s", origin)
+					}
 				}
 			}
 
@@ -57,6 +110,7 @@ func CORS(config CORSConfig) func(http.Handler) http.Handler {
 				w.Header().Set("Access-Control-Max-Age", strconv.Itoa(config.MaxAge))
 			}
 
+			// Handle preflight requests
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
 				return
@@ -87,16 +141,11 @@ func getClientIP(r *http.Request) string {
 	return ip
 }
 
-// Context helpers
-type contextKey string
-
-const userIDKey contextKey = "userID"
-
-func setUserID(ctx context.Context, userID int) context.Context {
-	return context.WithValue(ctx, userIDKey, userID)
+func SetUserID(ctx context.Context, userID int) context.Context {
+	return context.WithValue(ctx, UserIDKey, userID)
 }
 
 func GetUserID(r *http.Request) (int, bool) {
-	userID, ok := r.Context().Value(userIDKey).(int)
+	userID, ok := r.Context().Value(UserIDKey).(int)
 	return userID, ok
 }

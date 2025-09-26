@@ -22,7 +22,7 @@
       "@/*": ["./src/*"]
     },
     "target": "ES2017",
-    "types": ["jest", "@testing-library/jest-dom"]
+    // "types": ["jest", "@testing-library/jest-dom"]
   },
   "include": [
     "next-env.d.ts",

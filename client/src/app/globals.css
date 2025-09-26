@@ -1,22 +1,274 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+/* Line clamp utility */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@custom-variant dark (&:is(.dark *));
 
 :root {
-  --color-bg: #f5f3ff;
-  --color-text: #1e1b4b;
+  --color-bg: #faf5ff;
+  --color-text: #581c87;
   --color-primary: #7c3aed;
   --color-secondary: #c084fc;
-  --color-accent: #e0e7ff;
+  --color-accent: #e9d5ff;
+  --radius: 0.625rem;
+  --background: oklch(0.99 0.01 300);
+  --foreground: oklch(0.25 0.15 300);
+  --card: oklch(1 0.01 300);
+  --card-foreground: oklch(0.25 0.15 300);
+  --popover: oklch(1 0.01 300);
+  --popover-foreground: oklch(0.25 0.15 300);
+  --primary: oklch(0.6 0.15 300);
+  --primary-foreground: oklch(0.98 0.01 300);
+  --secondary: oklch(0.95 0.05 300);
+  --secondary-foreground: oklch(0.25 0.15 300);
+  --muted: oklch(0.95 0.05 300);
+  --muted-foreground: oklch(0.5 0.1 300);
+  --accent: oklch(0.95 0.05 300);
+  --accent-foreground: oklch(0.25 0.15 300);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.9 0.05 300);
+  --input: oklch(0.9 0.05 300);
+  --ring: oklch(0.6 0.15 300);
+  --chart-1: oklch(0.6 0.15 300);
+  --chart-2: oklch(0.6 0.15 300 / 0.3);
+  --chart-3: oklch(0.7 0.1 300);
+  --chart-4: oklch(0.6 0.15 300);
+  --chart-5: oklch(0.5 0.2 300);
+  --chart-6: oklch(0.4 0.25 300);
+  --chart-7: oklch(0.3 0.3 300);
+  --sidebar: oklch(0.98 0.01 300);
+  --sidebar-foreground: oklch(0.25 0.15 300);
+  --sidebar-primary: oklch(0.6 0.15 300);
+  --sidebar-primary-foreground: oklch(0.98 0.01 300);
+  --sidebar-accent: oklch(0.95 0.05 300);
+  --sidebar-accent-foreground: oklch(0.25 0.15 300);
+  --sidebar-border: oklch(0.9 0.05 300);
+  --sidebar-ring: oklch(0.6 0.15 300);
+  
+  /* Softer purple tones for text */
+  --text-soft-primary: oklch(0.5 0.12 300);
+  --text-soft-secondary: oklch(0.45 0.1 300);
+  --text-soft-muted: oklch(0.4 0.08 300);
+  
+  /* Lighter purple tones */
+  --purple-50: oklch(0.98 0.02 300);
+  --purple-100: oklch(0.95 0.05 300);
+  --purple-200: oklch(0.9 0.08 300);
+  --purple-300: oklch(0.85 0.1 300);
+  --purple-400: oklch(0.75 0.12 300);
+  --purple-500: oklch(0.6 0.15 300);
+  --purple-600: oklch(0.5 0.18 300);
+  --purple-700: oklch(0.4 0.2 300);
+  --purple-800: oklch(0.3 0.22 300);
+  --purple-900: oklch(0.2 0.25 300);
+  
+  /* Soft light purple separator */
+  --separator-purple: oklch(0.92 0.06 300);
 }
 
 [data-theme='dark'] {
-  --color-bg: #1e1b4b;
-  --color-text: #f5f3ff;
-  --color-primary: #c084fc;
+  --color-bg: #2d1b69;
+  --color-text: #f3e8ff;
+  --color-primary: #a855f7;
   --color-secondary: #7c3aed;
-  --color-accent: #312e81;
+  --color-accent: #4c1d95;
 }
 
 .text-outline {
   /* -webkit-text-stroke: 0.4px var(--color-text); */
   /* text-stroke removed as it is not a valid CSS property */
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  
+  /* Softer purple tones for text */
+  --color-text-soft-primary: var(--text-soft-primary);
+  --color-text-soft-secondary: var(--text-soft-secondary);
+  --color-text-soft-muted: var(--text-soft-muted);
+  
+  /* Lighter purple tones */
+  --color-purple-50: var(--purple-50);
+  --color-purple-100: var(--purple-100);
+  --color-purple-200: var(--purple-200);
+  --color-purple-300: var(--purple-300);
+  --color-purple-400: var(--purple-400);
+  --color-purple-500: var(--purple-500);
+  --color-purple-600: var(--purple-600);
+  --color-purple-700: var(--purple-700);
+  --color-purple-800: var(--purple-800);
+  --color-purple-900: var(--purple-900);
+  
+  /* Soft light purple separator */
+  --color-separator-purple: var(--separator-purple);
+}
+
+.dark {
+  --background: oklch(0.15 0.1 300);
+  --foreground: oklch(0.95 0.05 300);
+  --card: oklch(0.2 0.1 300);
+  --card-foreground: oklch(0.95 0.05 300);
+  --popover: oklch(0.2 0.1 300);
+  --popover-foreground: oklch(0.95 0.05 300);
+  --primary: oklch(0.6 0.2 300);
+  --primary-foreground: oklch(0.95 0.05 300);
+  --secondary: oklch(0.25 0.1 300);
+  --secondary-foreground: oklch(0.95 0.05 300);
+  --muted: oklch(0.25 0.1 300);
+  --muted-foreground: oklch(0.6 0.1 300);
+  --accent: oklch(0.25 0.1 300);
+  --accent-foreground: oklch(0.95 0.05 300);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(0.3 0.1 300);
+  --input: oklch(0.3 0.1 300);
+  --ring: oklch(0.6 0.2 300);
+  --chart-1: oklch(0.6 0.2 300);
+  --chart-2: oklch(0.6 0.2 300 / 0.3);
+  --chart-3: oklch(0.7 0.15 300);
+  --chart-4: oklch(0.5 0.2 300);
+  --chart-5: oklch(0.4 0.25 300);
+  --chart-6: oklch(0.3 0.3 300);
+  --chart-7: oklch(0.2 0.35 300);
+  --sidebar: oklch(0.2 0.1 300);
+  --sidebar-foreground: oklch(0.95 0.05 300);
+  --sidebar-primary: oklch(0.6 0.2 300);
+  --sidebar-primary-foreground: oklch(0.95 0.05 300);
+  --sidebar-accent: oklch(0.25 0.1 300);
+  --sidebar-accent-foreground: oklch(0.95 0.05 300);
+  --sidebar-border: oklch(0.3 0.1 300);
+  --sidebar-ring: oklch(0.6 0.2 300);
+  
+  /* Soft light purple separator for dark mode */
+  --separator-purple: oklch(0.25 0.08 300);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  
+  /* Poppins font family */
+  .font-poppins {
+    font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  /* Custom delete button styling - lighter purple tone */
+  .btn-delete {
+    background: linear-gradient(135deg, oklch(0.65 0.15 280), oklch(0.7 0.12 285));
+    color: white;
+    border: 1px solid oklch(0.6 0.15 280);
+    transition: all 0.2s ease;
+  }
+  
+  .btn-delete:hover {
+    background: linear-gradient(135deg, oklch(0.6 0.15 280), oklch(0.65 0.12 285));
+    border-color: oklch(0.55 0.15 280);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px oklch(0.65 0.15 280 / 0.3);
+  }
+  
+  .btn-delete:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+  
+  /* Modal closing animations */
+  .modal-closing {
+    animation: modalClose 300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+  
+  .modal-backdrop-closing {
+    animation: modalBackdropClose 300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+  
+  @keyframes modalClose {
+    0% {
+      transform: scale(1) translateY(0);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(0.95) translateY(16px);
+      opacity: 0;
+    }
+  }
+  
+  @keyframes modalBackdropClose {
+    0% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+  
+  /* Firefox-specific fixes */
+  @-moz-document url-prefix() {
+    .messages-container {
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    
+    /* Fix for Firefox text rendering issues */
+    .font-poppins {
+      -moz-osx-font-smoothing: grayscale;
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    /* Fix for Firefox backdrop-filter issues */
+    .backdrop-blur-sm {
+      background-color: rgba(255, 255, 255, 0.8);
+    }
+    
+    .dark .backdrop-blur-sm {
+      background-color: rgba(0, 0, 0, 0.8);
+    }
+  }
 }
