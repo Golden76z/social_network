@@ -158,7 +158,7 @@ describe('FormError Component', () => {
       timestamp: new Date()
     };
 
-    render(<FormError error={error} field="username" />);
+    render(<FormError error={error} />);
 
     expect(screen.getByText('⚠️')).toBeInTheDocument();
     expect(screen.getByText('This field is required')).toBeInTheDocument();
