@@ -12,8 +12,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthProvider';
+import { useNotifications } from '@/lib/floating-notification';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -23,6 +24,7 @@ export function RegisterForm({
 }: React.ComponentProps<'div'>) {
   const router = useRouter();
   const { register, isLoading } = useAuth();
+  const { showNotification } = useNotifications();
   const [form, setForm] = useState({
     nickname: '',
     first_name: '',
@@ -34,22 +36,20 @@ export function RegisterForm({
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showconfirm_password, setShowconfirm_password] = useState(false);
-  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
-    // Clear error when user starts typing
-    if (error) setError('');
   };
 
   const validateForm = () => {
     if (form.password !== form.confirm_password) {
-      setError('Passwords do not match');
+      showNotification('Passwords do not match', 'error', 8000);
       return false;
     }
 
     if (form.password.length < 8) {
-      setError('Password must be at least 8 characters long');
+      showNotification('Password must be at least 8 characters long', 'error', 8000);
       return false;
     }
 
@@ -67,7 +67,7 @@ export function RegisterForm({
     }
 
     if (age < 13) {
-      setError('You must be at least 13 years old to register');
+      showNotification('You must be at least 13 years old to register', 'error', 8000);
       return false;
     }
 
@@ -76,9 +76,10 @@ export function RegisterForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setIsSubmitting(true);
 
     if (!validateForm()) {
+      setIsSubmitting(false);
       return;
     }
 
@@ -92,10 +93,30 @@ export function RegisterForm({
         password: form.password,
         confirmPassword: ""
       })
+      // Show success notification
+      showNotification("Registration successful! Redirecting...", 'success', 2000);
       router.push("/") // Redirect to home page on success
     } catch (err) {
-      console.log('Error ', err);
-      setError(err instanceof Error ? err.message : 'Registration failed');
+      console.log('Register error caught:', err);
+      // Extract user-friendly error message
+      let errorMessage = "Registration failed. Please try again.";
+      
+      if (err instanceof Error) {
+        console.log('Registration error instanceof Error:', err.message);
+        errorMessage = err.message.trim();
+      } else if (err && typeof err === 'object' && 'message' in err) {
+        console.log('Registration error object with message:', err.message);
+        errorMessage = String(err.message).trim();
+      } else {
+        console.log('Registration unknown error object:', err);
+      }
+      
+      console.log('Final registration error message to display:', errorMessage);
+      
+      // Show floating notification instead of form state  
+      showNotification(errorMessage, 'error', 8000);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -111,12 +132,6 @@ export function RegisterForm({
         <CardContent>
           <form onSubmit={handleSubmit}>
             <div className="flex flex-col gap-6">
-              {error && (
-                <div className="rounded-md bg-destructive/10 p-4 text-destructive text-sm">
-                  {error}
-                </div>
-              )}
-
               <div className="grid gap-3">
                 <Label htmlFor="nickname">Nickname *</Label>
                 <Input

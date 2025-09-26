@@ -11,10 +11,11 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useState } from "react"
+import React, { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthProvider"
+import { useNotifications } from "@/lib/floating-notification"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 // import GoogleSignInButton from "./ui/googleButton"
 
@@ -24,28 +25,50 @@ export function LoginForm({
 }: React.ComponentProps<"div">) {
   const router = useRouter()
   const { login, isLoading } = useAuth()
+  const { showNotification } = useNotifications()
   const [form, setForm] = useState({
     email: "",
     password: "",
   })
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value })
-    // Clear error when user starts typing
-    if (error) setError("")
+    // DON'T clear error immediately - let users see them and provide clear feedback
+    // This gives them opportunity to read and act upon errors
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
+    setIsSubmitting(true)
     
     try {
       await login(form.email, form.password)
+      // Show success notification
+      showNotification("Login successful! Redirecting...", 'success', 2000)
       router.push("/") // Redirect to home page on success
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed")
+      console.log('Login error caught:', err);
+      // Extract user-friendly error message
+      let errorMessage = "Login failed. Please try again.";
+      
+      if (err instanceof Error) {
+        console.log('Error instanceof Error:', err.message);
+        errorMessage = err.message.trim();
+      } else if (err && typeof err === 'object' && 'message' in err) {
+        console.log('Error object with message:', err.message);
+        errorMessage = String(err.message).trim();
+      } else {
+        console.log('Unknown error object:', err);
+      }
+      
+      console.log('Final error message to display:', errorMessage);
+      
+      // Show floating notification instead of form state
+      showNotification(errorMessage, 'error', 8000)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -81,12 +104,6 @@ export function LoginForm({
 
           <form onSubmit={handleSubmit}>
             <div className="flex flex-col gap-6">
-              {error && (
-                <div className="rounded-md bg-destructive/10 p-4 text-destructive text-sm">
-                  {error}
-                </div>
-              )}
-              
               <div className="grid gap-3">
                 <Label htmlFor="email">Email</Label>
                 <Input

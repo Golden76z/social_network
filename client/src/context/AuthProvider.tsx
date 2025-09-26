@@ -204,7 +204,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error) {
       console.error('❌ Login failed:', error);
-      throw error;
+      // Extract user-friendly error message from server response
+      if (error && typeof error === 'object' && 'message' in error) {
+        console.log('❌ Error object with message property:', error.message);
+        throw new Error(error.message as string);
+      } else if (error instanceof Error) {
+        console.log('❌ Error instance:', error.message);
+        throw error;
+      } else {
+        console.log('❌ Unknown error:', error);
+        throw new Error('Login failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
       setIsInitializing(false);
@@ -264,7 +274,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error) {
       console.error('❌ Registration failed:', error);
-      throw error;
+      // Extract user-friendly error message from server response
+      if (error && typeof error === 'object' && 'message' in error) {
+        console.log('❌ Register error object with message property:', error.message);
+        throw new Error(error.message as string);
+      } else if (error instanceof Error) {
+        console.log('❌ Register error instance:', error.message);
+        throw error;
+      } else {
+        console.log('❌ Register unknown error:', error);
+        throw new Error('Registration failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
       setIsInitializing(false);

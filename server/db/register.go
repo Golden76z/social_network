@@ -38,7 +38,18 @@ func (s *Service) RegisterDB(
 	}
 
 	if exists > 0 {
-		return errors.New("nickname or email already exists")
+		// Check which field causes the conflict
+		var nicknameExists, emailExists int
+		tx.QueryRow(`SELECT COUNT(*) FROM users WHERE nickname = ?`, nickname).Scan(&nicknameExists)
+		tx.QueryRow(`SELECT COUNT(*) FROM users WHERE email = ?`, email).Scan(&emailExists)
+
+		if nicknameExists > 0 && emailExists > 0 {
+			return errors.New("This nickname and email are already in use")
+		} else if nicknameExists > 0 {
+			return errors.New("This nickname is already taken")
+		} else {
+			return errors.New("This email is already registered")
+		}
 	}
 
 	// Hash the password
