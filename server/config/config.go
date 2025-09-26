@@ -5,15 +5,15 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"fmt"
-	"github.com/Golden76z/social-network/utils"
-	"github.com/joho/godotenv"
+	"log"
 	"os"
 	"strconv"
 	"strings"
-
-	//"os"
 	"sync"
 	"time"
+
+	"github.com/Golden76z/social-network/utils"
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -70,20 +70,20 @@ func Load() error {
 	var err error
 
 	once.Do(func() {
-		// Load .env file
-		if err = godotenv.Load(); err != nil {
-			// .env file is required, stop without it
-			fmt.Println("[WARNING] .env file not found")
-			return
+		// Try loading .env for local development.
+		// If it fails, continue (Render/production will use actual env vars).
+		if loadErr := godotenv.Load(); loadErr != nil {
+			fmt.Println("[INFO] .env file not found, falling back to system environment variables")
 		}
-		// Generate ECDSA key pair for JWT
+
+		// Generate ECDSA key pair for JWT signing
 		privateKey, keyErr := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		if keyErr != nil {
 			err = keyErr
 			return
 		}
 
-		// Keep the old key generation for backward compatibility
+		// Generate a secure key for legacy utils (backward compatibility)
 		key, keyErr := utils.GenerateSecureKey()
 		if keyErr != nil {
 			err = keyErr
@@ -118,7 +118,7 @@ func Load() error {
 			MigrationsDir: getEnv("MIGRATIONS_DIR", "db/migrations"),
 
 			// JWT
-			//JWTKey:        key,
+			JWTKey:        key,
 			JwtPrivateKey: privateKey,
 			JwtPublicKey:  &privateKey.PublicKey,
 			JwtExpiration: jwtExpiration,
@@ -154,11 +154,13 @@ func Load() error {
 	})
 
 	return err
-
 }
 
 // Get returns the globally loaded config instance.
 func GetConfig() *Config {
+	if configInstance == nil {
+		log.Fatal("Config not loaded. Call config.Load() first.")
+	}
 	return configInstance
 }
 
@@ -190,7 +192,11 @@ func getEnvAsBool(key string, defaultValue bool) bool {
 
 func getEnvAsSlice(key string, defaultValue []string) []string {
 	if value := os.Getenv(key); value != "" {
-		return strings.Split(value, ",")
+		parts := strings.Split(value, ",")
+		for i := range parts {
+			parts[i] = strings.TrimSpace(parts[i])
+		}
+		return parts
 	}
 	return defaultValue
 }
