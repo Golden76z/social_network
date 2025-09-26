@@ -10,9 +10,7 @@ import {
   User, 
   LogOut, 
   Settings, 
-  Plus,
   ChevronDown,
-  Search,
   Menu,
   Edit3,
   Lock
