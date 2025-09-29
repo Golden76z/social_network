@@ -11,26 +11,38 @@ export const AvatarFileInput: React.FC<AvatarFileInputProps> = ({
   onChange,
   onError
 }) => {
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     
     if (!file) return;
     
+    // Clear previous error
+    setError(null);
+    
     // Validate file type
     if (!/^image\/(jpeg|jpg|png|gif)$/i.test(file.type)) {
-      onError(
-        'Format non supporté',
-        'Veuillez sélectionner un fichier image (JPEG, PNG ou GIF).'
-      );
+      const errorMsg = 'Please select a valid image file (JPEG, PNG, or GIF).';
+      setError(errorMsg);
+      onError('Unsupported Format', errorMsg);
+      // Reset the file input
+      e.target.value = '';
+      // Clear error after 5 seconds
+      setTimeout(() => setError(null), 5000);
       return;
     }
     
     // Validate file size
     if (file.size > 5 * 1024 * 1024) {
-      onError(
-        'Fichier trop volumineux',
-        'Le fichier doit faire moins de 5 Mo.'
-      );
+      const errorMsg = 'The file must be less than 5MB.';
+      setError(errorMsg);
+      onError('File Too Large', errorMsg);
+      // Reset the file input
+      e.target.value = '';
+      // Clear error after 5 seconds
+      setTimeout(() => setError(null), 5000);
       return;
     }
     
@@ -38,21 +50,34 @@ export const AvatarFileInput: React.FC<AvatarFileInputProps> = ({
     onChange(file);
   };
 
+  const handleButtonClick = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
-    <div className="relative">
-      <input
-        type="file"
-        accept="image/jpeg,image/png,image/gif"
-        onChange={handleFileChange}
-        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-        id="avatar-file-input"
-      />
-      <button
-        type="button"
-        className="px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
-      >
-        Choose Photo
-      </button>
+    <div className="space-y-2">
+      <div className="relative">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/gif"
+          onChange={handleFileChange}
+          className="hidden"
+          id="avatar-file-input"
+        />
+        <button
+          type="button"
+          onClick={handleButtonClick}
+          className="px-4 py-2 border border-border rounded-lg hover:bg-accent transition-colors"
+        >
+          Choose Photo
+        </button>
+      </div>
+      {error && (
+        <div className="p-2 bg-destructive/10 border border-destructive/20 rounded text-xs text-destructive">
+          {error}
+        </div>
+      )}
     </div>
   );
 };

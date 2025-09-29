@@ -62,6 +62,12 @@ export default function GroupPage() {
   const [mutualFollowers, setMutualFollowers] = useState<UserDisplayInfo[]>([]);
   const [loadingMutualFollowers, setLoadingMutualFollowers] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<Set<number>>(new Set());
+  const [followerStatus, setFollowerStatus] = useState<{
+    members: Set<number>;
+    invited: Set<number>;
+  }>({ members: new Set(), invited: new Set() });
+  const [allFollowers, setAllFollowers] = useState<any[]>([]);
+  const [loadingAllFollowers, setLoadingAllFollowers] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [inviteSuccessMessage, setInviteSuccessMessage] = useState<string | null>(null);
   const [leavingGroup, setLeavingGroup] = useState(false);
@@ -430,20 +436,23 @@ export default function GroupPage() {
       console.log('🔍 DEBUG - Pending Invitations:', pendingInvitations);
       
       // Create a set of existing member IDs to filter them out
-      const memberIds = new Set(groupMembers.map((member: any) => member.user_id || member.id));
+      // Group members have user_id field, not id
+      const memberIds = new Set(groupMembers.map((member: any) => member.user_id));
       
       // Create a set of user IDs with pending invitations FOR THIS SPECIFIC GROUP
       const pendingInvitationIds = new Set(
-        (pendingInvitations as any[])
-          .filter((invitation: any) => invitation.status === 'pending' && invitation.group_id === group.id)
-          .map((invitation: any) => invitation.invited_user_id)
+        Array.isArray(pendingInvitations) 
+          ? pendingInvitations
+              .filter((invitation: any) => invitation.status === 'pending' && invitation.group_id === group.id)
+              .map((invitation: any) => invitation.invited_user_id)
+          : []
       );
       
       console.log('🔍 DEBUG - Member IDs:', Array.from(memberIds));
       console.log('🔍 DEBUG - Pending Invitation IDs for this group:', Array.from(pendingInvitationIds));
       
       // Filter followers to exclude existing group members and users with pending invitations
-      const invitableUsers = followers.filter(follower => 
+      const invitableUsers = (followers || []).filter(follower => 
         follower.id !== user.id && // Don't include the current user
         !memberIds.has(follower.id) && // Don't include existing members
         !pendingInvitationIds.has(follower.id) // Don't include users with pending invitations to THIS group
@@ -451,6 +460,12 @@ export default function GroupPage() {
       
       console.log('🔍 DEBUG - Invitable Users:', invitableUsers);
       setMutualFollowers(invitableUsers);
+      
+      // Store follower status for display purposes
+      setFollowerStatus({
+        members: memberIds as Set<number>,
+        invited: pendingInvitationIds as Set<number>
+      });
     } catch (error) {
       console.error('Failed to get invitable users:', error);
       setMutualFollowers([]);
@@ -459,9 +474,54 @@ export default function GroupPage() {
     }
   };
 
-  const handleInvite = () => {
+  const getAllFollowersWithStatus = async () => {
+    if (!user || !group) return [];
+    
+    try {
+      // Get all followers (not filtered)
+      const followers = await userApi.getFollowers(user.id);
+      const groupMembers = await groupApi.getGroupMembers(group.id);
+      const pendingInvitations = await groupApi.getGroupInvitations(group.id);
+      
+      // Create status maps
+      const memberIds = new Set(groupMembers.map((member: any) => member.user_id));
+      const pendingInvitationIds = new Set(
+        Array.isArray(pendingInvitations) 
+          ? pendingInvitations
+              .filter((inv: any) => inv.status === 'pending' && inv.group_id === group.id)
+              .map((inv: any) => inv.invited_user_id)
+          : []
+      );
+      
+      // Return followers with their status
+      return (followers || []).map(follower => ({
+        ...follower,
+        status: memberIds.has(follower.id) ? 'member' : 
+                pendingInvitationIds.has(follower.id) ? 'invited' : 'available'
+      }));
+    } catch (error) {
+      console.error('Failed to get followers with status:', error);
+      return [];
+    }
+  };
+
+  const handleInvite = async () => {
     setShowInviteModal(true);
-    getInvitableUsers();
+    setLoadingAllFollowers(true);
+    
+    try {
+      const [invitableUsers, allFollowersWithStatus] = await Promise.all([
+        getInvitableUsers(),
+        getAllFollowersWithStatus()
+      ]);
+      
+      setAllFollowers(allFollowersWithStatus);
+    } catch (error) {
+      console.error('Failed to load invitation data:', error);
+      setAllFollowers([]);
+    } finally {
+      setLoadingAllFollowers(false);
+    }
   };
 
   const handleUserSelection = (userId: number) => {
@@ -480,14 +540,30 @@ export default function GroupPage() {
     if (selectedUsers.size === 0 || !group) return;
     
     try {
-      const invitationPromises = Array.from(selectedUsers).map(userId => 
+      // Only send invitations to available users (not members or already invited)
+      const availableUserIds = Array.from(selectedUsers).filter(userId => {
+        const follower = allFollowers.find(f => f.id === userId);
+        return follower && follower.status === 'available';
+      });
+      
+      if (availableUserIds.length === 0) {
+        setInviteSuccessMessage('No valid users to invite. All selected users are already members or have pending invitations.');
+        return;
+      }
+      
+      const invitationPromises = availableUserIds.map(userId => 
         groupApi.createGroupInvitation({ group_id: group.id, user_id: userId })
       );
       
       await Promise.all(invitationPromises);
       
       // Show success message in modal
-      setInviteSuccessMessage(`Invitations sent to ${selectedUsers.size} user(s)!`);
+      setInviteSuccessMessage(`Invitations sent to ${availableUserIds.length} user(s)!`);
+      
+      // Refresh the follower list to update statuses
+      await getInvitableUsers();
+      const updatedFollowers = await getAllFollowersWithStatus();
+      setAllFollowers(updatedFollowers);
       
       // Clear selection and close modal after a delay
       setTimeout(() => {
@@ -1725,59 +1801,81 @@ export default function GroupPage() {
               {/* Followers Section */}
               <div>
                 <h4 className="text-sm font-medium text-foreground mb-3">
-                  Invite Followers ({mutualFollowers.length})
+                  Your Followers ({allFollowers.length})
                 </h4>
                 <p className="text-xs text-muted-foreground mb-3">
-                  Select followers to invite to this group. Existing members and users with pending invitations are not shown.
+                  Select followers to invite to this group. Status shows if they're already members or have pending invitations.
                 </p>
                 
-                {loadingMutualFollowers ? (
+                {loadingAllFollowers ? (
                   <div className="text-center py-4">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
                     <p className="text-sm text-muted-foreground">Loading followers...</p>
                   </div>
-                ) : mutualFollowers.length > 0 ? (
+                ) : allFollowers.length > 0 ? (
                   <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {mutualFollowers.map((mutualUser) => (
-                      <div
-                        key={mutualUser.id}
-                        className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                          selectedUsers.has(mutualUser.id)
-                            ? 'border-primary bg-primary/5'
-                            : 'border-border hover:bg-accent'
-                        }`}
-                        onClick={() => handleUserSelection(mutualUser.id)}
-                      >
-                        <ProfileThumbnail
-                          src={(mutualUser as any).avatar}
-                          alt="user avatar"
-                          size="sm"
-                          rounded
-                          initials={mutualUser.nickname || 'U'}
-                        />
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">
-                            {mutualUser.nickname || 'Unknown User'}
-                          </p>
-                          <p className="text-xs text-muted-foreground">@{mutualUser.nickname}</p>
+                    {allFollowers.map((follower) => {
+                      const isAvailable = follower.status === 'available';
+                      const isMember = follower.status === 'member';
+                      const isInvited = follower.status === 'invited';
+                      
+                      return (
+                        <div
+                          key={follower.id}
+                          className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                            isAvailable && selectedUsers.has(follower.id)
+                              ? 'border-primary bg-primary/5 cursor-pointer'
+                              : isAvailable
+                              ? 'border-border hover:bg-accent cursor-pointer'
+                              : 'border-border bg-muted/50 cursor-not-allowed opacity-60'
+                          }`}
+                          onClick={() => isAvailable && handleUserSelection(follower.id)}
+                        >
+                          <ProfileThumbnail
+                            src={follower.avatar}
+                            alt="user avatar"
+                            size="sm"
+                            rounded
+                            initials={follower.nickname || 'U'}
+                          />
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">
+                              {follower.nickname || 'Unknown User'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">@{follower.nickname}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {isMember && (
+                              <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full">
+                                Member
+                              </span>
+                            )}
+                            {isInvited && (
+                              <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-700 rounded-full">
+                                Invited
+                              </span>
+                            )}
+                            {isAvailable && (
+                              <div className={`w-4 h-4 rounded border-2 ${
+                                selectedUsers.has(follower.id)
+                                  ? 'bg-primary border-primary'
+                                  : 'border-border'
+                              }`}>
+                                {selectedUsers.has(follower.id) && (
+                                  <div className="w-full h-full flex items-center justify-center text-white text-xs">✓</div>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <div className={`w-4 h-4 rounded border-2 ${
-                          selectedUsers.has(mutualUser.id)
-                            ? 'bg-primary border-primary'
-                            : 'border-border'
-                        }`}>
-                          {selectedUsers.has(mutualUser.id) && (
-                            <div className="w-full h-full flex items-center justify-center text-white text-xs">✓</div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-4 text-muted-foreground">
                     <UserCheck className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No followers to invite</p>
-                    <p className="text-xs">All your followers are already members, have pending invitations, or you have no followers yet</p>
+                    <p className="text-sm">No followers found</p>
+                    <p className="text-xs">You don't have any followers yet</p>
                   </div>
                 )}
               </div>
