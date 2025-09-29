@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { GroupResponse } from '@/lib/types/group';
 import { groupApi } from '@/lib/api/group';
@@ -25,7 +25,8 @@ export default function GroupsPage() {
   const [joinedGroup, setJoinedGroup] = useState<GroupResponse | null>(null);
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
 
-  // Handle escape key for modals
+  // Handle escape key for join success modal only
+  // CreateGroupModal handles its own escape key events
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -33,17 +34,15 @@ export default function GroupsPage() {
           setShowJoinSuccessModal(false);
           setJoinedGroup(null);
         }
-        if (showCreateGroupModal) {
-          setShowCreateGroupModal(false);
-        }
+        // Removed showCreateGroupModal handling - modal handles it internally
       }
     };
 
-    if (showJoinSuccessModal || showCreateGroupModal) {
+    if (showJoinSuccessModal) {
       document.addEventListener('keydown', handleEscape);
       return () => document.removeEventListener('keydown', handleEscape);
     }
-  }, [showJoinSuccessModal, showCreateGroupModal]);
+  }, [showJoinSuccessModal]);
 
   // Handle successful join request
   const handleJoinSuccess = (groupId: number) => {
@@ -122,14 +121,15 @@ export default function GroupsPage() {
   }, []);
 
   // Refresh data when page regains focus (e.g., returning from group creation)
-  useEffect(() => {
-    const handleFocus = () => {
-      loadGroups();
-    };
+  // Disabled to prevent modal reset issues when file dialogs open/close
+  // useEffect(() => {
+  //   const handleFocus = () => {
+  //     loadGroups();
+  //   };
 
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, []);
+  //   window.addEventListener('focus', handleFocus);
+  //   return () => window.removeEventListener('focus', handleFocus);
+  // }, []);
 
   const handleJoinGroup = async (groupId: number) => {
     try {
@@ -174,15 +174,19 @@ export default function GroupsPage() {
     router.push(`/groups/${groupId}/info`);
   };
 
-  const handleCreateGroup = () => {
+  const handleCreateGroup = useCallback(() => {
     setShowCreateGroupModal(true);
-  };
+  }, []);
 
-  const handleCreateGroupSuccess = () => {
+  const handleCreateGroupSuccess = useCallback(() => {
     setShowCreateGroupModal(false);
     // Reload groups to show the new one
     loadGroups();
-  };
+  }, []);
+
+  const handleCloseCreateGroupModal = useCallback(() => {
+    setShowCreateGroupModal(false);
+  }, []);
 
   const getMemberCount = (groupId: number) => {
     return groupMemberCounts[groupId] || 0;
@@ -379,7 +383,7 @@ export default function GroupsPage() {
       {/* Create Group Modal */}
       <CreateGroupModal
         isOpen={showCreateGroupModal}
-        onClose={() => setShowCreateGroupModal(false)}
+        onClose={handleCloseCreateGroupModal}
         onSuccess={handleCreateGroupSuccess}
       />
     </div>

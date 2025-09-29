@@ -148,3 +148,20 @@ func ValidatePostBody(body string, maxLength int) bool {
 func ValidatePostImageCount(images []string, maxCount int) bool {
 	return len(images) <= maxCount
 }
+
+// GenerateTempNickname creates a temporary nickname from first name and last name
+// Format: first letter of first name + last name (lowercase)
+// Example: "Clark Kent" -> "ckent"
+func GenerateTempNickname(firstName, lastName string) string {
+	if len(firstName) == 0 || len(lastName) == 0 {
+		return ""
+	}
+
+	// Get first letter of first name and convert to lowercase
+	firstLetter := strings.ToLower(string(firstName[0]))
+
+	// Convert last name to lowercase
+	lastNameLower := strings.ToLower(lastName)
+
+	return firstLetter + lastNameLower
+}

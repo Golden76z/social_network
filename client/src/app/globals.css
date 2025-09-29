@@ -71,6 +71,9 @@
   
   /* Soft light purple separator */
   --separator-purple: oklch(0.92 0.06 300);
+  
+  /* Lighter red for destructive actions */
+  --destructive-light: oklch(0.7 0.15 27);
 }
 
 [data-theme='dark'] {
@@ -79,6 +82,9 @@
   --color-primary: #a855f7;
   --color-secondary: #7c3aed;
   --color-accent: #4c1d95;
+  
+  /* Lighter red for destructive actions in dark mode */
+  --destructive-light: oklch(0.6 0.18 27);
 }
 
 .text-outline {
@@ -204,6 +210,38 @@
     color: white;
     border: 1px solid oklch(0.6 0.15 280);
     transition: all 0.2s ease;
+  }
+  
+  /* Post hover effect with light purple border */
+  .hover\:border-purple-300:hover {
+    border-color: var(--purple-300) !important;
+  }
+  
+  /* Ensure smooth transitions for post cards */
+  .post-card {
+    border-width: 2px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+  }
+  
+  /* Prevent cursor pointer on interactive elements within post cards */
+  .post-card button,
+  .post-card img {
+    cursor: pointer;
+  }
+  
+  /* Group card clickable styling */
+  .group {
+    cursor: pointer;
+  }
+  
+  .group button {
+    cursor: pointer;
+  }
+  
+  /* Search bar hover effect with light purple border */
+  .hover\:border-purple-300:hover {
+    border-color: var(--purple-300) !important;
   }
   
   .btn-delete:hover {

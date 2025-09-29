@@ -35,28 +35,25 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
       case 'warning':
         return {
           icon: '⚠️',
-          iconBg: 'bg-yellow-50/50',
-          iconColor: 'text-yellow-600/80',
-          confirmBg: 'bg-yellow-500/80',
-          confirmHover: 'hover:bg-yellow-500/90',
+          iconBg: 'bg-amber-50/50 dark:bg-amber-900/20',
+          iconColor: 'text-amber-600 dark:text-amber-400',
+          confirmBg: 'bg-amber-500 hover:bg-amber-600',
           confirmText: 'text-white',
         };
       case 'info':
         return {
           icon: 'ℹ️',
-          iconBg: 'bg-blue-50/50',
-          iconColor: 'text-blue-600/80',
-          confirmBg: 'bg-blue-500/80',
-          confirmHover: 'hover:bg-blue-500/90',
+          iconBg: 'bg-blue-50/50 dark:bg-blue-900/20',
+          iconColor: 'text-blue-600 dark:text-blue-400',
+          confirmBg: 'bg-blue-500 hover:bg-blue-600',
           confirmText: 'text-white',
         };
       default: // danger
         return {
           icon: '⚠️',
-          iconBg: 'bg-red-50/50',
-          iconColor: 'text-red-600/80',
-          confirmBg: 'bg-red-500/80',
-          confirmHover: 'hover:bg-red-500/90',
+          iconBg: 'bg-red-50/50 dark:bg-red-900/20',
+          iconColor: 'text-red-600 dark:text-red-400',
+          confirmBg: 'bg-red-500 hover:bg-red-600',
           confirmText: 'text-white',
         };
     }
@@ -131,7 +128,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
           <button
             onClick={onConfirm}
             disabled={isLoading}
-            className={`${cancelText ? 'flex-1' : 'px-6'} py-2 ${styles.confirmBg} ${styles.confirmHover} ${styles.confirmText} rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2`}
+            className={`${cancelText ? 'flex-1' : 'px-6'} py-2 ${styles.confirmBg} ${styles.confirmText} rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2`}
           >
             {isLoading && (
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

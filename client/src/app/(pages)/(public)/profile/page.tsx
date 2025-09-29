@@ -1051,15 +1051,17 @@ function ProfilePageContent() {
                     )}
                   </div>
 
-                  {/* Bio Section */}
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-card-foreground">Bio</h3>
-                    <div className="p-4 bg-muted/30 rounded-lg border border-border">
-                      <p className="text-card-foreground leading-relaxed">
-                        {profileUser.bio || 'No bio available yet.'}
-                      </p>
+                  {/* Bio Section - Only show for public profiles or when following private profiles */}
+                  {(isOwnProfile() || (!profileUser.is_private) || (profileUser.is_private && isFollowing)) && (
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-medium text-card-foreground">Bio</h3>
+                      <div className="p-4 bg-muted/30 rounded-lg border border-border">
+                        <p className="text-card-foreground leading-relaxed">
+                          {profileUser.bio || 'No bio available yet.'}
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
 
 
@@ -1092,25 +1094,27 @@ function ProfilePageContent() {
                         </div>
                       )}
 
-                      {/* Member Since */}
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
-                          Member Since
-                        </h3>
-                        <div className="p-4 bg-purple-50/50 dark:bg-purple-900/10 rounded-xl border border-purple-200/50 dark:border-purple-800/30 backdrop-blur-sm">
-                          <p className="text-sm text-foreground font-medium">
-                            {profileUser.created_at && !isNaN(new Date(profileUser.created_at).getTime()) 
-                              ? new Date(profileUser.created_at).toLocaleDateString('en-US', {
-                                  year: 'numeric',
-                                  month: 'long',
-                                  day: 'numeric'
-                                })
-                              : 'Unknown'
-                            }
-                          </p>
+                      {/* Member Since - Only show for public profiles or when following private profiles */}
+                      {(isOwnProfile() || (!profileUser.is_private) || (profileUser.is_private && isFollowing)) && (
+                        <div className="space-y-2">
+                          <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
+                            Member Since
+                          </h3>
+                          <div className="p-4 bg-purple-50/50 dark:bg-purple-900/10 rounded-xl border border-purple-200/50 dark:border-purple-800/30 backdrop-blur-sm">
+                            <p className="text-sm text-foreground font-medium">
+                              {profileUser.created_at && !isNaN(new Date(profileUser.created_at).getTime()) 
+                                ? new Date(profileUser.created_at).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                  })
+                                : 'Unknown'
+                              }
+                            </p>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
 
                     {/* Privacy Notice for Private Profiles */}
@@ -1123,7 +1127,7 @@ function ProfilePageContent() {
                           <div className="flex-1">
                             <p className="text-sm text-purple-800 dark:text-purple-200 font-medium">Private Profile</p>
                             <p className="text-xs text-purple-700 dark:text-purple-300 mt-1 leading-relaxed">
-                              Contact information is only visible to mutual friends. Follow this user to see their email and date of birth.
+                              Contact information, bio, and social stats are only visible to followers. Follow this user to see their complete profile information.
                             </p>
                           </div>
                         </div>
@@ -1219,32 +1223,34 @@ function ProfilePageContent() {
           {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
         </div>
 
-        {/* Profile Stats */}
-        <div className="bg-card rounded-lg border border-border p-6">
-          {/* <h3 className="text-lg font-semibold text-card-foreground mb-4">Social Stats</h3> */}
-          <div className="grid grid-cols-2 gap-6">
-            <div
-              className="text-center cursor-pointer hover:bg-accent/50 transition-colors p-4 rounded-lg group"
-              onClick={handleFollowingClick}
-            >
-              <div className="text-3xl font-bold text-primary group-hover:text-primary/80 transition-colors">
-                {profileUser?.followed || 0}
+        {/* Profile Stats - Only show for public profiles or when following private profiles */}
+        {(isOwnProfile() || (!profileUser.is_private) || (profileUser.is_private && isFollowing)) && (
+          <div className="bg-card rounded-lg border border-border p-6">
+            {/* <h3 className="text-lg font-semibold text-card-foreground mb-4">Social Stats</h3> */}
+            <div className="grid grid-cols-2 gap-6">
+              <div
+                className="text-center cursor-pointer hover:bg-accent/50 transition-colors p-4 rounded-lg group"
+                onClick={handleFollowingClick}
+              >
+                <div className="text-3xl font-bold text-primary group-hover:text-primary/80 transition-colors">
+                  {profileUser?.followed || 0}
+                </div>
+                <div className="text-sm text-muted-foreground mt-1">Following</div>
+                <div className="text-xs text-muted-foreground/70 mt-1">People they follow</div>
               </div>
-              <div className="text-sm text-muted-foreground mt-1">Following</div>
-              <div className="text-xs text-muted-foreground/70 mt-1">People they follow</div>
-            </div>
-            <div
-              className="text-center cursor-pointer hover:bg-accent/50 transition-colors p-4 rounded-lg group"
-              onClick={handleFollowersClick}
-            >
-              <div className="text-3xl font-bold text-primary group-hover:text-primary/80 transition-colors">
-                {profileUser?.followers || 0}
+              <div
+                className="text-center cursor-pointer hover:bg-accent/50 transition-colors p-4 rounded-lg group"
+                onClick={handleFollowersClick}
+              >
+                <div className="text-3xl font-bold text-primary group-hover:text-primary/80 transition-colors">
+                  {profileUser?.followers || 0}
+                </div>
+                <div className="text-sm text-muted-foreground mt-1">Followers</div>
+                <div className="text-xs text-muted-foreground/70 mt-1">People following them</div>
               </div>
-              <div className="text-sm text-muted-foreground mt-1">Followers</div>
-              <div className="text-xs text-muted-foreground/70 mt-1">People following them</div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Posts Tabs Section - Only show if user can view posts */}
         {canViewPosts() ? (

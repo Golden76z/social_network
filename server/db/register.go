@@ -10,7 +10,7 @@ import (
 
 // RegisterDB handles inserting a new user into the database using a transaction
 func (s *Service) RegisterDB(
-	nickname, firstName, lastName, email, password, dob string,
+	nickname, firstName, lastName, email, password, dob, avatar, bio string,
 	w http.ResponseWriter,
 ) (err error) {
 	tx, err := s.DB.Begin()
@@ -64,12 +64,12 @@ func (s *Service) RegisterDB(
 		return errors.New("invalid date format, expected YYYY-MM-DD")
 	}
 
-	// Insert user into the database
+	// Insert user into the database with optional fields
 	_, err = tx.Exec(`
 		INSERT INTO users (
-			nickname, first_name, last_name, email, password, date_of_birth
-		) VALUES (?, ?, ?, ?, ?, ?)
-	`, nickname, firstName, lastName, email, string(hashedPassword), dateOfBirth)
+			nickname, first_name, last_name, email, password, date_of_birth, avatar, bio
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`, nickname, firstName, lastName, email, string(hashedPassword), dateOfBirth, avatar, bio)
 	if err != nil {
 		return err
 	}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { uploadPostImage } from '@/lib/api/upload';
 import { groupApi } from '@/lib/api/group';
 import { compressImageToJpeg } from '@/lib/utils';
@@ -31,12 +31,8 @@ export function CreateGroupModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [showImageErrorModal, setShowImageErrorModal] = useState(false);
-  const [imageErrorMessage, setImageErrorMessage] = useState('');
   const backdropRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-
-  const maxSize = 5 * 1024 * 1024; // 5MB
 
   const validateForm = () => {
     const errors: Record<string, string> = {};
@@ -69,21 +65,10 @@ export function CreateGroupModal({
     }
     
     if (file) {
-      // Validate file
-      if (!/^image\/(jpeg|jpg|png|gif)$/i.test(file.type)) {
-        setImageErrorMessage('Please select a valid image file (JPEG, PNG, or GIF)');
-        setShowImageErrorModal(true);
-        return;
-      }
-      if (file.size > maxSize) {
-        setImageErrorMessage('Image size must be less than 5MB');
-        setShowImageErrorModal(true);
-        return;
-      }
-      
+      // File validation is handled by AvatarFileInput component
       setAvatarFile(file);
       setAvatarPreview(URL.createObjectURL(file));
-      setError(null);
+      setError(null); // Clear any previous errors
     } else {
       setAvatarFile(null);
       setAvatarPreview(null);
@@ -144,12 +129,12 @@ export function CreateGroupModal({
     }
   };
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     animateModalClose(() => {
       resetForm();
       onClose();
     }, backdropRef, contentRef);
-  };
+  }, [onClose]);
 
   // Handle escape key
   useEffect(() => {
@@ -163,7 +148,7 @@ export function CreateGroupModal({
       document.addEventListener('keydown', handleEscape);
       return () => document.removeEventListener('keydown', handleEscape);
     }
-  }, [isOpen]);
+  }, [isOpen, handleClose]);
 
   if (!isOpen) return null;
 
@@ -229,8 +214,9 @@ export function CreateGroupModal({
                     <h3 className="text-lg font-semibold text-foreground">Avatar</h3>
                     <AvatarFileInput
                       onChange={handleAvatarChange}
-                      onError={(title, message) => {
-                        setError(`${title}: ${message}`);
+                      onError={() => {
+                        // Error is handled internally by AvatarFileInput
+                        // No need to change any state that could cause re-renders
                       }}
                     />
                   </div>
@@ -302,19 +288,6 @@ export function CreateGroupModal({
           </form>
         </div>
       </div>
-
-      {/* Image Error Modal */}
-      <ConfirmationModal
-        isOpen={showImageErrorModal}
-        onClose={() => setShowImageErrorModal(false)}
-        onConfirm={() => setShowImageErrorModal(false)}
-        title="Invalid Image"
-        message={imageErrorMessage}
-        confirmText="OK"
-        cancelText=""
-        variant="warning"
-        isLoading={false}
-      />
     </div>
   );
 }

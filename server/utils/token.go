@@ -181,13 +181,9 @@ func GetUserIDFromJWT(r *http.Request) (int, error) {
 	return claims.UserID, nil
 }
 
-// GetUserIDFromTokenString extracts user ID from a JWT token string
-func GetUserIDFromTokenString(tokenString string) (int, error) {
-	claims, err := ValidateToken(tokenString)
-	if err != nil {
-		return 0, err
-	}
-	return claims.UserID, nil
+// GetUserIDFromSession extracts user ID from session (JWT token in cookie)
+func GetUserIDFromSession(r *http.Request) (int, error) {
+	return GetUserIDFromJWT(r)
 }
 
 // Helper function to get config (avoiding circular imports)

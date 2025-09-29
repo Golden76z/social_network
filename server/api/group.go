@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/Golden76z/social-network/middleware"
 
@@ -36,10 +37,14 @@ func CreateGroupHandler(w http.ResponseWriter, r *http.Request) {
 	// Validate request fields
 	// Title: required, 3-50 characters
 	// Bio: optional, if provided, 3-500 characters
-	// Avatar: optional, if provided, validate URL format
-	if validationErrors := utils.ValidateStringLength(&req, 3, 50); len(validationErrors) > 0 {
+	// Avatar: optional, if provided, validate URL format (can be longer than 50 chars for image URLs)
+
+	// Validate title specifically (3-50 characters)
+	if len(req.Title) < 3 || len(req.Title) > 50 {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(validationErrors)
+		json.NewEncoder(w).Encode([]utils.ValidationError{
+			{Field: "Title", Message: "must be between 3 and 50 characters"},
+		})
 		return
 	}
 
@@ -50,6 +55,29 @@ func CreateGroupHandler(w http.ResponseWriter, r *http.Request) {
 			{Field: "Bio", Message: "must be at most 500 characters"},
 		})
 		return
+	}
+
+	// Additional validation for avatar URL format (if provided)
+	if req.Avatar != "" {
+		// Accept both full URLs (http/https) and relative paths (/uploads/...)
+		isValidURL := strings.HasPrefix(req.Avatar, "http://") || strings.HasPrefix(req.Avatar, "https://")
+		isValidPath := strings.HasPrefix(req.Avatar, "/uploads/")
+
+		if !isValidURL && !isValidPath {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode([]utils.ValidationError{
+				{Field: "Avatar", Message: "must be a valid URL (http/https) or upload path (/uploads/...)"},
+			})
+			return
+		}
+		// Reasonable length limit for URLs/paths (e.g., 2000 characters)
+		if len(req.Avatar) > 2000 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode([]utils.ValidationError{
+				{Field: "Avatar", Message: "URL/path must be at most 2000 characters"},
+			})
+			return
+		}
 	}
 
 	// Calling the Database to create the new Group
@@ -217,14 +245,31 @@ func UpdateGroupHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate request fields if they are provided
-	if req.Title != nil && (len(*req.Title) < 3 || len(*req.Title) > 100) {
-		http.Error(w, "Title must be between 3 and 100 characters", http.StatusBadRequest)
+	if req.Title != nil && (len(*req.Title) < 3 || len(*req.Title) > 50) {
+		http.Error(w, "Title must be between 3 and 50 characters", http.StatusBadRequest)
 		return
 	}
 
 	if req.Bio != nil && len(*req.Bio) > 500 {
 		http.Error(w, "Bio must be less than 500 characters", http.StatusBadRequest)
 		return
+	}
+
+	// Validate avatar URL format if provided
+	if req.Avatar != nil && *req.Avatar != "" {
+		// Accept both full URLs (http/https) and relative paths (/uploads/...)
+		isValidURL := strings.HasPrefix(*req.Avatar, "http://") || strings.HasPrefix(*req.Avatar, "https://")
+		isValidPath := strings.HasPrefix(*req.Avatar, "/uploads/")
+
+		if !isValidURL && !isValidPath {
+			http.Error(w, "Avatar must be a valid URL (http/https) or upload path (/uploads/...)", http.StatusBadRequest)
+			return
+		}
+		// Reasonable length limit for URLs/paths (e.g., 2000 characters)
+		if len(*req.Avatar) > 2000 {
+			http.Error(w, "Avatar URL/path must be at most 2000 characters", http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Update group in database

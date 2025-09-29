@@ -144,8 +144,11 @@ func (s *Service) GetPostByID(postID int64, currentUserID int64) (*models.PostRe
 }
 
 func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostResponse, error) {
-	// Simplified query - just user posts for now to test basic functionality
-	query := `
+	// Simplified approach: get user posts first, then group posts separately
+	var posts []models.PostResponse
+
+	// Get user posts
+	userPostsQuery := `
         SELECT
             p.id,
             'user_post' AS post_type,
@@ -157,13 +160,9 @@ func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostRe
             p.visibility,
             p.created_at,
             p.updated_at,
-            CASE 
-                WHEN COUNT(pi.image_url) > 0 
-                THEN GROUP_CONCAT(pi.image_url) 
-                ELSE '' 
-            END AS images,
-            (SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like') AS likes,
-            (SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike') AS dislikes,
+            COALESCE(GROUP_CONCAT(pi.image_url), '') AS images,
+            COALESCE((SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'like'), 0) AS likes,
+            COALESCE((SELECT COUNT(*) FROM likes_dislikes WHERE post_id = p.id AND type = 'dislike'), 0) AS dislikes,
             EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'like') AS user_liked,
             EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = p.id AND user_id = ? AND type = 'dislike') AS user_disliked,
             NULL AS group_id,
@@ -193,47 +192,32 @@ func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostRe
                     )
                 )
             ))
-        GROUP BY p.id
-        ORDER BY p.created_at DESC
-        LIMIT ?
-        OFFSET ?`
+        GROUP BY p.id, p.user_id, u.nickname, u.avatar, p.title, p.body, p.visibility, p.created_at, p.updated_at
+        ORDER BY p.created_at DESC`
 
-	rows, err := s.DB.Query(query, currentUserID, currentUserID, currentUserID, currentUserID, currentUserID, limit, offset)
+	rows, err := s.DB.Query(userPostsQuery, currentUserID, currentUserID, currentUserID, currentUserID, currentUserID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var posts []models.PostResponse
-
 	for rows.Next() {
 		var post models.PostResponse
 		var images sql.NullString
+		var groupID sql.NullInt64
+		var groupName sql.NullString
 
 		err := rows.Scan(
-			&post.ID,
-			&post.PostType,
-			&post.AuthorID,
-			&post.AuthorNickname,
-			&post.AuthorAvatar,
-			&post.Title,
-			&post.Body,
-			&post.Visibility,
-			&post.CreatedAt,
-			&post.UpdatedAt,
-			&images,
-			&post.Likes,
-			&post.Dislikes,
-			&post.UserLiked,
-			&post.UserDisliked,
-			&post.GroupID,
-			&post.GroupName,
+			&post.ID, &post.PostType, &post.AuthorID, &post.AuthorNickname, &post.AuthorAvatar,
+			&post.Title, &post.Body, &post.Visibility, &post.CreatedAt, &post.UpdatedAt,
+			&images, &post.Likes, &post.Dislikes, &post.UserLiked, &post.UserDisliked,
+			&groupID, &groupName,
 		)
-
 		if err != nil {
 			return nil, err
 		}
 
+		// Parse images
 		if images.Valid && images.String != "" {
 			post.Images = strings.Split(images.String, ",")
 		} else {
@@ -243,7 +227,102 @@ func (s *Service) GetUserFeed(currentUserID, limit, offset int) ([]models.PostRe
 		posts = append(posts, post)
 	}
 
-	return posts, nil
+	// Get group posts
+	groupPostsQuery := `
+        SELECT
+            gp.id,
+            'group_post' AS post_type,
+            gp.user_id AS author_id,
+            u.nickname AS author_nickname,
+            u.avatar AS author_avatar,
+            gp.title,
+            gp.body,
+            'public' AS visibility,
+            gp.created_at,
+            gp.updated_at,
+            COALESCE(GROUP_CONCAT(pi.image_url), '') AS images,
+            COALESCE((SELECT COUNT(*) FROM likes_dislikes WHERE post_id = gp.id AND type = 'like'), 0) AS likes,
+            COALESCE((SELECT COUNT(*) FROM likes_dislikes WHERE post_id = gp.id AND type = 'dislike'), 0) AS dislikes,
+            EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = gp.id AND user_id = ? AND type = 'like') AS user_liked,
+            EXISTS(SELECT 1 FROM likes_dislikes WHERE post_id = gp.id AND user_id = ? AND type = 'dislike') AS user_disliked,
+            gp.group_id,
+            g.title AS group_name
+        FROM
+            group_posts gp
+        JOIN
+            users u ON gp.user_id = u.id
+        JOIN
+            groups g ON gp.group_id = g.id
+        JOIN
+            group_members gm ON g.id = gm.group_id
+        LEFT JOIN
+            post_images pi ON gp.id = pi.post_id AND pi.is_group_post = 1
+        WHERE
+            gm.user_id = ?
+        GROUP BY gp.id, gp.user_id, u.nickname, u.avatar, gp.title, gp.body, gp.created_at, gp.updated_at, gp.group_id, g.title
+        ORDER BY gp.created_at DESC`
+
+	groupRows, err := s.DB.Query(groupPostsQuery, currentUserID, currentUserID, currentUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer groupRows.Close()
+
+	for groupRows.Next() {
+		var post models.PostResponse
+		var images sql.NullString
+		var groupID sql.NullInt64
+		var groupName sql.NullString
+
+		err := groupRows.Scan(
+			&post.ID, &post.PostType, &post.AuthorID, &post.AuthorNickname, &post.AuthorAvatar,
+			&post.Title, &post.Body, &post.Visibility, &post.CreatedAt, &post.UpdatedAt,
+			&images, &post.Likes, &post.Dislikes, &post.UserLiked, &post.UserDisliked,
+			&groupID, &groupName,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Parse images
+		if images.Valid && images.String != "" {
+			post.Images = strings.Split(images.String, ",")
+		} else {
+			post.Images = []string{}
+		}
+
+		// Set group information
+		if groupID.Valid {
+			post.GroupID = &groupID.Int64
+		}
+		if groupName.Valid {
+			post.GroupName = &groupName.String
+		}
+
+		posts = append(posts, post)
+	}
+
+	// Sort all posts by creation date (most recent first)
+	// Simple bubble sort for small datasets
+	for i := 0; i < len(posts)-1; i++ {
+		for j := 0; j < len(posts)-i-1; j++ {
+			if posts[j].CreatedAt < posts[j+1].CreatedAt {
+				posts[j], posts[j+1] = posts[j+1], posts[j]
+			}
+		}
+	}
+
+	// Apply limit and offset
+	if offset >= len(posts) {
+		return []models.PostResponse{}, nil
+	}
+
+	end := offset + limit
+	if end > len(posts) {
+		end = len(posts)
+	}
+
+	return posts[offset:end], nil
 }
 
 // GetPostsByUser retrieves posts by a specific user with proper visibility filtering

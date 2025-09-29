@@ -12,4 +12,6 @@ type RegisterRequest struct {
 	Email       string `json:"email"`
 	Password    string `json:"password"`
 	DateOfBirth string `json:"date_of_birth"`
+	Avatar      string `json:"avatar,omitempty"`
+	Bio         string `json:"bio,omitempty"`
 }
