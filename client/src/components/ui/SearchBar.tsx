@@ -37,8 +37,27 @@ export function SearchBar({ className, placeholder = "Search...", onPostClick }:
   
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { isAuthenticated } = useAuth();
+
+  // Click outside to close results
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+        setSelectedIndex(-1);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
 
   // Debounced search
   useEffect(() => {
@@ -296,7 +315,7 @@ export function SearchBar({ className, placeholder = "Search...", onPostClick }:
   };
 
   return (
-    <div className={cn("relative w-full", className)}>
+    <div ref={containerRef} className={cn("relative w-full", className)}>
       {/* Search Input */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -308,7 +327,7 @@ export function SearchBar({ className, placeholder = "Search...", onPostClick }:
           onKeyDown={handleKeyDown}
           onFocus={() => query.length >= 2 && setIsOpen(true)}
           placeholder={placeholder}
-          className="w-full pl-10 pr-20 py-2.5 border border-border/50 rounded-xl bg-background/50 backdrop-blur-sm text-base focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-border transition-all duration-200"
+          className="w-full pl-10 pr-20 py-2.5 border border-border/50 rounded-xl bg-background/50 backdrop-blur-sm text-base focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-border hover:border-purple-300 transition-all duration-200"
         />
         
         {/* Filter Icons on the right */}

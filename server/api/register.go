@@ -24,11 +24,16 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Basic empty field check
-	if req.Nickname == "" || req.FirstName == "" || req.LastName == "" ||
+	// Basic empty field check for required fields only
+	if req.FirstName == "" || req.LastName == "" ||
 		req.Email == "" || req.Password == "" || req.DateOfBirth == "" {
 		http.Error(w, "Please fill in all required fields", http.StatusBadRequest)
 		return
+	}
+
+	// Generate nickname if not provided
+	if req.Nickname == "" {
+		req.Nickname = utils.GenerateTempNickname(req.FirstName, req.LastName)
 	}
 
 	// Sanitize all input fields
@@ -37,6 +42,9 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	req.LastName = utils.SanitizeString(req.LastName)
 	req.Email = utils.SanitizeString(req.Email)
 	req.DateOfBirth = utils.SanitizeString(req.DateOfBirth)
+	if req.Bio != "" {
+		req.Bio = utils.SanitizeString(req.Bio)
+	}
 	// Note: Password is not sanitized as it might need special characters
 
 	// Validate email format
@@ -75,20 +83,16 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate bio if present (assuming bio is an optional field in RegisterRequest)
-	// If bio field doesn't exist in RegisterRequest, remove this validation
-	//if req.Bio != "" {
-	//	req.Bio = utils.SanitizeString(req.Bio)
-	//	if !utils.ValidateBio(req.Bio) {
-	//		http.Error(w, "Bio must be 500 characters or less", http.StatusBadRequest)
-	//		return
-	//	}
-	//}
+	// Validate bio if present
+	if req.Bio != "" && !utils.ValidateBio(req.Bio) {
+		http.Error(w, "Bio must be 500 characters or less", http.StatusBadRequest)
+		return
+	}
 
 	// Registering the user into the database
 	err := db.DBService.RegisterDB(
 		req.Nickname, req.FirstName, req.LastName,
-		req.Email, req.Password, req.DateOfBirth,
+		req.Email, req.Password, req.DateOfBirth, req.Avatar, req.Bio,
 		w,
 	)
 	// Checking if the insertion was successful or not

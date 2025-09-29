@@ -145,9 +145,12 @@ export const PostCard: React.FC<PostCardProps> = ({
   );
 
   return (
-    <div className="bg-card rounded-lg border border-border p-4 mb-4 hover:shadow-md transition-shadow relative">
+    <div 
+      className="post-card bg-card rounded-lg border-2 border-border p-4 mb-4 hover:shadow-md hover:border-purple-300 transition-all duration-200 relative cursor-pointer"
+      onClick={handleViewDetails}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center space-x-3">
           <UserInfoWithTime
             user={{
@@ -168,7 +171,10 @@ export const PostCard: React.FC<PostCardProps> = ({
             <>
               <span className="text-muted-foreground text-sm">•</span>
               <button
-                onClick={() => post.group_id && router.push(`/groups/${post.group_id}/info`)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  post.group_id && router.push(`/groups/${post.group_id}/info`);
+                }}
                 className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 border border-primary/20 rounded-full text-sm text-primary hover:bg-primary/20 hover:border-primary/30 transition-all duration-200 cursor-pointer"
               >
                 <Users className="w-4 h-4" />
@@ -180,7 +186,10 @@ export const PostCard: React.FC<PostCardProps> = ({
             <>
               <span className="text-muted-foreground text-sm">•</span>
               <button
-                onClick={() => setShowVisibilityModal(true)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowVisibilityModal(true);
+                }}
                 className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-full text-sm text-amber-700 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer"
                 title="Manage who can see this post"
               >
@@ -193,7 +202,7 @@ export const PostCard: React.FC<PostCardProps> = ({
         
         {/* Action buttons - only show if user has permissions */}
         {(canEdit || canDelete) && (
-          <div className="flex gap-1">
+          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
             {canEdit && (
               <button 
                 onClick={handleEdit}
@@ -229,7 +238,7 @@ export const PostCard: React.FC<PostCardProps> = ({
 
       {/* Images */}
       {post.images && post.images.length > 0 && (
-        <div className="mb-3">
+        <div className="mb-3" onClick={(e) => e.stopPropagation()}>
           {post.images.length === 1 ? (
             <img
               src={
@@ -270,7 +279,7 @@ export const PostCard: React.FC<PostCardProps> = ({
       )}
 
       {/* Actions */}
-      <div className="flex items-center justify-between pt-3 border-t border-border">
+      <div className="flex items-center justify-between pt-3 border-t border-border" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center space-x-6">
           {disableLikes ? (
             <div className="flex items-center space-x-2 text-base text-muted-foreground">

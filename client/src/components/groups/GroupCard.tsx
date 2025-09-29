@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { GroupResponse } from '@/lib/types/group';
 import { groupApi } from '@/lib/api/group';
 import { useAuth } from '@/context/AuthProvider';
+import { LeaveGroupModal } from './LeaveGroupModal';
 
 interface GroupCardProps {
   group: GroupResponse;
@@ -23,7 +25,9 @@ export const GroupCard: React.FC<GroupCardProps> = ({
   onView,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
   const { user } = useAuth();
+  const router = useRouter();
 
   const handleJoin = async () => {
     if (isLoading || hasPendingRequest) return;
@@ -40,12 +44,17 @@ export const GroupCard: React.FC<GroupCardProps> = ({
     }
   };
 
-  const handleLeave = async () => {
+  const handleLeave = () => {
+    setShowLeaveModal(true);
+  };
+
+  const confirmLeave = async () => {
     if (isLoading) return;
     try {
       setIsLoading(true);
       await groupApi.leaveGroup({ group_id: group.id, user_id: user?.id || 0 });
       onLeave?.(group.id);
+      setShowLeaveModal(false);
     } catch (error) {
       console.error('Failed to leave group:', error);
     } finally {
@@ -54,6 +63,7 @@ export const GroupCard: React.FC<GroupCardProps> = ({
   };
 
   const handleView = () => {
+    router.push(`/groups/${group.id}/info`);
     onView?.(group.id);
   };
 
@@ -73,9 +83,12 @@ export const GroupCard: React.FC<GroupCardProps> = ({
 
 
   return (
-    <div className="group p-6 border border-border/50 rounded-xl bg-card hover:shadow-lg hover:border-primary/20 transition-all duration-300 h-full flex flex-col">
+    <div 
+      className="group p-6 border border-border/50 rounded-xl bg-card hover:shadow-lg hover:border-primary/20 transition-all duration-300 h-full flex flex-col cursor-pointer"
+      onClick={handleView}
+    >
       {/* Group Avatar */}
-      <div className="relative overflow-hidden rounded-xl mb-6 cursor-pointer" onClick={handleView}>
+      <div className="relative overflow-hidden rounded-xl mb-6">
         <div className={`w-full h-48 bg-gradient-to-br ${getGradientColors(group.title)} rounded-xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-300 border-4 border-muted-foreground/20`}>
           {group.avatar ? (
             <img 
@@ -98,8 +111,7 @@ export const GroupCard: React.FC<GroupCardProps> = ({
       {/* Group Info */}
       <div className="flex-1 flex flex-col">
         <h3 
-          className="font-bold mb-3 text-xl text-foreground group-hover:text-primary transition-colors cursor-pointer hover:text-primary"
-          onClick={handleView}
+          className="font-bold mb-3 text-xl text-foreground group-hover:text-primary transition-colors"
         >
           {group.title}
         </h3>
@@ -118,17 +130,23 @@ export const GroupCard: React.FC<GroupCardProps> = ({
             </div>
           </div>
           
-          <div className="flex gap-3">
+          <div className="flex gap-3" onClick={(e) => e.stopPropagation()}>
             {isMember ? (
               <>
                 <button 
-                  onClick={handleView}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleView();
+                  }}
                   className="flex-1 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-all duration-200 shadow-sm hover:shadow-md"
                 >
                   View Group
                 </button>
                 <button 
-                  onClick={handleLeave}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleLeave();
+                  }}
                   disabled={isLoading}
                   className="px-4 py-2.5 border border-border rounded-lg text-sm font-medium hover:bg-accent transition-all duration-200 disabled:opacity-50"
                 >
@@ -138,13 +156,19 @@ export const GroupCard: React.FC<GroupCardProps> = ({
             ) : (
               <>
                 <button 
-                  onClick={handleView}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleView();
+                  }}
                   className="flex-1 px-4 py-2.5 border border-border rounded-lg text-sm font-medium hover:bg-accent transition-all duration-200"
                 >
                   View Group
                 </button>
                 <button 
-                  onClick={handleJoin}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleJoin();
+                  }}
                   disabled={isLoading || hasPendingRequest}
                   className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 disabled:opacity-50 ${
                     hasPendingRequest 
@@ -159,6 +183,15 @@ export const GroupCard: React.FC<GroupCardProps> = ({
           </div>
         </div>
       </div>
+      
+      {/* Leave Group Modal */}
+      <LeaveGroupModal
+        isOpen={showLeaveModal}
+        onClose={() => setShowLeaveModal(false)}
+        onConfirm={confirmLeave}
+        groupTitle={group.title}
+        isLoading={isLoading}
+      />
     </div>
   );
 };

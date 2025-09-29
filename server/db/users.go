@@ -105,6 +105,39 @@ func (s *Service) CreateUser(req models.User) error {
 	return err
 }
 
+// UpdateUserProfileStep2 updates user profile with step 2 information (nickname, avatar, bio)
+func (s *Service) UpdateUserProfileStep2(userID int, nickname, avatar, bio string) error {
+	// Build dynamic query based on provided fields
+	var fields []string
+	var values []interface{}
+
+	if nickname != "" {
+		fields = append(fields, "nickname = ?")
+		values = append(values, nickname)
+	}
+
+	if avatar != "" {
+		fields = append(fields, "avatar = ?")
+		values = append(values, avatar)
+	}
+
+	if bio != "" {
+		fields = append(fields, "bio = ?")
+		values = append(values, bio)
+	}
+
+	if len(fields) == 0 {
+		return fmt.Errorf("no fields to update")
+	}
+
+	// Add userID to values for WHERE clause
+	values = append(values, userID)
+
+	query := fmt.Sprintf("UPDATE users SET %s WHERE id = ?", strings.Join(fields, ", "))
+	_, err := s.DB.Exec(query, values...)
+	return err
+}
+
 func (s *Service) GetUserByEmail(email string) (*models.User, error) {
 	row := s.DB.QueryRow(`
 		SELECT id, nickname, first_name, last_name, email, password, date_of_birth, avatar, bio, is_private

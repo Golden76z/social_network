@@ -11,11 +11,12 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ModernTextarea } from '@/components/ui/modern-textarea';
 import { useRouter } from 'next/navigation';
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAuth } from '@/context/AuthProvider';
 import { useNotifications } from '@/lib/floating-notification';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Upload, User } from 'lucide-react';
 import Link from 'next/link';
 
 export function RegisterForm({
@@ -25,6 +26,7 @@ export function RegisterForm({
   const router = useRouter();
   const { register, isLoading } = useAuth();
   const { showNotification } = useNotifications();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     nickname: '',
     first_name: '',
@@ -33,13 +35,52 @@ export function RegisterForm({
     date_of_birth: '',
     password: '',
     confirm_password: '',
+    bio: '',
   });
+  const [avatar, setAvatar] = useState<string>('');
+  const [avatarPreview, setAvatarPreview] = useState<string>('');
   const [showPassword, setShowPassword] = useState(false);
   const [showconfirm_password, setShowconfirm_password] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        showNotification('Please select an image file', 'error', 3000);
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        showNotification('Image size must be less than 5MB', 'error', 3000);
+        return;
+      }
+
+      // Create preview URL
+      const previewUrl = URL.createObjectURL(file);
+      setAvatarPreview(previewUrl);
+      
+      // Convert to base64 for upload
+      const reader = new FileReader();
+      reader.onload = () => {
+        setAvatar(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeAvatar = () => {
+    setAvatar('');
+    setAvatarPreview('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const validateForm = () => {
@@ -91,7 +132,9 @@ export function RegisterForm({
         email: form.email,
         date_of_birth: form.date_of_birth,
         password: form.password,
-        confirmPassword: ""
+        confirmPassword: "",
+        avatar: avatar,
+        bio: form.bio,
       })
       // Show success notification
       showNotification("Registration successful! Redirecting...", 'success', 2000);
@@ -121,32 +164,101 @@ export function RegisterForm({
   };
 
   return (
-    <div className={cn('flex flex-col gap-6 max-w-2xl mx-auto w-full px-8', className)} {...props}>
+    <div className={cn('flex flex-col gap-6 max-w-3xl mx-auto w-full px-8', className)} {...props}>
       <Card>
         <CardHeader>
-          <CardTitle>Register your account</CardTitle>
-          <CardDescription>
-            Enter your information below to create a new account
+          <CardTitle className="text-center">Create Your Account</CardTitle>
+          <CardDescription className="text-center">
+            ( Fields marked with * are required. )
           </CardDescription>
+          <div className="mx-auto w-24 h-px bg-border mt-4"></div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit}>
             <div className="flex flex-col gap-6">
-              <div className="grid gap-3">
-                <Label htmlFor="nickname">Nickname *</Label>
-                <Input
-                  id="nickname"
-                  name="nickname"
-                  type="text"
-                  placeholder="Pseudo"
-                  required
-                  value={form.nickname}
-                  onChange={handleChange}
-                  disabled={isLoading}
-                  className="h-12"
-                />
+              {/* Avatar and Nickname */}
+              <div className="grid gap-6" style={{gridTemplateColumns: '20% 80%'}}>
+                {/* First Row - Labels */}
+                {/* <div>
+                  <Label className="text-center block">Avatar</Label>
+                </div>
+                <div>
+                  <Label htmlFor="nickname">Nickname</Label>
+                </div> */}
+                
+                {/* Second Row - Content */}
+                <div>
+                  <div className="relative mx-auto w-fit">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                      className="hidden"
+                    />
+                    <div
+                      className="cursor-pointer transition-all duration-200 hover:opacity-80"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      {avatarPreview ? (
+                        <div className="relative group">
+                          <img
+                            src={avatarPreview}
+                            alt="Avatar preview"
+                            className="w-24 h-24 rounded-full object-cover border-2 shadow-sm"
+                            style={{ borderColor: 'var(--purple-300)' }}
+                          />
+                          <div className="absolute inset-0 rounded-full bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
+                            <Upload className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            className="absolute -top-2 -right-2 w-6 h-6 rounded-full p-0 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeAvatar();
+                            }}
+                          >
+                            ×
+                          </Button>
+                        </div>
+                      ) : (
+                        <div 
+                          className="w-24 h-24 rounded-full bg-gray-100 border-2 border-dashed flex items-center justify-center hover:bg-purple-50 transition-all duration-200"
+                          style={{ borderColor: 'var(--purple-300)' }}
+                        >
+                          <div className="text-center">
+                            <Upload className="w-6 h-6 text-gray-400 mx-auto mb-1" />
+                            <p className="text-xs text-gray-500">Click to upload</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col justify-center max-w-md">
+                  <Input
+                    id="nickname"
+                    name="nickname"
+                    type="text"
+                    placeholder="Nickname - Leave empty to auto-generate"
+                    value={form.nickname}
+                    onChange={handleChange}
+                    disabled={isLoading}
+                    className="h-12"
+                  />
+                  <p className="text-sm text-gray-500 mt-1 mx-2">
+                    Auto-generates from name (e.g., "John Doe" → "jdoe")
+                  </p>
+                </div>
               </div>
 
+              {/* Separator */}
+              <div className="mx-auto w-full h-px bg-border"></div>
+
+              {/* First Name and Last Name */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-3">
                   <Label htmlFor="first-name">First Name *</Label>
@@ -178,86 +290,106 @@ export function RegisterForm({
                 </div>
               </div>
 
+              {/* Bio */}
               <div className="grid gap-3">
-                <Label htmlFor="email">Email *</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="m@example.com"
-                  required
-                  value={form.email}
+                <Label htmlFor="bio">Bio</Label>
+                <ModernTextarea
+                  id="bio"
+                  name="bio"
+                  placeholder="Tell us about yourself..."
+                  value={form.bio}
                   onChange={handleChange}
+                  rows={4}
+                  maxLength={500}
                   disabled={isLoading}
-                  className="h-12"
                 />
+                <p className="text-sm text-gray-500">
+                  {form.bio.length}/500 characters
+                </p>
               </div>
 
-              <div className="grid gap-3">
-                <Label htmlFor="date-of-birth">Date of Birth *</Label>
-                <Input
-                  id="date-of-birth"
-                  name="date_of_birth"
-                  type="date"
-                  required
-                  value={form.date_of_birth}
-                  onChange={handleChange}
-                  disabled={isLoading}
-                  max={new Date().toISOString().split('T')[0]} // Prevent future dates
-                  className="h-12"
-                />
-              </div>
-
-              <div className="grid gap-3">
-                <Label htmlFor="password">Password *</Label>
-                <div className="relative">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-3">
+                  <Label htmlFor="email">Email *</Label>
                   <Input
-                    id="password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="m@example.com"
                     required
-                    value={form.password}
+                    value={form.email}
                     onChange={handleChange}
                     disabled={isLoading}
-                    className="pr-10 h-12"
-                    placeholder="At least 8 characters"
+                    className="h-12"
                   />
-                  <button
-                    type="button"
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </button>
+                </div>
+                <div className="grid gap-3">
+                  <Label htmlFor="date-of-birth">Date of Birth *</Label>
+                  <Input
+                    id="date-of-birth"
+                    name="date_of_birth"
+                    type="date"
+                    required
+                    value={form.date_of_birth}
+                    onChange={handleChange}
+                    disabled={isLoading}
+                    max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                    className="h-12"
+                  />
                 </div>
               </div>
 
-              <div className="grid gap-3">
-                <Label htmlFor="confirm-password">Confirm Password *</Label>
-                <div className="relative">
-                  <Input
-                    id="confirm-password"
-                    name="confirm_password"
-                    type={showconfirm_password ? 'text' : 'password'}
-                    required
-                    value={form.confirm_password}
-                    onChange={handleChange}
-                    disabled={isLoading}
-                    className="pr-10 h-12"
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    onClick={() =>
-                      setShowconfirm_password(!showconfirm_password)
-                    }
-                  >
-                    {showconfirm_password ? (
-                      <EyeOff size={20} />
-                    ) : (
-                      <Eye size={20} />
-                    )}
-                  </button>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-3">
+                  <Label htmlFor="password">Password *</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={form.password}
+                      onChange={handleChange}
+                      disabled={isLoading}
+                      className="pr-10 h-12"
+                      placeholder="At least 8 characters"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
+                </div>
+                <div className="grid gap-3">
+                  <Label htmlFor="confirm-password">Confirm Password *</Label>
+                  <div className="relative">
+                    <Input
+                      id="confirm-password"
+                      name="confirm_password"
+                      type={showconfirm_password ? 'text' : 'password'}
+                      required
+                      value={form.confirm_password}
+                      onChange={handleChange}
+                      disabled={isLoading}
+                      className="pr-10 h-12"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() =>
+                        setShowconfirm_password(!showconfirm_password)
+                      }
+                    >
+                      {showconfirm_password ? (
+                        <EyeOff size={20} />
+                      ) : (
+                        <Eye size={20} />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 

@@ -50,6 +50,7 @@ export const UserInfoWithTime: React.FC<UserInfoWithTimeProps> = ({
           last_name: user.last_name
         })}
         className="cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
+        onClick={handleUserClick}
       />
       <div className="flex flex-col min-w-0 w-full">
         <p 
