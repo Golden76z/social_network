@@ -16,18 +16,22 @@ services:
       - ENV=production
       - PORT=8080
       - DB_PATH=/app/social_network.db
+      - MIGRATIONS_DIR=/app/migrations
       - JWT_EXPIRATION_HOURS=24
       - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
       - LOG_LEVEL=info
+      - ENABLE_REGISTRATION=true
+      - ENABLE_FILE_UPLOAD=true
+      - ENABLE_CHAT=true
     networks:
       - social-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:8080/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
 
   # Next.js Frontend
   client:

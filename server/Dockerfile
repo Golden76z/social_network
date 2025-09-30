@@ -37,12 +37,12 @@ COPY --from=builder /app/db/migrations/ /app/migrations/
 # Copy important server files
 COPY --from=builder /app/demo/ /app/demo/
 
+# Create directories for uploaded files and database
+RUN mkdir -p /app/uploads/avatars /app/uploads/posts
+
 # Set permissions
 RUN chown -R appuser:appuser /app
 USER appuser
-
-# Create directories for uploaded files
-RUN mkdir -p /app/uploads/avatars /app/uploads/posts
 
 
 EXPOSE 8080
