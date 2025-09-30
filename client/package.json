@@ -24,7 +24,7 @@
     "electron:watch": "nodemon --watch electron --ext ts --exec \"npm run electron:compile && cross-env NODE_ENV=development electron .\"",
     "electron:build": "npm run build && npm run electron:compile && electron-builder",
     "electron:serve": "cross-env NODE_ENV=production electron .",
-    "postinstall": "npm run electron:compile"
+    "postinstall": "echo 'Postinstall complete'"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.14",
