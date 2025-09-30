@@ -20,7 +20,7 @@ RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-w -s" -o /social-network ./serv
 FROM alpine:3.19
 
 # Install runtime dependencies
-RUN apk add --no-cache sqlite ca-certificates tzdata wget curl
+RUN apk add --no-cache sqlite ca-certificates tzdata wget curl netcat-openbsd
 
 # Create app user for security
 RUN adduser -D -s /bin/sh appuser
@@ -42,6 +42,10 @@ RUN mkdir -p /app/uploads/avatars /app/uploads/posts
 
 # Set permissions
 RUN chown -R appuser:appuser /app
+
+# Ensure the app directory is writable
+RUN chmod 755 /app
+
 USER appuser
 
 
