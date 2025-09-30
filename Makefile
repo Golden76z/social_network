@@ -10,32 +10,32 @@ all: init run
 # Docker commands
 docker-build:
 	@echo "Building Docker images..."
-	docker-compose -f $(COMPOSE_FILE) build
+	docker compose -f $(COMPOSE_FILE) build
 
 docker-build-dev:
 	@echo "Building development Docker images..."
-	docker-compose -f $(COMPOSE_FILE_DEV) build
+	docker compose -f $(COMPOSE_FILE_DEV) build
 
 docker-up:
 	@echo "Starting all services with Docker Compose..."
-	docker-compose -f $(COMPOSE_FILE) up -d
+	docker compose -f $(COMPOSE_FILE) up -d
 
 docker-up-dev:
 	@echo "Starting development services with Docker Compose..."
-	docker-compose -f $(COMPOSE_FILE_DEV) up -d
+	docker compose -f $(COMPOSE_FILE_DEV) up -d
 
 docker-down:
 	@echo "Stopping all Docker services..."
-	docker-compose -f $(COMPOSE_FILE) down
-	docker-compose -f $(COMPOSE_FILE_DEV) down
+	docker compose -f $(COMPOSE_FILE) down
+	docker compose -f $(COMPOSE_FILE_DEV) down
 
 docker-logs:
 	@echo "Viewing logs..."
-	docker-compose -f $(COMPOSE_FILE) logs -f
+	docker compose -f $(COMPOSE_FILE) logs -f
 
 docker-logs-dev:
 	@echo "Viewing development logs..."
-	docker-compose -f $(COMPOSE_FILE_DEV) logs -f
+	docker compose -f $(COMPOSE_FILE_DEV) logs -f
 
 # Initialize the project
 init:
@@ -76,8 +76,8 @@ clean:
 # Docker clean
 docker-clean:
 	@echo "Cleaning Docker images and containers..."
-	docker-compose -f $(COMPOSE_FILE) down -v --rmi all
-	docker-compose -f $(COMPOSE_FILE_DEV) down -v --rmi all
+	docker compose -f $(COMPOSE_FILE) down -v --rmi all
+	docker compose -f $(COMPOSE_FILE_DEV) down -v --rmi all
 	docker system prune -f
 
 # Help
