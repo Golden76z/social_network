@@ -82,7 +82,7 @@ func main() {
 
 func startServer(handler http.Handler, cfg *config.Config) {
 	// Redirect HTTP to HTTPS in production
-	if cfg.Environment == "PRODUCTION" {
+	if cfg.Environment == "production" {
 		go func() {
 			log.Println("Starting HTTP to HTTPS redirect server on :80")
 			redirectServer := &http.Server{
