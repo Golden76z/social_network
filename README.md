@@ -1,35 +1,35 @@
 # Social Network
 
-Projet de réseau social moderne avec une architecture **client-serveur**.  
-Il inclut une application web Next.js (avec support Electron pour bureau) et un backend en Go.
+Modern social network project built with a **client–server architecture**.
+It includes a Next.js web application (with Electron support for desktop) and a Go backend.
 
-## 📁 Structure du projet
+## Project Structure
 
 ```
 social-network/
-├── client/           → Frontend React/Next.js + Electron
-├── server/           → Backend en Go (API REST + Websockets)
-├── diagrams/         → Useflow diagrams - Database diagrams
+├── client/           → React/Next.js frontend + Electron
+├── server/           → Go backend (REST API + WebSockets)
+├── diagrams/         → User flow diagrams – Database diagrams
 ├── cahier_des_charges_fonctionnel.md
 ├── cahier_des_charges_technique.md
 ├── LICENSE
 └── README.md
 ```
 
-## 📄 Cahiers des charges
+## Specifications
 
-- [Cahier des charges fonctionnel](./cahier_des_charges_fonctionnel.md)
-- [Cahier des charges technique](./cahier_des_charges_technique.md)
+* [Functional specifications](./cahier_des_charges_fonctionnel.md)
+* [Technical specifications](./cahier_des_charges_technique.md)
 
-## 🚀 Démarrage rapide
+## Quick Start
 
-### Prérequis
+### Prerequisites
 
-- [Node.js](https://nodejs.org/)
-- [Go](https://golang.org/)
-- [Docker](https://www.docker.com/) (optionnel)
+* [Node.js](https://nodejs.org/)
+* [Go](https://golang.org/)
+* [Docker](https://www.docker.com/) (optional)
 
-### Lancer le client web
+### Run the web client
 
 ```bash
 cd client
@@ -37,37 +37,44 @@ npm install
 npm run dev
 ```
 
-### Lancer le client desktop (Electron)
+### Run the desktop client (Electron)
 
 ```bash
 npm run electron:dev
 ```
 
-### Lancer le backend Go
+### Run the Go backend
 
 ```bash
 cd server
 go run server.go
 ```
 
-## 🧪 Tests
+## Tests
 
-- **Client :** `npm test` (Jest)
-- **Serveur :** `go test ./...`
+* **Client:** `npm test` (Jest)
+* **Server:** `go test ./...`
 
-## 🧱 Technologies principales
+## Main Technos
 
-- **Frontend** : React 19, Next.js 15, TailwindCSS, Electron
-- **Backend** : Go, WebSockets, JWT, SQLite
-- **Tests** : Jest, Testing Library, Go testing
-- **Sécurité** : Middleware CORS, CSRF, JWT, Rate Limiting
+* **Frontend:** React 19, Next.js 15, Tailwind CSS, Electron
+* **Backend:** Go, WebSockets, JWT, SQLite
+* **Testing:** Jest, Testing Library, Go testing
+* **Security:** CORS middleware, CSRF protection, JWT, Rate limiting
 
 ## 📚 Documentation
 
-- [`/diagrams_database/`](./diagrams/database/)  : MCD, MLD, MPD, UML
-- [`/diagrams/user_flow`](./diagrams/user_flow/) : User Flow Diagrams - All Site interactions
-- [`/client/README.md`](./client/README.md)      : How to run the Client Side
-- [`/server/README.md`](./server/README.md)      : How to run the Server Side
+* [`/diagrams/database/`](./diagrams/database/)
+  Database diagrams: ERD, logical and physical models, UML
+
+* [`/diagrams/user_flow/`](./diagrams/user_flow/)
+  User flow diagrams – full site interactions
+
+* [`/client/README.md`](./client/README.md)
+  Client-side setup and usage
+
+* [`/server/README.md`](./server/README.md)
+  Server-side setup and usage
 
 ---
 
