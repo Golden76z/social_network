@@ -131,15 +131,12 @@ func CookieSession(username string, w http.ResponseWriter) error {
 		return err
 	}
 
-	// Set cookie with environment-specific settings
-	secure := config.GetEnvironment() == "production"
-
 	http.SetCookie(w, &http.Cookie{
 		Name:     "jwt_token",
 		Value:    token,
 		HttpOnly: true,
-		Secure:   secure,
-		SameSite: http.SameSiteStrictMode,
+		Secure:   true,
+		SameSite: http.SameSiteNoneMode, 
 		Path:     "/",
 		MaxAge:   int(config.GetJwtExpiration().Seconds()),
 	})
